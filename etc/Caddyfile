@@ -1,0 +1,7 @@
+messenger-0001.now.im {
+	tls <your email here>
+	proxy / 127.0.0.1:8081 {
+		transparent
+	}
+	root /var/www/msn-server
+}
