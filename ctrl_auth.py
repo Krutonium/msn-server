@@ -3,17 +3,27 @@ from aiohttp import web
 
 import settings
 
+LOGIN_PATH = '/login'
+LOGIN_DEV = '/login-dev'
+
 def create_app():
 	app = web.Application()
 	app.router.add_get('/nexus-mock', handle_nexus)
+	app.router.add_get('/nexusdevel', handle_nexus_dev)
 	app.router.add_get('/rdr/pprdr.asp', handle_nexus)
-	app.router.add_get(settings.LOGIN_PATH, handle_login)
+	app.router.add_get(LOGIN_PATH, handle_login)
+	app.router.add_get(LOGIN_DEV, handle_login_dev)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	return app
 
 async def handle_nexus(req):
 	return web.Response(status = 200, headers = {
-		'PassportURLs': 'DALogin=https://{}{}'.format(settings.LOGIN_HOST, settings.LOGIN_PATH),
+		'PassportURLs': 'DALogin=https://{}{}'.format(settings.LOGIN_HOST, LOGIN_PATH),
+	})
+
+async def handle_nexus_dev(req):
+	return web.Response(status = 200, headers = {
+		'PassportURLs': 'DALogin=https://{}{}'.format(settings.LOGIN_HOST, LOGIN_DEV),
 	})
 
 async def handle_login(req):
@@ -22,6 +32,12 @@ async def handle_login(req):
 		return web.Response(status = 401, headers = {
 			'WWW-Authenticate': '{}da-status=failed'.format(PP),
 		})
+	return web.Response(status = 200, headers = {
+		'Authentication-Info': '{}da-status=success,from-PP=\'{}\''.format(PP, token),
+	})
+
+async def handle_login_dev(req):
+	token = 'fake-dev-login-token'
 	return web.Response(status = 200, headers = {
 		'Authentication-Info': '{}da-status=success,from-PP=\'{}\''.format(PP, token),
 	})

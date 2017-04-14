@@ -9,8 +9,8 @@ SB = [
 ]
 
 LOGIN_HOST = 'messenger-0001.now.im'
-LOGIN_PATH = '/login'
 DEBUG = True
+DEV_ACCEPT_ALL_LOGIN_TOKENS = False
 
 try:
 	from settings_local import *

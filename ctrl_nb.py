@@ -8,6 +8,8 @@ from util.misc import gen_uuid
 from util.hash import hasher
 from msnp import Logger, MSNPWriter, MSNPReader, decode_email
 
+import settings
+
 class NB:
 	def __init__(self, loop, sbservices):
 		self.loop = loop
@@ -23,9 +25,10 @@ class NB:
 		
 		self.loop.create_task(_sync_db(self._unsynced_db))
 	
-	def login(self, nc, token):
+	def login(self, nc, token, email = None):
 		with Session() as sess:
-			email = Auth.PopToken(token)
+			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
+				email = Auth.PopToken(token)
 			if email is None: return None
 			uuid = _get_user_uuid(email)
 			if uuid is None: return None
@@ -181,6 +184,7 @@ class NBConn(asyncio.Protocol):
 		self.nbuser = None
 		self.auth_token_md5 = None
 		self.syn_ser = None
+		self.usr_twn_email = None
 	
 	def connection_lost(self, exc):
 		self.nb.on_leave(self)
@@ -245,10 +249,11 @@ class NBConn(asyncio.Protocol):
 		if authtype == 'TWN':
 			if stage == 'I':
 				#>>> USR trid TWN I email@example.com
+				self.usr_twn_email = args[0]
 				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
 			elif stage == 'S':
 				#>>> USR trid TWN S auth_token
-				self.nbuser = self.nb.login(self, args[0])
+				self.nbuser = self.nb.login(self, args[0], self.usr_twn_email)
 				if self.nbuser is None:
 					self.writer.write(911, trid)
 					return
