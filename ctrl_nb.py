@@ -412,7 +412,7 @@ class NBConn(asyncio.Protocol):
 				return
 			ctc.groups.add(group_uuid)
 			self.nb._mark_modified(nu)
-			self.writer.write(trid, lst_name, usr, group_uuid)
+			self.writer.write('ADC', trid, lst_name, usr, group_uuid)
 	
 	def _l_add(self, trid, lst_name, email, name = None):
 		#>>> ADD 122 FL email name

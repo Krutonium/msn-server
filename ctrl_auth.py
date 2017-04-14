@@ -17,7 +17,7 @@ async def handle_nexus(req):
 	})
 
 async def handle_login(req):
-	token = _login(req.headers['Authorization'])
+	token = _login(req.headers.get('Authorization'))
 	if token is None:
 		return web.Response(status = 401, headers = {
 			'WWW-Authenticate': '{}da-status=failed'.format(PP),
@@ -30,6 +30,9 @@ def _login(auth_str):
 	from db import Session, User, Auth
 	from datetime import datetime, timedelta
 	from util.hash import hasher
+	
+	if auth_str is None:
+		return None
 	
 	assert auth_str.startswith(PP)
 	auth = {}
