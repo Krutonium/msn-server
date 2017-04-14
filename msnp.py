@@ -2,6 +2,8 @@ import io
 from urllib.parse import quote, unquote
 from lxml.objectify import fromstring as parse_xml
 
+from settings import DEBUG
+
 class MSNPWriter:
 	def __init__(self, logger, transport):
 		self.logger = logger
@@ -101,9 +103,8 @@ class Logger:
 		self.transport = None
 	
 	def info(self, *args):
-		if self.transport is None and args[0] == '<<<':
-			import pdb; pdb.set_trace()
-		print(self._name(), *args)
+		if DEBUG:
+			print(self._name(), *args)
 	
 	def log_connect(self, transport):
 		self.transport = transport
@@ -120,3 +121,18 @@ class Logger:
 			name += '{}'.format(port)
 		name += ' ' + self.prefix
 		return name
+
+def decode_email(email_pw):
+	# MSNP < 8 uses MD5 auth, whose server-side can't
+	# be implemented without the plaintext pw.
+	# As a workaround, this server requires such clients
+	# (or rather, users thereof) to pass the pw inside the email,
+	# like so: email|password@example.com
+	try: j = email_pw.rindex('@')
+	except ValueError: return (email_pw, None)
+	try: i = email_pw.index('|')
+	except ValueError: return (email_pw, None)
+	if i >= j: return (email_pw, None)
+	email = email_pw[:i] + email_pw[j:]
+	pw = email_pw[i+1:j]
+	return (email, pw)

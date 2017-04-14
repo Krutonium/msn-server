@@ -2,7 +2,7 @@ import asyncio
 
 from db import Session, User, Auth
 from util.misc import gen_uuid
-from msnp import Logger, MSNPWriter, MSNPReader
+from msnp import Logger, MSNPWriter, MSNPReader, decode_email
 
 class SB:
 	def __init__(self):
@@ -137,6 +137,7 @@ class SBConn(asyncio.Protocol):
 	
 	def _a_ans(self, trid, email, token, sessid):
 		#>>> ANS trid email@example.com token sessionid
+		(email, _) = decode_email(email)
 		data = self.sb.login_ans(self, email, token, sessid)
 		if data is None:
 			self.writer.error(911, trid)

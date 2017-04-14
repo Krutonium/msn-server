@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from db import Session, User, Auth
 from util.misc import gen_uuid
 from util.hash import hasher
-from msnp import Logger, MSNPWriter, MSNPReader
+from msnp import Logger, MSNPWriter, MSNPReader, decode_email
 
 class NB:
 	def __init__(self, loop, sbservices):
@@ -261,7 +261,7 @@ class NBConn(asyncio.Protocol):
 		elif authtype == 'MD5':
 			if stage == 'I':
 				#>>> USR trid MD5 I email|password@example.com
-				(email, pw) = _decode_email_pw(args[0])
+				(email, pw) = self._decode_email(args[0])
 				self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
 				if self.auth_token_md5 is None:
 					self.writer.write(911, trid)
@@ -289,7 +289,7 @@ class NBConn(asyncio.Protocol):
 		groups = detail.groups
 		settings = detail.settings
 		
-		if self.dialect == 2:
+		if self.dialect < 11:
 			self.syn_ser = int(ignored[0])
 			ser = self._ser()
 			writer.write('SYN', trid, ser)
@@ -322,7 +322,7 @@ class NBConn(asyncio.Protocol):
 		self.writer.write('GCF', trid, filename, SHIELDS)
 	
 	def _l_png(self):
-		self.writer.write('QNG', 60)
+		self.writer.write('QNG', (60 if self.dialect >= 9 else None))
 	
 	def _l_uux(self, trid, data):
 		nu = self.nbuser
@@ -494,10 +494,7 @@ class NBConn(asyncio.Protocol):
 				self.writer.write(216, trid)
 				return
 			self.nb._mark_modified(nu)
-		if self.dialect == 2:
-			self.writer.write('REM', trid, lst_name, self._ser(), usr, grp)
-		else:
-			self.writer.write('REM', trid, lst_name, usr, grp)
+		self.writer.write('REM', trid, lst_name, self._ser(), usr, grp)
 	
 	def _l_gtc(self, trid, value):
 		# "Alert me when other people add me ..." Y/N
@@ -561,7 +558,7 @@ class NBConn(asyncio.Protocol):
 		nu = self.nbuser
 		nu.detail.settings[name] = value
 		self._mark_modified(nu)
-		self.writer.write(name, trid, value)
+		self.writer.write(name, trid, self._ser(), value)
 	
 	def _send_iln(self, trid):
 		if self.iln_sent: return
@@ -586,11 +583,13 @@ class NBConn(asyncio.Protocol):
 		else:
 			if trid: frst = ('ILN', trid)
 			else: frst = ('NLN',)
-			rst = ()
-			if self.dialect == 11:
-				rst = (head.detail.capabilities, head.detail.msnobj)
+			rst = []
+			if self.dialect >= 8:
+				rst.append(head.detail.capabilities)
+			if self.dialect >= 9:
+				rst.append(head.detail.msnobj)
 			self.writer.write(*frst, status.substatus.name, head.email, status.name, *rst)
-			if self.dialect == 11:
+			if self.dialect >= 11:
 				self.writer.write('UBX', head.email, { 'PSM': status.message, 'CurrentMedia': status.media })
 	
 	def _add_to_list(self, nu, ctc_head, lst, name):
@@ -623,19 +622,16 @@ class NBConn(asyncio.Protocol):
 		self.logger.info("unknown (state = {}): {}".format(self.state, m))
 	
 	def _ser(self):
+		# TODO: Find in which dialect SER# aren't used anymore
+		if self.dialect >= 11:
+			return None
 		self.syn_ser += 1
 		return self.syn_ser
-
-def _decode_email_pw(email_pw):
-	# email_pw = email|password@example.com
-	try: j = email_pw.rindex('@')
-	except ValueError: return (None, None)
-	try: i = email_pw.index('|')
-	except ValueError: return (email_pw, None)
-	if i >= j: return (None, None)
-	email = email_pw[:i] + email_pw[j:]
-	pw = email_pw[i+1:j]
-	return (email, pw)
+	
+	def _decode_email(self, email_pw):
+		if self.dialect >= 8:
+			return (email_pw, None)
+		return _decode_email(email_pw)
 
 def _get_user_uuid(email):
 	with Session() as sess:

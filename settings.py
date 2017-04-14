@@ -10,3 +10,9 @@ SB = [
 
 LOGIN_HOST = 'messenger-0001.now.im'
 LOGIN_PATH = '/login'
+DEBUG = True
+
+try:
+	from settings_local import *
+except ImportError:
+	raise Exception("Please create settings_local.py")

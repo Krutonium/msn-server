@@ -1,13 +1,13 @@
 def main():
 	from functools import partial
 	import asyncio
-	import ctrl_nb, ctrl_sb, settings, serv_auth
+	import ctrl_nb, ctrl_sb, ctrl_auth, settings
 	
 	loop = asyncio.get_event_loop()
 	
 	nb = ctrl_nb.NB(loop, settings.SB)
 	sb = ctrl_sb.SB()
-	a_auth = AIOHTTPRunner(serv_auth.create_app())
+	a_auth = AIOHTTPRunner(ctrl_auth.create_app())
 	
 	servers = loop.run_until_complete(asyncio.gather(
 		loop.create_server(a_auth.setup(loop), '127.0.0.1', 8081),
