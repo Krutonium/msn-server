@@ -215,9 +215,9 @@ class NBConn(asyncio.Protocol):
 	def notify_add_rl(self, nu):
 		name = (nu.detail and nu.detail.status.name) or nu.email
 		if self.dialect < 11:
-			self.writer.write('ADD', 0, List.RL.name, nu.email, nu.name)
+			self.writer.write('ADD', 0, Lst.RL.name, nu.email, nu.name)
 		else:
-			self.writer.write('ADC', 0, List.RL.name, 'N={}'.format(nu.email), 'F={}'.format(name))
+			self.writer.write('ADC', 0, Lst.RL.name, 'N={}'.format(nu.email), 'F={}'.format(name))
 	
 	# State = Version
 	
