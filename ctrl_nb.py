@@ -636,7 +636,7 @@ class NBConn(asyncio.Protocol):
 	def _decode_email(self, email_pw):
 		if self.dialect >= 8:
 			return (email_pw, None)
-		return _decode_email(email_pw)
+		return decode_email(email_pw)
 
 def _get_user_uuid(email):
 	with Session() as sess:
