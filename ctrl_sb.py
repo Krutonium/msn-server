@@ -159,9 +159,9 @@ class SBConn(asyncio.Protocol):
 		#>>> CAL trid email@example.com
 		err = self.nb.sb_call(self.sbuser.uuid, email, self.sbsess)
 		if err is None:
-			writer.write('CAL', trid, 'RINGING', self.sbsess.id)
+			self.writer.write('CAL', trid, 'RINGING', self.sbsess.id)
 		else:
-			writer.write(err, trid)
+			self.writer.write(err, trid)
 	
 	def _l_msg(self, trid, ack, data):
 		#>>> MSG trid [UNAD] len
