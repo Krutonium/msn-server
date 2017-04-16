@@ -3,12 +3,12 @@ class Service:
 		self.host = host
 		self.port = port
 
-NB = Service('messenger-0001.now.im', 1863)
+NB = Service('m1.escargot.log1p.xyz', 1863)
 SB = [
-	Service('messenger-0001.now.im', 1864),
+	Service('m1.escargot.log1p.xyz', 1864),
 ]
 
-LOGIN_HOST = 'messenger-0001.now.im'
+LOGIN_HOST = 'm1.escargot.log1p.xyz'
 DEBUG = True
 DEV_ACCEPT_ALL_LOGIN_TOKENS = False
 
@@ -16,3 +16,9 @@ try:
 	from settings_local import *
 except ImportError:
 	raise Exception("Please create settings_local.py")
+
+if DEV_ACCEPT_ALL_LOGIN_TOKENS:
+	NB = Service('localhost', 1863)
+	SB = [
+		Service('localhost', 1864),
+	]

@@ -19,6 +19,8 @@ The MSN polygamy program changes one byte (0xb7 -> 0xb6) at 0x1406b1 (7.0.0770):
 - 01406b0: b73d 0000 0f00 b585 0001 6a00 ffff 2877
 + 01406b0: b63d 0000 0f00 b585 0001 6a00 ffff 2877
 
+MSN 5.0: byte (b7) is at 46739
+
 
 MSN/MSNP Grid
 =====================
