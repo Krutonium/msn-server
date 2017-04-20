@@ -2,7 +2,7 @@
 
 This is an MSN server. Support is planned for all MSN Messenger clients (1.0 through 7.5), and maybe some earlier WLM client.
 
-See [escargot.now.im](https://escargot.now.im) for how to connect.
+See [escargot.log1p.xyz](https://escargot.log1p.xyz) for how to connect.
 
 
 ## Support status
@@ -12,9 +12,11 @@ Currently, MSNP2 and MSNP11 are implemented. It's been tested and works with MSN
 
 ## Developers
 
-For local development, run `serv_msnp.py`.
+For local development:
 
-You'll also need a TWN server for the later (MSN >= 5, MSNP >= 8) versions. You can use the specially set up
-`https://m1.escargot.log1p.xyz/nexusdevel` endpoint (edit your msnmsgr.exe to use it) which redirects the
-client to `https://m1.escargot.log1p.xyz/login-dev` and pretends to accept any email/password. Locally,
-you should have `DEV_ACCEPT_ALL_LOGIN_TOKENS = True` in `settings_local.py`.
+- in your `HOSTS`, add `127.0.0.1 dev-msnp.escargot.log1p.xyz`
+- set MSN Switcher to Development mode. This makes MSN use `dev-nexus.escargot.log1p.xyz` which pretends to accept any email/password.
+- set `DEV_ACCEPT_ALL_LOGIN_TOKENS = True` in `settings_local.py` to bypass token verification
+- run `serv_msnp.py`
+
+*TODO:* Investigate skipping TWN auth by simply returning `USR OK` after `USR I`.

@@ -9,6 +9,7 @@ SB = [
 ]
 
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
+DEV_NEXUS = 'dev-nexus.escargot.log1p.xyz'
 DEBUG = True
 DEV_ACCEPT_ALL_LOGIN_TOKENS = False
 
@@ -18,7 +19,9 @@ except ImportError:
 	raise Exception("Please create settings_local.py")
 
 if DEV_ACCEPT_ALL_LOGIN_TOKENS:
-	NB = Service('localhost', 1863)
+	# You should add this to your `HOSTS`:
+	# 127.0.0.1 dev-msnp.escargot.log1p.xyz
+	NB = Service('dev-msnp.escargot.log1p.xyz', 1863)
 	SB = [
-		Service('localhost', 1864),
+		Service('dev-msnp.escargot.log1p.xyz', 1864),
 	]

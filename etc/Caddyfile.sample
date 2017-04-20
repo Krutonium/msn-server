@@ -1,4 +1,11 @@
-messenger-0001.now.im, m1.escargot.log1p.xyz {
+messenger-0001.now.im {
+	tls <your email here> {
+		protocols tls1.0 tls1.2
+	}
+	redir https://m1.escargot.log1p.xyz{uri}
+}
+
+m1.escargot.log1p.xyz, dev-nexus.escargot.log1p.xyz {
 	tls <your email here> {
 		# WinXP supports max tls1.0
 		protocols tls1.0 tls1.2
