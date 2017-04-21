@@ -265,7 +265,8 @@ class NBConn(asyncio.Protocol):
 		elif authtype == 'MD5':
 			if stage == 'I':
 				#>>> USR trid MD5 I email|password@example.com
-				(email, pw) = self._decode_email(args[0])
+				self.usr_emailpw = args[0]
+				(email, pw) = self._decode_email(self.usr_emailpw)
 				self.usr_email = email
 				self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
 				if self.auth_token_md5 is None:
@@ -279,7 +280,7 @@ class NBConn(asyncio.Protocol):
 				if self.nbuser is None:
 					self.writer.write(911, trid)
 					return
-				self.writer.write('USR', trid, 'OK', self.nbuser.email, self.nbuser.detail.status.name)
+				self.writer.write('USR', trid, 'OK', self.usr_emailpw, self.nbuser.detail.status.name)
 				self.state = NBConn.STATE_SYNC
 			else:
 				self.writer.write(911, trid)
