@@ -4,7 +4,6 @@ from enum import Enum, IntFlag
 from contextlib import contextmanager
 
 from db import Session, User, Auth
-from util.misc import gen_uuid
 from util.hash import hasher
 from msnp import Logger, MSNPWriter, MSNPReader, decode_email
 
@@ -81,7 +80,7 @@ class NB:
 			detail = UserDetail(status, user.settings)
 			for g in user.groups:
 				grp = Group(**g)
-				detail.groups[grp.uuid] = grp
+				detail.groups[grp.id] = grp
 			for c in user.contacts:
 				ctc_head = self._load_user_record(c['uuid'])
 				if ctc_head is None: continue
@@ -184,7 +183,7 @@ class NBConn(asyncio.Protocol):
 		self.nbuser = None
 		self.auth_token_md5 = None
 		self.syn_ser = None
-		self.usr_twn_email = None
+		self.usr_email = None
 	
 	def connection_lost(self, exc):
 		self.nb.on_leave(self)
@@ -249,11 +248,11 @@ class NBConn(asyncio.Protocol):
 		if authtype == 'TWN':
 			if stage == 'I':
 				#>>> USR trid TWN I email@example.com
-				self.usr_twn_email = args[0]
+				self.usr_email = args[0]
 				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
 			elif stage == 'S':
 				#>>> USR trid TWN S auth_token
-				self.nbuser = self.nb.login(self, args[0], self.usr_twn_email)
+				self.nbuser = self.nb.login(self, args[0], self.usr_email)
 				if self.nbuser is None:
 					self.writer.write(911, trid)
 					return
@@ -267,6 +266,7 @@ class NBConn(asyncio.Protocol):
 			if stage == 'I':
 				#>>> USR trid MD5 I email|password@example.com
 				(email, pw) = self._decode_email(args[0])
+				self.usr_email = email
 				self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
 				if self.auth_token_md5 is None:
 					self.writer.write(911, trid)
@@ -275,7 +275,7 @@ class NBConn(asyncio.Protocol):
 			elif stage == 'S':
 				#>>> USR trid MD5 S response
 				# `response` is ignored; auth done in do_auth_mock_md5.
-				self.nbuser = self.nb.login(self, self.auth_token_md5)
+				self.nbuser = self.nb.login(self, self.auth_token_md5, self.usr_email)
 				if self.nbuser is None:
 					self.writer.write(911, trid)
 					return
@@ -314,7 +314,7 @@ class NBConn(asyncio.Protocol):
 			writer.write('PRP', 'MFN', detail.status.name)
 			
 			for g in groups.values():
-				writer.write('LSG', g.name, g.uuid)
+				writer.write('LSG', g.name, g.id)
 			for c in contacts.values():
 				writer.write('LST', 'N={}'.format(c.head.email), 'F={}'.format(c.status.name), 'C={}'.format(c.head.uuid),
 					c.lists, ','.join(c.groups)
@@ -346,36 +346,39 @@ class NBConn(asyncio.Protocol):
 		if len(name) > 61:
 			self.writer.write(229, trid)
 			return
-		uuid = gen_uuid()
 		nu = self.nbuser
-		nu.detail.groups[uuid] = Group(uuid, name)
+		id = _gen_group_id(nu.detail)
+		nu.detail.groups[id] = Group(id, name)
 		self.nb._mark_modified(nu)
-		self.writer.write('ADG', trid, 1, name, uuid, 0)
+		self.writer.write('ADG', trid, 1, name, id, 0)
 	
-	def _l_rmg(self, trid, uuid):
+	def _l_rmg(self, trid, id):
 		#>>> ['RMG', '250', '00000000-0000-0000-0001-000000000001']
+		if id == '0':
+			self.writer.write(230, trid)
+			return
 		nu = self.nbuser
 		groups = nu.detail.groups
-		if uuid == 'New%20Group':
-			# Bug: MSN 7.0 sends name instead of uuid in a particular scenario
+		if id == 'New%20Group':
+			# Bug: MSN 7.0 sends name instead of id in a particular scenario
 			for g in groups.values():
 				if g.name != 'New Group': continue
-				uuid = g.uuid
+				id = g.id
 				break
 		try:
-			del groups[uuid]
+			del groups[id]
 		except KeyError:
 			self.writer.write(224, trid)
 		else:
 			for ctc in nu.detail.contacts.values():
-				ctc.groups.discard(uuid)
+				ctc.groups.discard(id)
 			self.nb._mark_modified(nu)
-			self.writer.write('RMG', trid, 1, uuid)
+			self.writer.write('RMG', trid, 1, id)
 	
-	def _l_reg(self, trid, uuid, name):
+	def _l_reg(self, trid, id, name):
 		#>>> ['REG', '275', '00000000-0000-0000-0001-000000000001', 'new name']
 		nu = self.nbuser
-		g = nu.detail.groups.get(uuid)
+		g = nu.detail.groups.get(id)
 		if g is None:
 			self.writer.write(224, trid)
 			return
@@ -384,7 +387,7 @@ class NBConn(asyncio.Protocol):
 			return
 		g.name = name
 		self.nb._mark_modified(nu)
-		self.writer.write('REG', trid, 1, name, uuid, 0)
+		self.writer.write('REG', trid, 1, name, id, 0)
 	
 	def _l_adc(self, trid, lst_name, usr, arg2 = None):
 		nu = self.nbuser
@@ -404,20 +407,20 @@ class NBConn(asyncio.Protocol):
 			assert lst_name == 'FL'
 			assert usr.startswith('C=')
 			contact_uuid = usr[2:]
-			group_uuid = arg2
-			if group_uuid not in nu.detail.groups:
+			group_id = arg2
+			if group_id not in nu.detail.groups:
 				self.writer.write(224, trid)
 				return
 			ctc = nu.detail.contacts.get(contact_uuid)
 			if ctc is None:
 				self.writer.write(208, trid)
 				return
-			if group_uuid in ctc.groups:
+			if group_id in ctc.groups:
 				self.writer.write(215, trid)
 				return
-			ctc.groups.add(group_uuid)
+			ctc.groups.add(group_id)
 			self.nb._mark_modified(nu)
-			self.writer.write('ADC', trid, lst_name, usr, group_uuid)
+			self.writer.write('ADC', trid, lst_name, usr, group_id)
 	
 	def _l_add(self, trid, lst_name, email, name = None):
 		#>>> ADD 122 FL email name
@@ -461,13 +464,13 @@ class NBConn(asyncio.Protocol):
 		nu = self.nbuser
 		if lst_name == 'FL' and self.dialect >= 11:
 			contact_uuid = usr
-			group_uuid = grp
+			group_id = grp
 			ctc = nu.detail.contacts.get(contact_uuid)
 			if ctc is None:
 				self.writer.write(216, trid)
 				return
 			
-			if group_uuid is None:
+			if group_id is None:
 				#>>> ['REM', '279', 'FL', '00000000-0000-0000-0002-000000000001']
 				# Remove from FL
 				self._remove_from_list(nu, ctc.head, Lst.FL)
@@ -477,11 +480,11 @@ class NBConn(asyncio.Protocol):
 			else:
 				#>>> ['REM', '247', 'FL', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000002']
 				# Only remove group
-				if group_uuid not in nu.detail.groups:
+				if group_id not in nu.detail.groups:
 					self.writer.write(224, trid)
 					return
 				try:
-					ctc.groups.remove(group_uuid)
+					ctc.groups.remove(group_id)
 				except KeyError:
 					self.writer.write(225, trid)
 					return
@@ -649,7 +652,7 @@ def _save_detail(nu, detail):
 		user.name = detail.status.name
 		user.message = detail.status.message
 		user.settings = detail.settings
-		user.groups = [{ 'uuid': g.uuid, 'name': g.name } for g in detail.groups.values()]
+		user.groups = [{ 'id': g.id, 'name': g.name } for g in detail.groups.values()]
 		user.contacts = [{
 			'uuid': c.head.uuid, 'name': c.status.name, 'message': c.status.message,
 			'lists': c.lists, 'groups': list(c.groups),
@@ -711,9 +714,15 @@ class UserDetail:
 		self.capabilities = 0
 		self.msnobj = None
 
+def _gen_group_id(detail):
+	id = 1
+	while id in detail.groups:
+		id += 1
+	return str(id)
+
 class Group:
-	def __init__(self, uuid, name):
-		self.uuid = uuid
+	def __init__(self, id, name):
+		self.id = id
 		self.name = name
 
 class Substatus(Enum):

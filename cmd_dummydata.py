@@ -17,9 +17,9 @@ with Session() as sess:
 		password = hasher.encode('foopass'),
 		settings = {},
 		groups = [
-			{ 'uuid': '00000000-0000-0000-0001-000000000001', "name": "Space Group" },
-			{ 'uuid': '00000000-0000-0000-0001-000000000002', "name": "GroupA" },
-			{ 'uuid': '00000000-0000-0000-0001-000000000003', "name": "GroupZ" },
+			{ 'id': '1', "name": "Space Group" },
+			{ 'id': '2', "name": "GroupA" },
+			{ 'id': '3', "name": "GroupZ" },
 		],
 		contacts = [
 			{
@@ -27,7 +27,7 @@ with Session() as sess:
 				'name': "Bob Ross 1",
 				'message': "The Joy of Painting Rules!!!1",
 				'lists': (Lst.FL | Lst.AL),
-				'groups': ['00000000-0000-0000-0001-000000000002', '00000000-0000-0000-0001-000000000003'],
+				'groups': ['2', '3'],
 			},
 			{
 				'uuid': '00000000-0000-0000-0002-000000000003',
