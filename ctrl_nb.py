@@ -167,7 +167,7 @@ class NBConn(asyncio.Protocol):
 	STATE_SYNC = 's'
 	STATE_LIVE = 'l'
 	
-	DIALECTS = ['MSNP{}'.format(d) for d in (11, 2)]
+	DIALECTS = ['MSNP{}'.format(d) for d in (12, 11, 10, 5, 4, 3, 2)]
 	
 	def __init__(self, nb):
 		self.nb = nb
@@ -217,7 +217,7 @@ class NBConn(asyncio.Protocol):
 	
 	def notify_add_rl(self, nu):
 		name = (nu.detail and nu.detail.status.name) or nu.email
-		if self.dialect < 11:
+		if self.dialect < 10:
 			self.writer.write('ADD', 0, Lst.RL.name, nu.email, name)
 		else:
 			self.writer.write('ADC', 0, Lst.RL.name, 'N={}'.format(nu.email), 'F={}'.format(name))
@@ -294,7 +294,7 @@ class NBConn(asyncio.Protocol):
 		groups = detail.groups
 		settings = detail.settings
 		
-		if self.dialect < 11:
+		if self.dialect < 10:
 			self.syn_ser = int(ignored[0])
 			ser = self._ser()
 			writer.write('SYN', trid, ser)
@@ -446,7 +446,7 @@ class NBConn(asyncio.Protocol):
 		self.nb._sync_contact_statuses()
 		self.nb._generic_notify(self)
 		
-		if self.dialect >= 11:
+		if self.dialect >= 10:
 			if lst != Lst.FL:
 				self.writer.write('ADC', trid, lst_name, 'N={}'.format(ctc_head.email))
 			else:
@@ -462,7 +462,7 @@ class NBConn(asyncio.Protocol):
 			self.state = NBConn.STATE_QUIT
 			return
 		nu = self.nbuser
-		if lst_name == 'FL' and self.dialect >= 11:
+		if lst_name == 'FL' and self.dialect >= 10:
 			contact_uuid = usr
 			group_id = grp
 			ctc = nu.detail.contacts.get(contact_uuid)
@@ -530,7 +530,7 @@ class NBConn(asyncio.Protocol):
 		self._send_iln(trid)
 	
 	def _l_rea(self, trid, email_pw, name):
-		if self.dialect >= 11:
+		if self.dialect >= 10:
 			self.writer.write(502, trid)
 			return
 		(email, _) = decode_email(email_pw)
@@ -637,7 +637,7 @@ class NBConn(asyncio.Protocol):
 	
 	def _ser(self):
 		# TODO: Find in which dialect SER# aren't used anymore
-		if self.dialect >= 11:
+		if self.dialect >= 10:
 			return None
 		self.syn_ser += 1
 		return self.syn_ser
