@@ -350,7 +350,7 @@ class NBConn(asyncio.Protocol):
 		id = _gen_group_id(nu.detail)
 		nu.detail.groups[id] = Group(id, name)
 		self.nb._mark_modified(nu)
-		self.writer.write('ADG', trid, 1, name, id, 0)
+		self.writer.write('ADG', trid, name, id, 0)
 	
 	def _l_rmg(self, trid, id):
 		#>>> ['RMG', '250', '00000000-0000-0000-0001-000000000001']
@@ -722,9 +722,11 @@ class UserDetail:
 
 def _gen_group_id(detail):
 	id = 1
-	while id in detail.groups:
+	s = str(id)
+	while s in detail.groups:
 		id += 1
-	return str(id)
+		s = str(id)
+	return s
 
 class Group:
 	def __init__(self, id, name):
