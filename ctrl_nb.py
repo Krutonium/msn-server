@@ -529,12 +529,18 @@ class NBConn(asyncio.Protocol):
 		self.writer.write('CHG', trid, sts_name, capabilities, msnobj)
 		self._send_iln(trid)
 	
-	def _l_rea(self, trid, email, name):
+	def _l_rea(self, trid, email_pw, name):
 		if self.dialect >= 11:
 			self.writer.write(502, trid)
 			return
-		self._change_display_name(name)
-		self.writer.write('REA', trid, self._ser(), email, name)
+		(email, _) = decode_email(email_pw)
+		if email == self.nbuser.email:
+			self._change_display_name(name)
+		self.writer.write('REA', trid, self._ser(), email_pw, name)
+	
+	def _l_snd(self, trid, email):
+		# Send email about how to use MSN. Ignore it for now.
+		self.writer.write('SND', trid, email)
 	
 	def _l_prp(self, trid, key, value):
 		#>>> ['PRP', '115', 'MFN', '~~woot~~']
