@@ -167,7 +167,7 @@ class NBConn(asyncio.Protocol):
 	STATE_SYNC = 's'
 	STATE_LIVE = 'l'
 	
-	DIALECTS = ['MSNP{}'.format(d) for d in (12, 11, 10, 5, 4, 3, 2)]
+	DIALECTS = ['MSNP{}'.format(d) for d in (12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2)]
 	
 	def __init__(self, nb):
 		self.nb = nb
@@ -184,6 +184,7 @@ class NBConn(asyncio.Protocol):
 		self.auth_token_md5 = None
 		self.syn_ser = None
 		self.usr_email = None
+		self.usr_emailpw = None
 	
 	def connection_lost(self, exc):
 		self.nb.on_leave(self)
@@ -229,7 +230,7 @@ class NBConn(asyncio.Protocol):
 		d = None
 		for d in NBConn.DIALECTS:
 			if d in dialects: break
-		if d is None:
+		if d not in dialects:
 			self.writer.write('VER', trid, 0, *NBConn.DIALECTS)
 			return
 		self.writer.write('VER', trid, d)
@@ -258,7 +259,10 @@ class NBConn(asyncio.Protocol):
 					return
 				#verified = self.nbuser.verified
 				verified = True
-				self.writer.write('USR', trid, 'OK', self.nbuser.email, (1 if verified else 0), 0)
+				if self.dialect < 10:
+					self.writer.write('USR', trid, 'OK', self.nbuser.email, self.nbuser.detail.status.name, (1 if verified else 0), 0)
+				else:
+					self.writer.write('USR', trid, 'OK', self.nbuser.email, (1 if verified else 0), 0)
 				self.state = NBConn.STATE_SYNC
 			else:
 				self.writer.write(911, trid)
@@ -284,10 +288,12 @@ class NBConn(asyncio.Protocol):
 				self.state = NBConn.STATE_SYNC
 			else:
 				self.writer.write(911, trid)
+		else:
+			self.writer.write(911, trid)
 	
 	# State = Sync
 	
-	def _s_syn(self, trid, *ignored):
+	def _s_syn(self, trid, *extra):
 		writer = self.writer
 		nu = self.nbuser
 		detail = nu.detail
@@ -296,18 +302,45 @@ class NBConn(asyncio.Protocol):
 		settings = detail.settings
 		
 		if self.dialect < 10:
-			self.syn_ser = int(ignored[0])
+			self.syn_ser = int(extra[0])
 			ser = self._ser()
-			writer.write('SYN', trid, ser)
-			for lst in (Lst.FL, Lst.AL, Lst.BL, Lst.RL):
-				cs = [c for c in contacts.values() if c.lists & lst]
-				if cs:
-					for i, c in enumerate(cs):
-						writer.write('LST', trid, lst.name, ser, len(cs), i + 1, c.head.email, c.status.name)
-				else:
-					writer.write('LST', trid, lst.name, ser, 0, 0)
-			writer.write('GTC', trid, ser, settings.get('GTC', 'A'))
-			writer.write('BLP', trid, ser, settings.get('BLP', 'AL'))
+			if self.dialect < 6:
+				writer.write('SYN', trid, ser)
+				for lst in (Lst.FL, Lst.AL, Lst.BL, Lst.RL):
+					cs = [c for c in contacts.values() if c.lists & lst]
+					if cs:
+						for i, c in enumerate(cs):
+							writer.write('LST', trid, lst.name, ser, len(cs), i + 1, c.head.email, c.status.name)
+					else:
+						writer.write('LST', trid, lst.name, ser, 0, 0)
+				writer.write('GTC', trid, ser, settings.get('GTC', 'A'))
+				writer.write('BLP', trid, ser, settings.get('BLP', 'AL'))
+			elif self.dialect < 8:
+				writer.write('SYN', trid, ser)
+				num_groups = len(groups) + 1
+				writer.write('LSG', trid, ser, 1, num_groups, '0', "Other Contacts", 0)
+				for i, g in enumerate(groups.values()):
+					writer.write('LSG', trid, ser, i + 2, num_groups, g.id, g.name, 0)
+				for lst in (Lst.FL, Lst.AL, Lst.BL, Lst.RL):
+					cs = [c for c in contacts.values() if c.lists & lst]
+					if cs:
+						for i, c in enumerate(cs):
+							gs = ((','.join(c.groups) or '0') if lst == Lst.FL else None)
+							writer.write('LST', trid, lst.name, ser, i + 1, len(cs), c.head.email, c.status.name, gs)
+					else:
+						writer.write('LST', trid, lst.name, ser, 0, 0)
+				writer.write('GTC', trid, ser, settings.get('GTC', 'A'))
+				writer.write('BLP', trid, ser, settings.get('BLP', 'AL'))
+			elif self.dialect < 10:
+				num_groups = len(groups) + 1
+				writer.write('SYN', trid, ser, len(contacts), num_groups)
+				writer.write('GTC', settings.get('GTC', 'A'))
+				writer.write('BLP', settings.get('BLP', 'AL'))
+				writer.write('LSG', '0', "Other Contacts", 0)
+				for g in groups.values():
+					writer.write('LSG', g.id, g.name, 0)
+				for c in contacts.values():
+					writer.write('LST', c.head.email, c.status.name, c.lists, ','.join(c.groups) or '0')
 		else:
 			writer.write('SYN', trid, TIMESTAMP, TIMESTAMP, len(contacts), len(groups))
 			writer.write('GTC', settings.get('GTC', 'A'))
@@ -342,8 +375,8 @@ class NBConn(asyncio.Protocol):
 	def _l_url(self, trid, *ignored):
 		self.writer.write('URL', trid, '/unused1', '/unused2', 1)
 	
-	def _l_adg(self, trid, name):
-		#>>> ['ADG', '276', 'New Group']
+	def _l_adg(self, trid, name, ignored = None):
+		#>>> ADG 276 New Group
 		if len(name) > 61:
 			self.writer.write(229, trid)
 			return
@@ -351,10 +384,10 @@ class NBConn(asyncio.Protocol):
 		id = _gen_group_id(nu.detail)
 		nu.detail.groups[id] = Group(id, name)
 		self.nb._mark_modified(nu)
-		self.writer.write('ADG', trid, name, id, 0)
+		self.writer.write('ADG', trid, self._ser(), name, id, 0)
 	
 	def _l_rmg(self, trid, id):
-		#>>> ['RMG', '250', '00000000-0000-0000-0001-000000000001']
+		#>>> RMG 250 00000000-0000-0000-0001-000000000001
 		if id == '0':
 			self.writer.write(230, trid)
 			return
@@ -374,10 +407,13 @@ class NBConn(asyncio.Protocol):
 			for ctc in nu.detail.contacts.values():
 				ctc.groups.discard(id)
 			self.nb._mark_modified(nu)
-			self.writer.write('RMG', trid, 1, id)
+			if self.dialect < 10:
+				self.writer.write('RMG', trid, self._ser(), id)
+			else:
+				self.writer.write('RMG', trid, 1, id)
 	
-	def _l_reg(self, trid, id, name):
-		#>>> ['REG', '275', '00000000-0000-0000-0001-000000000001', 'new name']
+	def _l_reg(self, trid, id, name, ignored = None):
+		#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
 		nu = self.nbuser
 		g = nu.detail.groups.get(id)
 		if g is None:
@@ -388,57 +424,56 @@ class NBConn(asyncio.Protocol):
 			return
 		g.name = name
 		self.nb._mark_modified(nu)
-		self.writer.write('REG', trid, 1, name, id, 0)
+		if self.dialect < 10:
+			self.writer.write('REG', trid, self._ser(), id, name, 0)
+		else:
+			self.writer.write('REG', trid, 1, name, id, 0)
 	
 	def _l_adc(self, trid, lst_name, usr, arg2 = None):
-		nu = self.nbuser
 		if usr.startswith('N='):
-			#>>> ['ADC', '249', 'BL', 'N=bob1@hotmail.com']
-			#>>> ['ADC', '278', 'AL', 'N=foo@hotmail.com']
-			#>>> ['ADC', '277', 'FL', 'N=foo@hotmail.com', 'F=foo@hotmail.com']
+			#>>> ADC 249 BL N=bob1@hotmail.com
+			#>>> ADC 278 AL N=foo@hotmail.com
+			#>>> ADC 277 FL N=foo@hotmail.com F=foo@hotmail.com
 			email = usr[2:]
-			name = None
-			if arg2:
-				assert arg2.startswith('F=')
-				name = arg2[2:]
-			self._add_to_list_bidi(trid, lst_name, email, name)
+			contact_uuid = _get_user_uuid(email)
+			if contact_uuid is None:
+				self.writer.write(205, trid)
+				return
+			group_id = None
+			name = (arg2[2:] if arg2 else None)
 		else:
 			# Add C= to group
-			#>>> ['ADC', '246', 'FL', 'C=00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000003']
-			assert lst_name == 'FL'
-			assert usr.startswith('C=')
+			#>>> ADC 246 FL C=00000000-0000-0000-0002-000000000002 00000000-0000-0000-0001-000000000003
 			contact_uuid = usr[2:]
 			group_id = arg2
-			if group_id not in nu.detail.groups:
-				self.writer.write(224, trid)
-				return
-			ctc = nu.detail.contacts.get(contact_uuid)
-			if ctc is None:
-				self.writer.write(208, trid)
-				return
-			if group_id in ctc.groups:
-				self.writer.write(215, trid)
-				return
-			ctc.groups.add(group_id)
-			self.nb._mark_modified(nu)
-			self.writer.write('ADC', trid, lst_name, usr, group_id)
-	
-	def _l_add(self, trid, lst_name, email, name = None):
-		#>>> ADD 122 FL email name
-		self._add_to_list_bidi(trid, lst_name, email, name)
-	
-	def _add_to_list_bidi(self, trid, lst_name, email, name = None):
-		uuid = _get_user_uuid(email)
-		if uuid is None:
+			name = None
+		self._add_to_list_bidi(trid, lst_name, contact_uuid, name, group_id)
+
+	def _l_add(self, trid, lst_name, email, name = None, group_id = None):
+		#>>> ADD 122 FL email name group
+		contact_uuid = _get_user_uuid(email)
+		if contact_uuid is None:
 			self.writer.write(205, trid)
 			return
-		ctc_head = self.nb._load_user_record(uuid)
+		self._add_to_list_bidi(trid, lst_name, contact_uuid, name, group_id)
+
+	def _add_to_list_bidi(self, trid, lst_name, contact_uuid, name = None, group_id = None):
+		ctc_head = self.nb._load_user_record(contact_uuid)
 		assert ctc_head is not None
 		lst = getattr(Lst, lst_name)
 		
 		nu = self.nbuser
-		self._add_to_list(nu, ctc_head, lst, name)
+		ctc = self._add_to_list(nu, ctc_head, lst, name)
 		if lst == Lst.FL:
+			if group_id is not None and group_id != '0':
+				if group_id not in nu.detail.groups:
+					self.writer.write(224, trid)
+					return
+				if group_id in ctc.groups:
+					self.writer.write(215, trid)
+					return
+				ctc.groups.add(group_id)
+				self.nb._mark_modified(nu)
 			# FL needs a matching RL on the contact
 			with self.nb._hacky_scoped_detail(ctc_head):
 				self._add_to_list(ctc_head, nu, Lst.RL, nu.detail.status.name)
@@ -448,24 +483,29 @@ class NBConn(asyncio.Protocol):
 		self.nb._generic_notify(self)
 		
 		if self.dialect >= 10:
-			if lst != Lst.FL:
-				self.writer.write('ADC', trid, lst_name, 'N={}'.format(ctc_head.email))
+			if lst == Lst.FL:
+				if group_id:
+					self.writer.write('ADC', trid, lst_name, 'C={}'.format(ctc_head.uuid), group_id)
+				else:
+					self.writer.write('ADC', trid, lst_name, 'N={}'.format(ctc_head.email), 'C={}'.format(ctc_head.uuid))
 			else:
-				self.writer.write('ADC', trid, lst_name, 'N={}'.format(ctc_head.email), 'C={}'.format(ctc_head.uuid))
+				self.writer.write('ADC', trid, lst_name, 'N={}'.format(ctc_head.email))
 		else:
-			self.writer.write('ADD', trid, lst_name, self._ser(), ctc_head.email, name)
+			self.writer.write('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
 		
 		if lst == Lst.FL:
 			self._send_iln_add(trid, ctc_head.uuid)
 	
-	def _l_rem(self, trid, lst_name, usr, grp = None):
+	def _l_rem(self, trid, lst_name, usr, group_id = None):
 		if lst_name == 'RL':
 			self.state = NBConn.STATE_QUIT
 			return
 		nu = self.nbuser
-		if lst_name == 'FL' and self.dialect >= 10:
-			contact_uuid = usr
-			group_id = grp
+		if lst_name == 'FL':
+			if self.dialect < 10:
+				contact_uuid = _get_user_uuid(usr)
+			else:
+				contact_uuid = usr
 			ctc = nu.detail.contacts.get(contact_uuid)
 			if ctc is None:
 				self.writer.write(216, trid)
@@ -481,14 +521,15 @@ class NBConn(asyncio.Protocol):
 			else:
 				#>>> ['REM', '247', 'FL', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000002']
 				# Only remove group
-				if group_id not in nu.detail.groups:
+				if group_id not in nu.detail.groups and group_id != '0':
 					self.writer.write(224, trid)
 					return
 				try:
 					ctc.groups.remove(group_id)
 				except KeyError:
-					self.writer.write(225, trid)
-					return
+					if group_id == '0':
+						self.writer.write(225, trid)
+						return
 				self.nb._mark_modified(nu)
 		else:
 			#>>> ['REM', '248', 'AL', 'bob1@hotmail.com']
@@ -503,7 +544,7 @@ class NBConn(asyncio.Protocol):
 				self.writer.write(216, trid)
 				return
 			self.nb._mark_modified(nu)
-		self.writer.write('REM', trid, lst_name, self._ser(), usr, grp)
+		self.writer.write('REM', trid, lst_name, self._ser(), usr, group_id)
 	
 	def _l_gtc(self, trid, value):
 		# "Alert me when other people add me ..." Y/N
@@ -603,6 +644,8 @@ class NBConn(asyncio.Protocol):
 				rst.append(head.detail.capabilities)
 			if self.dialect >= 9:
 				rst.append(head.detail.msnobj)
+			else:
+				rst.append(None)
 			self.writer.write(*frst, status.substatus.name, head.email, status.name, *rst)
 			if self.dialect >= 11:
 				self.writer.write('UBX', head.email, { 'PSM': status.message, 'CurrentMedia': status.media })
@@ -617,6 +660,7 @@ class NBConn(asyncio.Protocol):
 			ctc.status.name = name
 		ctc.lists |= lst
 		self.nb._mark_modified(nu)
+		return ctc
 	
 	def _remove_from_list(self, nu, ctc_head, lst):
 		# Remove `ctc_head` from `nu`'s `lst`
