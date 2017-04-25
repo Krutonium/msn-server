@@ -177,6 +177,7 @@ class NBConn(asyncio.Protocol):
 		self.transport = transport
 		self.logger.log_connect(transport)
 		self.writer = MSNPWriter(self.logger, transport)
+		self.reader = MSNPReader(self.logger)
 		self.state = NBConn.STATE_VERS
 		self.dialect = None
 		self.iln_sent = False
@@ -191,8 +192,9 @@ class NBConn(asyncio.Protocol):
 		self.logger.log_disconnect()
 	
 	def data_received(self, data):
+		self.reader.data_received(data)
 		with self.writer:
-			for m in MSNPReader(self.logger, data):
+			for m in self.reader:
 				cmd = m[0].lower()
 				if cmd == 'out':
 					self.state = NBConn.STATE_QUIT

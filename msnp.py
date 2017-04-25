@@ -49,9 +49,9 @@ class MSNPWriter:
 			self._buf = io.BytesIO()
 
 class MSNPReader:
-	def __init__(self, logger, data):
+	def __init__(self, logger):
 		self.logger = logger
-		self._data = data
+		self._data = b''
 		self._i = 0
 	
 	def __iter__(self):
@@ -62,22 +62,45 @@ class MSNPReader:
 			raise StopIteration
 		return self._read_msnp()
 	
+	def data_received(self, data):
+		if self._data:
+			self._data += data
+		else:
+			self._data = data
+	
 	def _read_msnp(self):
+		try:
+			m, e = self._try_read()
+		except AssertionError:
+			return None
+		except Exception:
+			print("ERR _read_msnp", self._i, self._data)
+			raise
+		else:
+			self._data = self._data[e:]
+			self._i = 0
+			if m[0] in ('UUX', 'MSG'):
+				self.logger.info('>>>', *map(quote, m[:-1]), len(m[-1]))
+			else:
+				self.logger.info('>>>', *map(quote, m))
+			if m[0] == 'UUX':
+				m[-1] = parse_uux(m[-1])
+			return m
+	
+	def _try_read(self):
 		i = self._i
 		d = self._data
-		e = d.index(b'\n', i)
-		assert e >= 0
-		self._i = e + 1
+		e = d.index(b'\n', i) + 1
 		m = d[i:e].decode('utf-8').strip()
 		assert len(m) > 1
 		m = m.split()
-		self.logger.info('>>>', *m)
 		m = [unquote(x) for x in m]
 		if m[0] in ('UUX', 'MSG'):
-			m[-1] = self._read_raw(int(m[-1]))
-			if m[0] == 'UUX':
-				m[-1] = parse_uux(m[-1])
-		return m
+			n = int(m[-1])
+			assert e+n <= len(d)
+			m[-1] = d[e:e+n]
+			e += n
+		return m, e
 	
 	def _read_raw(self, n):
 		i = self._i
