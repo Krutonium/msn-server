@@ -95,9 +95,8 @@ class SBConn(asyncio.Protocol):
 		self.logger.log_disconnect()
 	
 	def data_received(self, data):
-		self.reader.data_received(data)
 		with self.writer:
-			for m in self.reader:
+			for m in self.reader.data_received(data):
 				cmd = m[0].lower()
 				if cmd == 'out':
 					self.state = SBConn.STATE_QUIT

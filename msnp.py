@@ -57,16 +57,15 @@ class MSNPReader:
 	def __iter__(self):
 		return self
 	
-	def __next__(self):
-		if self._i >= len(self._data):
-			raise StopIteration
-		return self._read_msnp()
-	
 	def data_received(self, data):
 		if self._data:
 			self._data += data
 		else:
 			self._data = data
+		while self._data:
+			m = self._read_msnp()
+			if m is None: break
+			yield m
 	
 	def _read_msnp(self):
 		try:

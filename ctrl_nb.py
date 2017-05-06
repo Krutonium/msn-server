@@ -192,9 +192,8 @@ class NBConn(asyncio.Protocol):
 		self.logger.log_disconnect()
 	
 	def data_received(self, data):
-		self.reader.data_received(data)
 		with self.writer:
-			for m in self.reader:
+			for m in self.reader.data_received(data):
 				cmd = m[0].lower()
 				if cmd == 'out':
 					self.state = NBConn.STATE_QUIT
@@ -333,7 +332,7 @@ class NBConn(asyncio.Protocol):
 						writer.write('LST', trid, lst.name, ser, 0, 0)
 				writer.write('GTC', trid, ser, settings.get('GTC', 'A'))
 				writer.write('BLP', trid, ser, settings.get('BLP', 'AL'))
-			elif self.dialect < 10:
+			else:
 				num_groups = len(groups) + 1
 				writer.write('SYN', trid, ser, len(contacts), num_groups)
 				writer.write('GTC', settings.get('GTC', 'A'))
