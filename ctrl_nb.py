@@ -249,9 +249,23 @@ class NBConn(asyncio.Protocol):
 	def _a_usr(self, trid, authtype, stage, *args):
 		if authtype == 'TWN':
 			if stage == 'I':
-				#>>> USR trid TWN I email@example.com
-				self.usr_email = args[0]
-				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
+				#>>> USR trid TWN I email|password@example.com
+				self.usr_emailpw = args[0]
+				(email, pw) = self._decode_email(email_pw)
+				self.usr_email = email
+				if pw is None:
+					self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
+				else:
+					self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
+					if self.auth_token_md5 is None:
+						self.writer.write(911, trid)
+						return
+					self.nbuser = self.nb.login(self, self.auth_token_md5, email)
+					if self.nbuser is None:
+						self.writer.write(911, trid)
+						return
+					self.writer.write('USR', trid, 'OK', self.usr_emailpw, self.nbuser.detail.status.name)
+					self.state = NBConn.STATE_SYNC
 			elif stage == 'S':
 				#>>> USR trid TWN S auth_token
 				self.nbuser = self.nb.login(self, args[0], self.usr_email)
