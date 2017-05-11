@@ -30,20 +30,23 @@ class NB:
 				email = Auth.PopToken(token)
 			if email is None: return None
 			uuid = _get_user_uuid(email)
-			if uuid is None: return None
-			nu = self._load_user_record(uuid)
+			return self._login_common(nc, uuid)
+	
+	def login_raw(self, nc, email, pw):
+		with Session() as sess:
+			user = sess.query(User).filter(User.email == email).one_or_none()
+			if user is None: return None
+			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
+				if not hasher.verify(pw, user.password): return None
+			return self._login_common(nc, user.uuid)
+	
+	def _login_common(self, nc, uuid):
+		if uuid is None: return None
+		nu = self._load_user_record(uuid)
 		self._records_by_nc[nc] = nu
 		self._nc_from_nu[nu].add(nc)
 		self._load_detail(nu)
 		return nu
-	
-	def do_auth_mock_md5(self, email, pw):
-		if not (email and pw): return None
-		with Session() as sess:
-			user = sess.query(User).filter(User.email == email).one_or_none()
-			if user is None: return None
-			if not hasher.verify(pw, user.password): return None
-		return Auth.CreateToken(email)
 	
 	def _generic_notify(self, nc):
 		nu = self._records_by_nc.get(nc)
@@ -182,10 +185,8 @@ class NBConn(asyncio.Protocol):
 		self.dialect = None
 		self.iln_sent = False
 		self.nbuser = None
-		self.auth_token_md5 = None
 		self.syn_ser = None
 		self.usr_email = None
-		self.usr_emailpw = None
 	
 	def connection_lost(self, exc):
 		self.nb.on_leave(self)
@@ -247,64 +248,41 @@ class NBConn(asyncio.Protocol):
 			self.writer.write(502, trid)
 	
 	def _a_usr(self, trid, authtype, stage, *args):
+		if stage == 'I':
+			# This handles MD5 auth
+			usr_emailpw = args[0]
+			(email, pw) = decode_email(usr_emailpw)
+			self.usr_email = email
+			if pw is not None:
+				self.nbuser = self.nb.login_raw(self, email, pw)
+				self._util_usr_final(trid, usr_emailpw)
+				return
+		
 		if authtype == 'TWN':
 			if stage == 'I':
-				#>>> USR trid TWN I email|password@example.com
-				self.usr_emailpw = args[0]
-				(email, pw) = self._decode_email(email_pw)
-				self.usr_email = email
-				if pw is None:
-					self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
-				else:
-					self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
-					if self.auth_token_md5 is None:
-						self.writer.write(911, trid)
-						return
-					self.nbuser = self.nb.login(self, self.auth_token_md5, email)
-					if self.nbuser is None:
-						self.writer.write(911, trid)
-						return
-					self.writer.write('USR', trid, 'OK', self.usr_emailpw, self.nbuser.detail.status.name)
-					self.state = NBConn.STATE_SYNC
-			elif stage == 'S':
+				#>>> USR trid TWN I email@example.com
+				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
+				return
+			if stage == 'S':
 				#>>> USR trid TWN S auth_token
 				self.nbuser = self.nb.login(self, args[0], self.usr_email)
-				if self.nbuser is None:
-					self.writer.write(911, trid)
-					return
-				#verified = self.nbuser.verified
-				verified = True
-				if self.dialect < 10:
-					self.writer.write('USR', trid, 'OK', self.nbuser.email, self.nbuser.detail.status.name, (1 if verified else 0), 0)
-				else:
-					self.writer.write('USR', trid, 'OK', self.nbuser.email, (1 if verified else 0), 0)
-				self.state = NBConn.STATE_SYNC
-			else:
-				self.writer.write(911, trid)
-		elif authtype == 'MD5':
-			if stage == 'I':
-				#>>> USR trid MD5 I email|password@example.com
-				self.usr_emailpw = args[0]
-				(email, pw) = self._decode_email(self.usr_emailpw)
-				self.usr_email = email
-				self.auth_token_md5 = self.nb.do_auth_mock_md5(email, pw)
-				if self.auth_token_md5 is None:
-					self.writer.write(911, trid)
-					return
-				self.writer.write('USR', trid, authtype, 'S', self.auth_token_md5)
-			elif stage == 'S':
-				#>>> USR trid MD5 S response
-				# `response` is ignored; auth done in do_auth_mock_md5.
-				self.nbuser = self.nb.login(self, self.auth_token_md5, self.usr_email)
-				if self.nbuser is None:
-					self.writer.write(911, trid)
-					return
-				self.writer.write('USR', trid, 'OK', self.usr_emailpw, self.nbuser.detail.status.name)
-				self.state = NBConn.STATE_SYNC
-			else:
-				self.writer.write(911, trid)
-		else:
+				self._util_usr_final(trid, None)
+				return
+		
+		self.writer.write(911, trid)
+	
+	def _util_usr_final(self, trid, usr_emailpw):
+		if self.nbuser is None:
 			self.writer.write(911, trid)
+			return
+		#verified = self.nbuser.verified
+		if self.dialect < 10:
+			args = (self.nbuser.detail.status.name,)
+		else:
+			args = ()
+		verified = True
+		self.writer.write('USR', trid, 'OK', usr_emailpw or self.nbuser.email, *args, (1 if verified else 0), 0)
+		self.state = NBConn.STATE_SYNC
 	
 	# State = Sync
 	
@@ -701,11 +679,6 @@ class NBConn(asyncio.Protocol):
 			return None
 		self.syn_ser += 1
 		return self.syn_ser
-	
-	def _decode_email(self, email_pw):
-		if self.dialect >= 8:
-			return (email_pw, None)
-		return decode_email(email_pw)
 
 def _get_user_uuid(email):
 	with Session() as sess:
