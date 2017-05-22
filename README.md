@@ -11,7 +11,7 @@ Currently, MSNP2 through MSNP12 are implemented. It's been tested and works with
 
 - Because of MSNP limitations, to log in to MSN < 5, you need put your password in the email: "name|password@hotmail.com"
 - Because of technical (hopefully temporary) limitations, the same applies to MSN 7.5; also, only 7.5.0322 and 7.5.0324 work
-- MSN 6.1 not supported (no idea that it doesn't log in); 6.0/6.2 are fine
+- MSN 6.1 not supported (no idea why it doesn't log in); 6.0/6.2 are fine
 
 ## Developers
 
