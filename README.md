@@ -7,8 +7,11 @@ See [escargot.log1p.xyz](https://escargot.log1p.xyz) for how to connect.
 
 ## Support status
 
-Currently, MSNP2 and MSNP11 are implemented. It's been tested and works with MSN 1, MSN 2, and MSN 7.0.
+Currently, MSNP2 through MSNP12 are implemented. It's been tested and works with MSN 1 through MSN 7.5, with some caveats:
 
+- Because of MSNP limitations, to log in to MSN < 5, you need put your password in the email: "name|password@hotmail.com"
+- Because of technical (hopefully temporary) limitations, the same applies to MSN 7.5; also, only 7.5.0322 and 7.5.0324 work
+- MSN 6.1 not supported (no idea that it doesn't log in); 6.0/6.2 are fine
 
 ## Developers
 
@@ -18,5 +21,3 @@ For local development:
 - set MSN Switcher to Development mode. This makes MSN use `dev-nexus.escargot.log1p.xyz` which pretends to accept any email/password.
 - set `DEV_ACCEPT_ALL_LOGIN_TOKENS = True` in `settings_local.py` to bypass token verification
 - run `serv_msnp.py`
-
-*TODO:* Investigate skipping TWN auth by simply returning `USR OK` after `USR I`.
