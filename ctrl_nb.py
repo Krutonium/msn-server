@@ -344,7 +344,7 @@ class NBConn(asyncio.Protocol):
 				writer.write('LSG', g.name, g.id)
 			for c in contacts.values():
 				writer.write('LST', 'N={}'.format(c.head.email), 'F={}'.format(c.status.name), 'C={}'.format(c.head.uuid),
-					c.lists, ','.join(c.groups)
+					c.lists, (None if self.dialect < 12 else 1), ','.join(c.groups)
 				)
 		self.state = NBConn.STATE_LIVE
 	
