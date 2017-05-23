@@ -374,41 +374,41 @@ class NBConn(asyncio.Protocol):
 			self.writer.write(229, trid)
 			return
 		nu = self.nbuser
-		id = _gen_group_id(nu.detail)
-		nu.detail.groups[id] = Group(id, name)
+		group_id = _gen_group_id(nu.detail)
+		nu.detail.groups[group_id] = Group(group_id, name)
 		self.nb._mark_modified(nu)
-		self.writer.write('ADG', trid, self._ser(), name, id, 0)
+		self.writer.write('ADG', trid, self._ser(), name, group_id, 0)
 	
-	def _l_rmg(self, trid, id):
+	def _l_rmg(self, trid, group_id):
 		#>>> RMG 250 00000000-0000-0000-0001-000000000001
-		if id == '0':
+		if group_id == '0':
 			self.writer.write(230, trid)
 			return
 		nu = self.nbuser
 		groups = nu.detail.groups
-		if id == 'New%20Group':
+		if group_id == 'New%20Group':
 			# Bug: MSN 7.0 sends name instead of id in a particular scenario
 			for g in groups.values():
 				if g.name != 'New Group': continue
-				id = g.id
+				group_id = g.id
 				break
 		try:
-			del groups[id]
+			del groups[group_id]
 		except KeyError:
 			self.writer.write(224, trid)
 		else:
 			for ctc in nu.detail.contacts.values():
-				ctc.groups.discard(id)
+				ctc.groups.discard(group_id)
 			self.nb._mark_modified(nu)
 			if self.dialect < 10:
-				self.writer.write('RMG', trid, self._ser(), id)
+				self.writer.write('RMG', trid, self._ser(), group_id)
 			else:
-				self.writer.write('RMG', trid, 1, id)
+				self.writer.write('RMG', trid, 1, group_id)
 	
-	def _l_reg(self, trid, id, name, ignored = None):
+	def _l_reg(self, trid, group_id, name, ignored = None):
 		#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
 		nu = self.nbuser
-		g = nu.detail.groups.get(id)
+		g = nu.detail.groups.get(group_id)
 		if g is None:
 			self.writer.write(224, trid)
 			return
@@ -418,9 +418,9 @@ class NBConn(asyncio.Protocol):
 		g.name = name
 		self.nb._mark_modified(nu)
 		if self.dialect < 10:
-			self.writer.write('REG', trid, self._ser(), id, name, 0)
+			self.writer.write('REG', trid, self._ser(), group_id, name, 0)
 		else:
-			self.writer.write('REG', trid, 1, name, id, 0)
+			self.writer.write('REG', trid, 1, name, group_id, 0)
 	
 	def _l_adc(self, trid, lst_name, usr, arg2 = None):
 		if usr.startswith('N='):
@@ -674,7 +674,6 @@ class NBConn(asyncio.Protocol):
 		self.logger.info("unknown (state = {}): {}".format(self.state, m))
 	
 	def _ser(self):
-		# TODO: Find in which dialect SER# aren't used anymore
 		if self.dialect >= 10:
 			return None
 		self.syn_ser += 1
