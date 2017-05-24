@@ -11,10 +11,16 @@ from util.json_type import JSONType
 class Base(declarative_base()):
 	__abstract__ = True
 
+TYPE_ESCARGOT = 1
+TYPE_LIVE = 2
+
 class User(Base):
 	__tablename__ = 't_user'
 	
 	id = sa.Column(sa.Integer, nullable = False, primary_key = True)
+	type = sa.Column(sa.Integer, nullable = False, default = TYPE_ESCARGOT)
+	date_created = sa.Column(sa.DateTime, nullable = True, default = datetime.utcnow)
+	date_login = sa.Column(sa.DateTime, nullable = True)
 	uuid = sa.Column(sa.String, nullable = False, unique = True)
 	email = sa.Column(sa.String, nullable = False, unique = True)
 	verified = sa.Column(sa.Boolean, nullable = False)

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from collections import defaultdict
 from enum import Enum, IntFlag
 from contextlib import contextmanager
@@ -42,6 +43,7 @@ class NB:
 	
 	def _login_common(self, nc, uuid):
 		if uuid is None: return None
+		_update_user_date_login(uuid)
 		nu = self._load_user_record(uuid)
 		self._records_by_nc[nc] = nu
 		self._nc_from_nu[nu].add(nc)
@@ -716,6 +718,12 @@ def _is_blocking(blocker, blockee):
 	if lists & Lst.BL: return True
 	if lists & Lst.AL: return False
 	return (detail.settings.get('BLP', 'AL') == 'BL')
+
+def _update_user_date_login(uuid):
+	with Session() as sess:
+		sess.query(User).filter(User.uuid == uuid).update({
+			'date_login': datetime.utcnow(),
+		})
 
 class NBUser:
 	def __init__(self, user):
