@@ -9,7 +9,9 @@ http://web.archive.org/web/20040218095638/http://wisoftware.host.sk/msn6/
 http://wiki.dequis.org/projects/msn/protocol_versions/
 https://github.com/msndevs/protocol-docs/wiki
 http://www.codeproject.com/Articles/24444/Single-Sign-On-with-MSN-Protocol1
-
+https://code.google.com/archive/p/msnp-sharp/wikis/KB_MSNP21.wiki
+https://searchcode.com/codesearch/view/2262024
+https://wenku.baidu.com/view/73b4f9fe941ea76e58fa0456.html
 
 Polygamy
 ========
