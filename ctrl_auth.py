@@ -11,6 +11,7 @@ def create_app():
 	app.router.add_get('/nexusdevel', handle_nexus)
 	app.router.add_get('/rdr/pprdr.asp', handle_nexus)
 	app.router.add_post('/RST.srf', handle_rst)
+	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_get(LOGIN_PATH, handle_login)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	return app
@@ -37,6 +38,15 @@ async def handle_login(req):
 	return web.Response(status = 200, headers = {
 		'Authentication-Info': '{}da-status=success,from-PP=\'{}\''.format(PP, token),
 	})
+
+async def handle_not_rst(req):
+	email = req.headers.get('X-User')
+	pwd = req.headers.get('X-Password')
+	token = _login_impl(email, pwd)
+	headers = {}
+	if token is not None:
+		headers['X-Token'] = token
+	return Response(status = 200, headers = headers)
 
 async def handle_rst(req):
 	if req.host == settings.DEV_NEXUS:
