@@ -42,7 +42,7 @@ async def handle_login(req):
 async def handle_not_rst(req):
 	email = req.headers.get('X-User')
 	pwd = req.headers.get('X-Password')
-	token = _login_impl(email, pwd)
+	token = _login(email, pwd)
 	headers = {}
 	if token is not None:
 		headers['X-Token'] = token
