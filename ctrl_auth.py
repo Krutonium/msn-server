@@ -46,7 +46,7 @@ async def handle_not_rst(req):
 	headers = {}
 	if token is not None:
 		headers['X-Token'] = token
-	return Response(status = 200, headers = headers)
+	return web.Response(status = 200, headers = headers)
 
 async def handle_rst(req):
 	if req.host == settings.DEV_NEXUS:
