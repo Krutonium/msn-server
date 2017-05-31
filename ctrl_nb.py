@@ -172,7 +172,12 @@ class NBConn(asyncio.Protocol):
 	STATE_SYNC = 's'
 	STATE_LIVE = 'l'
 	
-	DIALECTS = ['MSNP{}'.format(d) for d in (12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2)]
+	DIALECTS = ['MSNP{}'.format(d) for d in (
+		# Not actually supported
+		21, 20, 19, 18, 17, 16, 15, 14, 13,
+		# Actually supported
+		12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2
+	)]
 	
 	def __init__(self, nb):
 		self.nb = nb
