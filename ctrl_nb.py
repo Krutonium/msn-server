@@ -5,8 +5,8 @@ from enum import Enum, IntFlag
 from contextlib import contextmanager
 
 from db import Session, User, Auth
-from util.hash import hasher
-from msnp import Logger, MSNPWriter, MSNPReader, decode_email
+from util.hash import hasher, hasher_md5
+from msnp import Logger, MSNPWriter, MSNPReader
 
 import settings
 
@@ -25,7 +25,7 @@ class NB:
 		
 		self.loop.create_task(_sync_db(self._unsynced_db))
 	
-	def login(self, nc, token, email = None):
+	def login(self, nc, email, token):
 		with Session() as sess:
 			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
 				email = Auth.PopToken(token)
@@ -33,13 +33,19 @@ class NB:
 			uuid = _get_user_uuid(email)
 			return self._login_common(nc, uuid)
 	
-	def login_raw(self, nc, email, pw):
+	def login_md5(self, nc, email, md5_hash):
 		with Session() as sess:
 			user = sess.query(User).filter(User.email == email).one_or_none()
 			if user is None: return None
 			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-				if not hasher.verify(pw, user.password): return None
+				if not hasher_md5.verify_hash(md5_hash, user.password_md5): return None
 			return self._login_common(nc, user.uuid)
+	
+	def get_user_md5_salt(self, email):
+		with Session() as sess:
+			user = sess.query(User).filter(User.email == email).one_or_none()
+			if user is None: return None
+			return hasher.extract_salt(user.password_md5)
 	
 	def _login_common(self, nc, uuid):
 		if uuid is None: return None
@@ -255,30 +261,43 @@ class NBConn(asyncio.Protocol):
 			self.writer.write(502, trid)
 	
 	def _a_usr(self, trid, authtype, stage, *args):
-		if stage == 'I':
-			# This handles MD5 auth
-			usr_emailpw = args[0]
-			(email, pw) = decode_email(usr_emailpw)
-			self.usr_email = email
-			if pw is not None:
-				self.nbuser = self.nb.login_raw(self, email, pw)
-				self._util_usr_final(trid, usr_emailpw)
+		if authtype == 'MD5':
+			if self.dialect >= 8:
+				self.writer.write(502, trid)
+				return
+			if stage == 'I':
+				email = args[0]
+				salt = self.nb.get_user_md5_salt(email)
+				if salt is None:
+					# Account is not enabled for login via MD5
+					# TODO: Can we pass an informative message to user?
+					self.writer.write(911, trid)
+					return
+				self.usr_email = email
+				self.writer.write('USR', trid, authtype, 'S', salt)
+				return
+			if state == 'S':
+				self.nbuser = self.nb.login_md5(self, self.usr_email, args[0])
+				self._util_usr_final(trid)
 				return
 		
 		if authtype == 'TWN':
 			if stage == 'I':
 				#>>> USR trid TWN I email@example.com
+				self.usr_email = args[0]
 				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
+				if self.dialect >= 13:
+					self.writer.write('GCF', 0, None, SHIELDS)
 				return
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
-				self.nbuser = self.nb.login(self, args[0], self.usr_email)
-				self._util_usr_final(trid, None)
+				self.nbuser = self.nb.login(self, self.usr_email, args[0])
+				self._util_usr_final(trid)
 				return
 		
 		self.writer.write(911, trid)
 	
-	def _util_usr_final(self, trid, usr_emailpw):
+	def _util_usr_final(self, trid):
 		if self.nbuser is None:
 			self.writer.write(911, trid)
 			return
@@ -288,8 +307,43 @@ class NBConn(asyncio.Protocol):
 		else:
 			args = ()
 		verified = True
-		self.writer.write('USR', trid, 'OK', usr_emailpw or self.nbuser.email, *args, (1 if verified else 0), 0)
-		self.state = NBConn.STATE_SYNC
+		self.writer.write('USR', trid, 'OK', self.nbuser.email, *args, (1 if verified else 0), 0)
+		
+		if self.dialect < 13:
+			self.state = NBConn.STATE_SYNC
+			return
+		
+		msg = '''MIME-Version: 1.0\r
+Content-Type: text/x-msmsgsprofile; charset=UTF-8\r
+LoginTime: 1115349389\r
+EmailEnabled: 1\r
+MemberIdHigh: 83936\r
+MemberIdLow: 1113138176\r
+lang_preference: 1036\r
+preferredEmail: \r
+country: CA\r
+PostalCode: \r
+Gender: \r
+Kid: 0\r
+Age: \r
+BDayPre: \r
+Birthday: \r
+Wallet: \r
+Flags: 69643\r
+sid: 507\r
+kv: 6\r
+MSPAuth: 6Z1iKIC0bBbNlgb87D2SA1w3PNeweF7DyrUCimEnMdj1hrPLLMlDq5Hm1z0y9Kst92*My3jsIxVZ4VDG8TgBtyfw$$\r
+ClientIP: 24.111.111.111\r
+ClientPort: 60712\r
+ABCHMigrated: 1\r
+BetaInvites: 30\r
+\r
+'''
+		print(msg.encode('ascii'))
+		self.writer.write('SBS', 0, 'null')
+		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.encode('ascii'))
+		
+		self.state = NBConn.STATE_LIVE
 	
 	# State = Sync
 	
@@ -571,14 +625,13 @@ class NBConn(asyncio.Protocol):
 		self.writer.write('CHG', trid, sts_name, capabilities, msnobj)
 		self._send_iln(trid)
 	
-	def _l_rea(self, trid, email_pw, name):
+	def _l_rea(self, trid, email, name):
 		if self.dialect >= 10:
 			self.writer.write(502, trid)
 			return
-		(email, _) = decode_email(email_pw)
 		if email == self.nbuser.email:
 			self._change_display_name(name)
-		self.writer.write('REA', trid, self._ser(), email_pw, name)
+		self.writer.write('REA', trid, self._ser(), email, name)
 	
 	def _l_snd(self, trid, email):
 		# Send email about how to use MSN. Ignore it for now.

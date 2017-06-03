@@ -3,39 +3,73 @@ import hmac
 import random
 import base64
 
-class PBKDF2PasswordHasher:
-	algorithm = 'pbkdf2_sha256'
-	iterations = 24000
-	digest = hashlib.sha256
+class Hasher:
+	algorithm = None
 	separator = '$'
 	
 	@classmethod
-	def encode(cls, password, salt = None, iterations = None):
+	def encode(cls, password, salt = None, *stuff):
 		assert password is not None
-		
 		if not salt:
-			salt = cls.salt()
+			salt = gen_salt()
 		assert cls.separator not in salt
-		
-		if not iterations:
-			iterations = cls.iterations
-		hash = hashlib.pbkdf2_hmac(cls.digest().name, password.encode(), salt.encode(), iterations, None)
+		(hash, *stuff) = cls._encode_impl(password, salt, *stuff)
 		hash = base64.b64encode(hash).decode('ascii').strip()
-		return cls.separator.join((cls.algorithm, str(iterations), salt, hash))
+		return cls.separator.join((cls.algorithm,) + stuff + (salt, hash,))
+	
+	@classmethod
+	def extract_salt(cls, encoded):
+		try: (*_, salt, _) = encoded.split(cls.separator)
+		except ValueError: return None
+		return salt
 	
 	@classmethod
 	def verify(cls, password, encoded):
-		try:
-			algorithm, iterations, salt, hash = encoded.split(cls.separator, 3)
-		except ValueError:
-			return False
-		assert algorithm == cls.algorithm
-		encoded_2 = cls.encode(password, salt, int(iterations))
+		try: (algorithm, *stuff, salt, hash) = encoded.split(cls.separator)
+		except ValueError: return False
+		
+		try: hasher = cls._HASHERS[algorithm]
+		except KeyError: return False
+		
+		assert algorithm == hasher.algorithm
+		encoded_2 = hasher.encode(password, salt, *stuff)
 		return hmac.compare_digest(encoded, encoded_2)
 	
+	_HASHERS = {}
+
+class PBKDF2PasswordHasher(Hasher):
+	algorithm = 'pbkdf2_sha256'
+	iterations = 24000
+	
 	@classmethod
-	def salt(cls, length = 15):
-		seed_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-		return ''.join(random.choice(seed_chars) for i in range(length))
+	def _encode_impl(cls, password, salt, iterations = None):
+		if not iterations:
+			iterations = cls.iterations
+		iterations = int(iterations)
+		hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), iterations, None)
+		return (hash, str(iterations))
+Hasher._HASHERS[PBKDF2PasswordHasher.algorithm] = PBKDF2PasswordHasher
+
+class MD5PasswordHasher(Hasher):
+	algorithm = 'md5'
+	digest = hashlib.md5
+	
+	@classmethod
+	def _encode_impl(cls, password, salt):
+		md5 = hashlib.md5()
+		md5.update((salt + password).encode('utf-8'))
+		return (md5.digest(),)
+	
+	@classmethod
+	def verify_hash(cls, hash_1, encoded):
+		try: (_, _, hash) = encoded.split(cls.separator)
+		except ValueError: return False
+		return hmac.compare_digest(hash_1, hash)
+Hasher._HASHERS[MD5PasswordHasher.algorithm] = MD5PasswordHasher
+
+def gen_salt(length = 15):
+	seed_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+	return ''.join(random.choice(seed_chars) for i in range(length))
 
 hasher = PBKDF2PasswordHasher
+hasher_md5 = MD5PasswordHasher

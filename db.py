@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from util.hash import hasher
+from util import hash
 from util.json_type import JSONType
 
 class Base(declarative_base()):
@@ -27,6 +27,7 @@ class User(Base):
 	name = sa.Column(sa.String, nullable = False)
 	message = sa.Column(sa.String, nullable = False)
 	password = sa.Column(sa.String, nullable = False)
+	password_md5 = sa.Column(sa.String, nullable = False)
 	settings = sa.Column(JSONType, nullable = False)
 	groups = sa.Column(JSONType, nullable = False)
 	contacts = sa.Column(JSONType, nullable = False)
@@ -41,7 +42,7 @@ class Auth(Base):
 	
 	@classmethod
 	def CreateToken(cls, email, lifetime = 30):
-		token = hasher.salt(20)
+		token = hash.gen_salt(20)
 		expiry = datetime.utcnow() + timedelta(seconds = lifetime)
 		with Session() as sess:
 			sess.add(Auth(token = token, email = email, expiry = expiry))

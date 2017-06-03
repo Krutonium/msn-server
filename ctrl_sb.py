@@ -2,7 +2,7 @@ import asyncio
 
 from db import Session, User, Auth
 from util.misc import gen_uuid
-from msnp import Logger, MSNPWriter, MSNPReader, decode_email
+from msnp import Logger, MSNPWriter, MSNPReader
 
 class SB:
 	def __init__(self):
@@ -138,7 +138,6 @@ class SBConn(asyncio.Protocol):
 	
 	def _a_ans(self, trid, email, token, sessid):
 		#>>> ANS trid email@example.com token sessionid
-		(email, _) = decode_email(email)
 		data = self.sb.login_ans(self, email, token, sessid)
 		if data is None:
 			self.writer.error(911, trid)
@@ -166,7 +165,6 @@ class SBConn(asyncio.Protocol):
 	
 	def _l_msg(self, trid, ack, data):
 		#>>> MSG trid [UNAD] len
-		data = _remove_pw_from_msg(data)
 		self.sbsess.send_message(self, data)
 		if ack == 'U':
 			return
@@ -181,16 +179,3 @@ class SBConn(asyncio.Protocol):
 	
 	def _unknown_cmd(self, m):
 		self.logger.info("unknown (state = {}): {}".format(self.state, m))
-
-def _remove_pw_from_msg(data):
-	i = data.find(b'\r\nTypingUser:')
-	if i < 0: return data
-	i += 14
-	j = data.find(b'\r\n', i)
-	if j < 0: j = len(data)
-	s = data[i:j]
-	l = s.find(b'|')
-	if l < 0: return data
-	r = s.rfind(b'@')
-	if r <= l: return data
-	return data[:i+l] + data[i+r:]
