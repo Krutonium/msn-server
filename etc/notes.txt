@@ -61,3 +61,13 @@ WLM  8.1+ (2007-01-29):          15 ?? ??
 WLM 14    (2009-01-07):       18 ?? ?? ??
 WLM 15    (2010-09-30):    19 ?? ?? ?? ??
 WLM 16    (2012-08-07): 21 ?? ?? ?? ?? ??
+
+
+Other
+=====
+
+Clicking "MSN Today" does a request to http://config.messenger.msn.com/Config/MsgrConfig.asmx.
+MSN also keeps trying to get that URL for a while, until it gives up.
+When it gives up, it removes the "MSN Today" button.
+
+Example response: http://www.mail-archive.com/amsn-devel@lists.sourceforge.net/msg04225/getclientconfig.log

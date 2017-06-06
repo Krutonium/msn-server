@@ -15,7 +15,7 @@ class Hasher:
 		assert cls.separator not in salt
 		(hash, *stuff) = cls._encode_impl(password, salt, *stuff)
 		hash = base64.b64encode(hash).decode('ascii').strip()
-		return cls.separator.join((cls.algorithm,) + stuff + (salt, hash,))
+		return cls.separator.join([cls.algorithm] + stuff + [salt, hash])
 	
 	@classmethod
 	def extract_salt(cls, encoded):

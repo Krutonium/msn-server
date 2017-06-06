@@ -8,6 +8,7 @@ SB = [
 	Service('m1.escargot.log1p.xyz', 1864),
 ]
 
+DB = 'sqlite:///msn.sqlite'
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
 DEV_NEXUS = 'dev-nexus.escargot.log1p.xyz'
 DEBUG = True

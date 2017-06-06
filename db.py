@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from util import hash
 from util.json_type import JSONType
+import settings
 
 class Base(declarative_base()):
 	__abstract__ = True
@@ -70,7 +71,7 @@ class Auth(Base):
 		with Session() as sess:
 			sess.query(Auth).filter(Auth.token == token).delete()
 
-engine = sa.create_engine('sqlite:///msn.sqlite')
+engine = sa.create_engine(settings.DB)
 session_factory = sessionmaker(bind = engine)
 
 @contextmanager

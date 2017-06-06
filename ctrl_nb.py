@@ -276,7 +276,7 @@ class NBConn(asyncio.Protocol):
 				self.usr_email = email
 				self.writer.write('USR', trid, authtype, 'S', salt)
 				return
-			if state == 'S':
+			if stage == 'S':
 				self.nbuser = self.nb.login_md5(self, self.usr_email, args[0])
 				self._util_usr_final(trid)
 				return
