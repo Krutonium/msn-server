@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import random
 import base64
+import binascii
 
 class Hasher:
 	algorithm = None
@@ -64,6 +65,7 @@ class MD5PasswordHasher(Hasher):
 	def verify_hash(cls, hash_1, encoded):
 		try: (_, _, hash) = encoded.split(cls.separator)
 		except ValueError: return False
+		hash = binascii.hexlify(base64.b64decode(hash)).decode('ascii')
 		return hmac.compare_digest(hash_1, hash)
 Hasher._HASHERS[MD5PasswordHasher.algorithm] = MD5PasswordHasher
 
