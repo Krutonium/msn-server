@@ -286,8 +286,8 @@ class NBConn(asyncio.Protocol):
 				#>>> USR trid TWN I email@example.com
 				self.usr_email = args[0]
 				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
-				if self.dialect >= 13:
-					self.writer.write('GCF', 0, None, SHIELDS)
+				#if self.dialect >= 13:
+				#	self.writer.write('GCF', 0, None, SHIELDS)
 				return
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
@@ -307,12 +307,15 @@ class NBConn(asyncio.Protocol):
 		else:
 			args = ()
 		verified = True
-		self.writer.write('USR', trid, 'OK', self.nbuser.email, *args, (1 if verified else 0), 0)
+		if self.dialect >= 8:
+			args += ((1 if verified else 0), 0)
+		self.writer.write('USR', trid, 'OK', self.nbuser.email, *args)
 		
 		if self.dialect < 13:
 			self.state = NBConn.STATE_SYNC
 			return
 		
+		# Why won't you work!!!
 		msg = '''MIME-Version: 1.0\r
 Content-Type: text/x-msmsgsprofile; charset=UTF-8\r
 LoginTime: 1115349389\r
@@ -341,6 +344,7 @@ BetaInvites: 30\r
 '''
 		print(msg.encode('ascii'))
 		self.writer.write('SBS', 0, 'null')
+		self.writer.write('PRP', 'MFN', 'Test')
 		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.encode('ascii'))
 		
 		self.state = NBConn.STATE_LIVE
