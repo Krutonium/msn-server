@@ -283,14 +283,19 @@ class NBConn(asyncio.Protocol):
 		
 		if authtype in ('TWN', 'SSO'):
 			if stage == 'I':
-				#>>> USR trid TWN I email@example.com
+				#>>> USR trid TWN/SSO I email@example.com
 				self.usr_email = args[0]
-				self.writer.write('USR', trid, authtype, 'S', 'Unused_USR_I')
+				if authtype == 'TWN':
+					token = ('Unused_USR_I',)
+				else:
+					token = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
+				self.writer.write('USR', trid, authtype, 'S', *token)
 				#if self.dialect >= 13:
 				#	self.writer.write('GCF', 0, None, SHIELDS)
 				return
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
+				#>>> USR trid SSO S auth_token b64_response
 				self.nbuser = self.nb.login(self, self.usr_email, args[0])
 				self._util_usr_final(trid)
 				return
