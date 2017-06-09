@@ -605,6 +605,9 @@ BetaInvites: 30\r
 		self.writer.write('REM', trid, lst_name, self._ser(), usr, group_id)
 	
 	def _l_gtc(self, trid, value):
+		if self.dialect >= 13:
+			self.writer.write(502, trid)
+			return
 		# "Alert me when other people add me ..." Y/N
 		#>>> ['GTC', '152', 'N']
 		self._setting_change('GTC', trid, value)
@@ -664,6 +667,22 @@ BetaInvites: 30\r
 		assert dest == 'SB'
 		token, sb = self.nb.sb_auth(self.nbuser)
 		self.writer.write('XFR', trid, dest, '{}:{}'.format(sb.host, sb.port), 'CKI', token)
+	
+	def _l_adl(self, trid, data):
+		# TODO
+		self.writer.write('ADL', trid, 'OK')
+	
+	def _l_rml(self, trid, data):
+		# TODO
+		self.writer.write('RML', trid, 'OK')
+	
+	def _l_fqy(self, trid, data):
+		# TODO
+		self.writer.write('FQY', trid, b'')
+	
+	def _l_uun(self, trid, email, arg0, arg1, data):
+		# TODO
+		self.writer.write('UUN', trid, 'OK')
 	
 	# Utils
 	

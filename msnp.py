@@ -94,7 +94,7 @@ class MSNPReader:
 		assert len(m) > 1
 		m = m.split()
 		m = [unquote(x) for x in m]
-		if m[0] in ('UUX', 'MSG'):
+		if m[0] in ('UUX', 'MSG', 'ADL', 'FQY', 'RML', 'UUN'):
 			n = int(m[-1])
 			assert e+n <= len(d)
 			m[-1] = d[e:e+n]
