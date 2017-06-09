@@ -670,7 +670,7 @@ BetaInvites: 30\r
 	def _setting_change(self, name, trid, value):
 		nu = self.nbuser
 		nu.detail.settings[name] = value
-		self._mark_modified(nu)
+		self.nb._mark_modified(nu)
 		self.writer.write(name, trid, self._ser(), value)
 	
 	def _send_iln(self, trid):
