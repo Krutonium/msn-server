@@ -5,7 +5,7 @@ messenger-0001.now.im {
 	redir https://m1.escargot.log1p.xyz{uri}
 }
 
-m1.escargot.log1p.xyz, dev-nexus.escargot.log1p.xyz {
+m1.escargot.log1p.xyz, m00000001.escargot.log1p.xyz, dev-nexus.escargot.log1p.xyz {
 	tls <your email here> {
 		# WinXP supports max tls1.0
 		protocols tls1.0 tls1.2
