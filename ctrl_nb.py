@@ -281,7 +281,7 @@ class NBConn(asyncio.Protocol):
 				self._util_usr_final(trid)
 				return
 		
-		if authtype == 'TWN':
+		if authtype in ('TWN', 'SSO'):
 			if stage == 'I':
 				#>>> USR trid TWN I email@example.com
 				self.usr_email = args[0]
