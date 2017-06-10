@@ -286,7 +286,9 @@ class NBConn(asyncio.Protocol):
 				#>>> USR trid TWN/SSO I email@example.com
 				self.usr_email = args[0]
 				if authtype == 'TWN':
-					token = ('Unused_USR_I',)
+					#token = ('ct={},rver=5.5.4177.0,wp=FS_40SEC_0_COMPACT,lc=1033,id=507,ru=http:%2F%2Fmessenger.msn.com,tw=0,kpp=1,kv=4,ver=2.1.6000.1,rn=1lgjBfIL,tpf=b0735e3a873dfb5e75054465196398e0'.format(int(time())),)
+					# This seems to work too:
+					token = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
 				else:
 					token = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
 				self.writer.write('USR', trid, authtype, 'S', *token)
@@ -347,7 +349,6 @@ ABCHMigrated: 1\r
 BetaInvites: 30\r
 \r
 '''
-		print(msg.encode('ascii'))
 		self.writer.write('SBS', 0, 'null')
 		self.writer.write('PRP', 'MFN', 'Test')
 		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.encode('ascii'))
