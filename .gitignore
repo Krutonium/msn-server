@@ -2,3 +2,4 @@ __pycache__
 msn.sqlite
 settings_local.py
 etc/Caddyfile
+dev/cert
