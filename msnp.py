@@ -2,8 +2,6 @@ import io
 from urllib.parse import quote, unquote
 from lxml.objectify import fromstring as parse_xml
 
-from settings import DEBUG
-
 class MSNPWriter:
 	def __init__(self, logger, transport):
 		self.logger = logger
@@ -118,28 +116,3 @@ def parse_uux(data):
 def urlescape_msnobj(msnobj):
 	if msnobj is None: return None
 	return quote(msnobj, safe = '')
-
-class Logger:
-	def __init__(self, prefix):
-		self.prefix = prefix
-		self.transport = None
-	
-	def info(self, *args):
-		if DEBUG:
-			print(self._name(), *args)
-	
-	def log_connect(self, transport):
-		self.transport = transport
-		self.info("con")
-	
-	def log_disconnect(self):
-		self.info("dis")
-		self.transport = None
-	
-	def _name(self):
-		name = ''
-		if self.transport:
-			(_, port) = self.transport.get_extra_info('peername')
-			name += '{}'.format(port)
-		name += ' ' + self.prefix
-		return name

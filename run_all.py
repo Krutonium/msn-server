@@ -1,6 +1,7 @@
 def main():
 	from functools import partial
 	import asyncio
+	from misc import AIOHTTPRunner
 	import ctrl_nb, ctrl_sb, ctrl_auth, settings
 	
 	loop = asyncio.get_event_loop()
@@ -29,22 +30,6 @@ def main():
 	))
 	a_auth.teardown(loop)
 	loop.close()
-
-class AIOHTTPRunner:
-	def __init__(self, app):
-		self.app = app
-		self.handler = None
-	
-	def setup(self, loop):
-		from aiohttp.log import access_logger
-		self.handler = self.app.make_handler(loop = loop, access_log = access_logger)
-		loop.run_until_complete(self.app.startup())
-		return self.handler
-	
-	def teardown(self, loop, shutdown_timeout = 60):
-		loop.run_until_complete(self.app.shutdown())
-		loop.run_until_complete(self.handler.shutdown(shutdown_timeout))
-		loop.run_until_complete(self.app.cleanup())
 
 if __name__ == '__main__':
 	main()

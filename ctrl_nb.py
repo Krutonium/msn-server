@@ -6,7 +6,8 @@ from contextlib import contextmanager
 
 from db import Session, User, Auth
 from util.hash import hasher, hasher_md5
-from msnp import Logger, MSNPWriter, MSNPReader
+from util.misc import Logger
+from msnp import MSNPWriter, MSNPReader
 
 import settings
 

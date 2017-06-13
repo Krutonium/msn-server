@@ -2,7 +2,8 @@ import asyncio
 
 from db import Session, User, Auth
 from util.misc import gen_uuid
-from msnp import Logger, MSNPWriter, MSNPReader
+from util.misc import Logger
+from msnp import MSNPWriter, MSNPReader
 
 class SB:
 	def __init__(self):

@@ -11,7 +11,23 @@ def create_app():
 	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_get(LOGIN_PATH, handle_login)
 	app.router.add_route('*', '/{path:.*}', handle_other)
+	
+	app.on_response_prepare.append(on_response_prepare)
+	
 	return app
+
+async def on_response_prepare(req, res):
+	if not settings.DEBUG:
+		return
+	print("# Request: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
+	#print(req.headers)
+	#body = await req.read()
+	#if body:
+	#	print("body {")
+	#	print(body)
+	#	print("}")
+	#else:
+	#	print("body {}")
 
 async def handle_nexus(req):
 	return web.Response(status = 200, headers = {
@@ -61,15 +77,6 @@ def _login(email, pwd):
 		return Auth.CreateToken(user.email)
 
 async def handle_other(req):
-	print("UNKNOWN REQUEST:", req.method, req.host + req.path_qs)
-	#print(req.headers)
-	#body = await req.read()
-	#if body:
-	#	print("body {")
-	#	print(body)
-	#	print("}")
-	#else:
-	#	print("body {}")
-	return web.Response(status = 404)
+	return web.Response(status = 404, text = "hello")
 
 PP = 'Passport1.4 '
