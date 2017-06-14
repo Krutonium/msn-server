@@ -1,7 +1,7 @@
 def main():
 	from functools import partial
 	import asyncio
-	from misc import AIOHTTPRunner
+	from util.misc import AIOHTTPRunner
 	import ctrl_nb, ctrl_sb, ctrl_auth, settings
 	
 	loop = asyncio.get_event_loop()
