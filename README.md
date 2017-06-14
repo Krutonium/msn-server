@@ -13,7 +13,8 @@ Currently, MSNP2 through MSNP12 are implemented. It's been tested and works with
 
 ## Developers
 
-For local development, firstly you need `openssl` to be on your `$PATH`. Then:
+For local development:
+For local development:
 
 - in your `HOSTS`, add `127.0.0.1 m1.escargot.log1p.xyz`
 - run `python dev`

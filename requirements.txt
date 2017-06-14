@@ -1,3 +1,4 @@
 lxml
 aiohttp
 sqlalchemy
+cryptography
