@@ -87,7 +87,9 @@ class MSNPReader:
 	def _try_read(self):
 		i = self._i
 		d = self._data
-		e = d.index(b'\n', i) + 1
+		e = d.find(b'\n', i)
+		assert e >= 0
+		e += 1
 		m = d[i:e].decode('utf-8').strip()
 		assert len(m) > 1
 		m = m.split()
