@@ -77,6 +77,6 @@ def _login(email, pwd):
 		return Auth.CreateToken(user.email)
 
 async def handle_other(req):
-	return web.Response(status = 404)
+	return web.Response(status = 404, text = '')
 
 PP = 'Passport1.4 '
