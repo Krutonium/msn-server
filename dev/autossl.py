@@ -1,4 +1,4 @@
-from os.path import exists
+from pathlib import Path
 from functools import lru_cache
 
 from cryptography import x509
@@ -6,7 +6,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 
-CERT_DIR = 'dev/cert'
+CERT_DIR = Path('dev/cert')
 CERT_ROOT_CA = 'DO_NOT_TRUST_DevEscargotRoot'
 
 def perform_checks():
@@ -38,39 +38,35 @@ def create_context():
 	return ssl_context
 
 def autovivify_certificate(domain):
-	f_base = '{}/{}'.format(CERT_DIR, domain)
-	f_crt = '{}.crt'.format(f_base)
-	f_key = '{}.key'.format(f_base)
+	p_crt = CERT_DIR / '{}.crt'.format(domain)
+	p_key = CERT_DIR / '{}.key'.format(domain)
 	
-	if not exists(f_crt):
+	if not p_crt.exists():
 		key = create_key()
 		csr = create_csr(key, domain = domain)
 		root_crt, root_key = autovivify_root_ca()
 		crt = sign_csr(csr, root_crt.subject, root_key)
-		save_key(key, f_key)
-		save_cert(crt, f_crt)
+		save_key(key, p_key)
+		save_cert(crt, p_crt)
 	
-	return f_crt, f_key
+	return p_crt, p_key
 
 @lru_cache()
 def autovivify_root_ca():
-	import os
+	CERT_DIR.mkdir(parents = True, exist_ok = True)
 	
-	os.makedirs(CERT_DIR, exist_ok = True)
+	p_crt = CERT_DIR / '{}.crt'.format(CERT_ROOT_CA)
+	p_key = CERT_DIR / '{}.key'.format(CERT_ROOT_CA)
 	
-	f_base = '{}/{}'.format(CERT_DIR, CERT_ROOT_CA)
-	f_key = '{}.key'.format(f_base)
-	f_crt = '{}.crt'.format(f_base)
-	
-	if exists(f_crt) and exists(f_key):
-		return load_cert(f_crt), load_key(f_key)
+	if p_crt.exists() and p_key.exists():
+		return load_cert(p_crt), load_key(p_key)
 	
 	key = create_key()
 	csr = create_csr(key, common_name = CERT_ROOT_CA)
 	crt = sign_csr(csr, csr.subject, key)
 	
-	save_key(key, f_key)
-	save_cert(crt, f_crt)
+	save_key(key, p_key)
+	save_cert(crt, p_crt)
 	
 	return None
 
@@ -112,24 +108,24 @@ def sign_csr(csr, issuer, issuer_key, *, days = 30):
 	cert = cert.sign(issuer_key, hashes.SHA256(), default_backend())
 	return cert
 
-def load_key(filename):
+def load_key(path):
 	backend = default_backend()
-	with open(filename, 'rb') as fh:
+	with path.open('rb') as fh:
 		return serialization.load_pem_private_key(fh.read(), None, backend)
 
-def save_key(key, filename):
-	with open(filename, 'wb') as ff:
-		ff.write(key.private_bytes(
+def save_key(key, path):
+	with path.open('wb') as fh:
+		fh.write(key.private_bytes(
 			encoding = serialization.Encoding.PEM,
 			format = serialization.PrivateFormat.TraditionalOpenSSL,
 			encryption_algorithm = serialization.NoEncryption(),
 		))
 
-def load_cert(filename):
+def load_cert(path):
 	backend = default_backend()
-	with open(filename, 'rb') as fh:
+	with path.open('rb') as fh:
 		return x509.load_pem_x509_certificate(fh.read(), backend)
 
-def save_cert(crt, filename):
-	with open(filename, 'wb') as ff:
-		ff.write(crt.public_bytes(serialization.Encoding.PEM))
+def save_cert(crt, path):
+	with path.open('wb') as fh:
+		fh.write(crt.public_bytes(serialization.Encoding.PEM))
