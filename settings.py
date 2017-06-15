@@ -6,6 +6,7 @@ class Service:
 NB = Service('m1.escargot.log1p.xyz', 1863)
 SB = [
 	Service('m1.escargot.log1p.xyz', 1864),
+	# Right now, code ignores any SBs after the first
 ]
 
 DB = 'sqlite:///msn.sqlite'

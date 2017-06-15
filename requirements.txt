@@ -2,3 +2,4 @@ lxml
 aiohttp
 sqlalchemy
 cryptography
+pytest

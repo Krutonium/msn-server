@@ -1,12 +1,11 @@
 from util.hash import hasher
 from ctrl_nb import Lst
-from db import Base, Session, User, Auth, engine
+from db import Base, Session, User, engine
 
 Base.metadata.create_all(engine)
 
 with Session() as sess:
 	sess.query(User).delete()
-	sess.query(Auth).delete()
 	
 	sess.add(User(
 		uuid = '00000000-0000-0000-0002-000000000001',

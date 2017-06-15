@@ -108,6 +108,20 @@ class MSNPReader:
 		self._i += n
 		return self._data[i:e]
 
+class Err:
+	InvalidParameter = 201
+	InvalidPrincipal = 205
+	PrincipalOnList = 215
+	PrincipalNotOnList = 216
+	PrincipalNotOnline = 217
+	GroupInvalid = 224
+	PrincipalNotInGroup = 225
+	GroupNameTooLong = 229
+	GroupZeroUnremovable = 230
+	InternalServerError = 500
+	CommandDisabled = 502
+	AuthFail = 911
+
 def parse_uux(data):
 	elm = parse_xml(data.decode('utf-8'))
 	return {

@@ -4,17 +4,18 @@ from collections import defaultdict
 from enum import Enum, IntFlag
 from contextlib import contextmanager
 
-from db import Session, User, Auth
+from db import Session, User
 from util.hash import hasher, hasher_md5
 from util.misc import Logger
-from msnp import MSNPWriter, MSNPReader
+from util.msnp import MSNPWriter, MSNPReader, Err
 
 import settings
 
 class NB:
-	def __init__(self, loop, sbservices):
+	def __init__(self, loop, auth_service, sbservices):
 		self.loop = loop
-		self.sbservices = sbservices
+		self._auth = auth_service
+		self._sbservices = sbservices
 		# Dict[User.uuid, NBUser]
 		self.records = {}
 		# Dict[NBConn, NBUser]
@@ -27,12 +28,11 @@ class NB:
 		self.loop.create_task(_sync_db(self._unsynced_db))
 	
 	def login(self, nc, email, token):
-		with Session() as sess:
-			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-				email = Auth.PopToken(token)
-			if email is None: return None
-			uuid = _get_user_uuid(email)
-			return self._login_common(nc, uuid)
+		if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
+			email = self._auth.pop_token('nb/login', token)
+		if email is None: return None
+		uuid = _get_user_uuid(email)
+		return self._login_common(nc, uuid)
 	
 	def login_md5(self, nc, email, md5_hash):
 		with Session() as sess:
@@ -113,22 +113,17 @@ class NB:
 	def _mark_modified(self, user_head):
 		self._unsynced_db[user_head] = user_head.detail
 	
-	def sb_auth(self, nu):
-		return Auth.CreateToken(nu.email), self.sbservices[0]
+	def get_contact_connections(self, user_uuid, contact_email):
+		user = self.records.get(user_uuid)
+		if user is None: return Err.InternalServerError
+		if user.detail is None: return Err.InternalServerError
+		ctc = user.detail.get_contact_by_email(contact_email)
+		if ctc is None: return Err.InvalidPrincipal
+		if ctc.status.is_offlineish(): return Err.PrincipalNotOnline
+		return self._nc_from_nu[ctc.head]
 	
-	def sb_call(self, caller_uuid, callee_email, sbsess):
-		caller = self.records.get(caller_uuid)
-		if caller is None: return 500
-		if caller.detail is None: return 500
-		ctc = None
-		for ctc in caller.detail.contacts.values():
-			if ctc.head.email == callee_email: break
-		if ctc.status.is_offlineish(): return 217
-		ctc_ncs = self._nc_from_nu[ctc.head]
-		if not ctc_ncs: return 217
-		for ctc_nc in ctc_ncs:
-			token = Auth.CreateToken(ctc.head.email)
-			ctc_nc.notify_ring(sbsess, token, caller)
+	def get_sbservice(self):
+		return self._sbservices[0]
 	
 	def on_leave(self, nc):
 		nu = self._records_by_nc.get(nc)
@@ -151,26 +146,6 @@ class NB:
 		if nu1 not in self._nc_from_nu: return
 		for nc in self._nc_from_nu[nu1]:
 			nc.notify_add_rl(nu2)
-
-async def _sync_db(unsynced):
-	import traceback
-	while True:
-		await asyncio.sleep(1)
-		if not unsynced: continue
-		nus = list(unsynced.keys())[:100]
-		with Session():
-			for nu in nus:
-				detail = unsynced[nu]
-				try:
-					_save_detail(nu, detail)
-				except Exception:
-					# TODO: Some exceptions should probably stop server
-					traceback.print_exc()
-				finally:
-					# Remove from unsynced regardless of whether it got sync'd
-					# or not, otherwise the list will grow unbounded and
-					# sync for users past first 100 will never be attempted.
-					del unsynced[nu]
 
 class NBConn(asyncio.Protocol):
 	STATE_QUIT = 'q'
@@ -225,9 +200,9 @@ class NBConn(asyncio.Protocol):
 	
 	# Hooks for NB
 	
-	def notify_ring(self, sbsess, token, nu_ringer):
-		sb = self.nb.sbservices[0]
-		self.writer.write('RNG', sbsess.id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, nu_ringer.email, nu_ringer.detail.status.name)
+	def notify_ring(self, sbsess, token, ringer_email, ringer_name):
+		sb = self.nb.get_sbservice()
+		self.writer.write('RNG', sbsess.id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, ringer_email, ringer_name)
 	
 	def notify_presence(self, ctc):
 		self._send_presence_notif(None, ctc)
@@ -259,12 +234,12 @@ class NBConn(asyncio.Protocol):
 		if self.dialect < 8:
 			self.writer.write('INF', trid, 'MD5')
 		else:
-			self.writer.write(502, trid)
+			self.writer.write(Err.CommandDisabled, trid)
 	
 	def _a_usr(self, trid, authtype, stage, *args):
 		if authtype == 'MD5':
 			if self.dialect >= 8:
-				self.writer.write(502, trid)
+				self.writer.write(Err.CommandDisabled, trid)
 				return
 			if stage == 'I':
 				email = args[0]
@@ -272,7 +247,7 @@ class NBConn(asyncio.Protocol):
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
-					self.writer.write(911, trid)
+					self.writer.write(Err.AuthFail, trid)
 					return
 				self.usr_email = email
 				self.writer.write('USR', trid, authtype, 'S', salt)
@@ -303,11 +278,11 @@ class NBConn(asyncio.Protocol):
 				self._util_usr_final(trid)
 				return
 		
-		self.writer.write(911, trid)
+		self.writer.write(Err.AuthFail, trid)
 	
 	def _util_usr_final(self, trid):
 		if self.nbuser is None:
-			self.writer.write(911, trid)
+			self.writer.write(Err.AuthFail, trid)
 			return
 		#verified = self.nbuser.verified
 		if self.dialect < 10:
@@ -324,35 +299,14 @@ class NBConn(asyncio.Protocol):
 			return
 		
 		# Why won't you work!!!
-		msg = '''MIME-Version: 1.0\r
-Content-Type: text/x-msmsgsprofile; charset=UTF-8\r
-LoginTime: 1115349389\r
-EmailEnabled: 1\r
-MemberIdHigh: 83936\r
-MemberIdLow: 1113138176\r
-lang_preference: 1036\r
-preferredEmail: \r
-country: CA\r
-PostalCode: \r
-Gender: \r
-Kid: 0\r
-Age: \r
-BDayPre: \r
-Birthday: \r
-Wallet: \r
-Flags: 69643\r
-sid: 507\r
-kv: 6\r
-MSPAuth: 6Z1iKIC0bBbNlgb87D2SA1w3PNeweF7DyrUCimEnMdj1hrPLLMlDq5Hm1z0y9Kst92*My3jsIxVZ4VDG8TgBtyfw$$\r
-ClientIP: 24.111.111.111\r
-ClientPort: 60712\r
-ABCHMigrated: 1\r
-BetaInvites: 30\r
-\r
+		msg = '''MIME-Version: 1.0
+Content-Type: text/x-msmsgsprofile; charset=UTF-8
+MSPAuth: banana-mspauth-potato
+
 '''
 		self.writer.write('SBS', 0, 'null')
 		self.writer.write('PRP', 'MFN', 'Test')
-		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.encode('ascii'))
+		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.replace('\n', '\r\n').encode('ascii'))
 		
 		self.state = NBConn.STATE_LIVE
 	
@@ -443,7 +397,7 @@ BetaInvites: 30\r
 	def _l_adg(self, trid, name, ignored = None):
 		#>>> ADG 276 New Group
 		if len(name) > 61:
-			self.writer.write(229, trid)
+			self.writer.write(Err.GroupNameTooLong, trid)
 			return
 		nu = self.nbuser
 		group_id = _gen_group_id(nu.detail)
@@ -454,7 +408,7 @@ BetaInvites: 30\r
 	def _l_rmg(self, trid, group_id):
 		#>>> RMG 250 00000000-0000-0000-0001-000000000001
 		if group_id == '0':
-			self.writer.write(230, trid)
+			self.writer.write(Err.GroupZeroUnremovable, trid)
 			return
 		nu = self.nbuser
 		groups = nu.detail.groups
@@ -467,7 +421,7 @@ BetaInvites: 30\r
 		try:
 			del groups[group_id]
 		except KeyError:
-			self.writer.write(224, trid)
+			self.writer.write(Err.GroupInvalid, trid)
 		else:
 			for ctc in nu.detail.contacts.values():
 				ctc.groups.discard(group_id)
@@ -482,10 +436,10 @@ BetaInvites: 30\r
 		nu = self.nbuser
 		g = nu.detail.groups.get(group_id)
 		if g is None:
-			self.writer.write(224, trid)
+			self.writer.write(Err.GroupInvalid, trid)
 			return
 		if len(name) > 61:
-			self.writer.write(229, trid)
+			self.writer.write(Err.GroupNameTooLong, trid)
 			return
 		g.name = name
 		self.nb._mark_modified(nu)
@@ -502,7 +456,7 @@ BetaInvites: 30\r
 			email = usr[2:]
 			contact_uuid = _get_user_uuid(email)
 			if contact_uuid is None:
-				self.writer.write(205, trid)
+				self.writer.write(Err.InvalidPrincipal, trid)
 				return
 			group_id = None
 			name = (arg2[2:] if arg2 else None)
@@ -518,7 +472,7 @@ BetaInvites: 30\r
 		#>>> ADD 122 FL email name group
 		contact_uuid = _get_user_uuid(email)
 		if contact_uuid is None:
-			self.writer.write(205, trid)
+			self.writer.write(Err.InvalidPrincipal, trid)
 			return
 		self._add_to_list_bidi(trid, lst_name, contact_uuid, name, group_id)
 
@@ -532,10 +486,10 @@ BetaInvites: 30\r
 		if lst == Lst.FL:
 			if group_id is not None and group_id != '0':
 				if group_id not in nu.detail.groups:
-					self.writer.write(224, trid)
+					self.writer.write(Err.GroupInvalid, trid)
 					return
 				if group_id in ctc.groups:
-					self.writer.write(215, trid)
+					self.writer.write(Err.PrincipalOnList, trid)
 					return
 				ctc.groups.add(group_id)
 				self.nb._mark_modified(nu)
@@ -573,7 +527,7 @@ BetaInvites: 30\r
 				contact_uuid = usr
 			ctc = nu.detail.contacts.get(contact_uuid)
 			if ctc is None:
-				self.writer.write(216, trid)
+				self.writer.write(Err.PrincipalNotOnList, trid)
 				return
 			
 			if group_id is None:
@@ -587,13 +541,13 @@ BetaInvites: 30\r
 				#>>> ['REM', '247', 'FL', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000002']
 				# Only remove group
 				if group_id not in nu.detail.groups and group_id != '0':
-					self.writer.write(224, trid)
+					self.writer.write(Err.GroupInvalid, trid)
 					return
 				try:
 					ctc.groups.remove(group_id)
 				except KeyError:
 					if group_id == '0':
-						self.writer.write(225, trid)
+						self.writer.write(Err.PrincipalNotInGroup, trid)
 						return
 				self.nb._mark_modified(nu)
 		else:
@@ -606,14 +560,14 @@ BetaInvites: 30\r
 				ctc.lists &= ~lb
 				found = True
 			if not found:
-				self.writer.write(216, trid)
+				self.writer.write(Err.PrincipalNotOnList, trid)
 				return
 			self.nb._mark_modified(nu)
 		self.writer.write('REM', trid, lst_name, self._ser(), usr, group_id)
 	
 	def _l_gtc(self, trid, value):
 		if self.dialect >= 13:
-			self.writer.write(502, trid)
+			self.writer.write(Err.CommandDisabled, trid)
 			return
 		# "Alert me when other people add me ..." Y/N
 		#>>> ['GTC', '152', 'N']
@@ -641,7 +595,7 @@ BetaInvites: 30\r
 	
 	def _l_rea(self, trid, email, name):
 		if self.dialect >= 10:
-			self.writer.write(502, trid)
+			self.writer.write(Err.CommandDisabled, trid)
 			return
 		if email == self.nbuser.email:
 			self._change_display_name(name)
@@ -671,8 +625,11 @@ BetaInvites: 30\r
 		self.writer.write('SBP', trid, uuid, key, value)
 	
 	def _l_xfr(self, trid, dest):
-		assert dest == 'SB'
-		token, sb = self.nb.sb_auth(self.nbuser)
+		if dest != 'SB':
+			self.writer.write(Err.InvalidParameter, trid)
+			return
+		token = self.nb._auth.create_token('xfr', self.nbuser.email)
+		sb = self.nb.get_sbservice()
 		self.writer.write('XFR', trid, dest, '{}:{}'.format(sb.host, sb.port), 'CKI', token)
 	
 	def _l_adl(self, trid, data):
@@ -769,6 +726,26 @@ BetaInvites: 30\r
 		self.syn_ser += 1
 		return self.syn_ser
 
+async def _sync_db(unsynced):
+	import traceback
+	while True:
+		await asyncio.sleep(1)
+		if not unsynced: continue
+		nus = list(unsynced.keys())[:100]
+		with Session():
+			for nu in nus:
+				detail = unsynced[nu]
+				try:
+					_save_detail(nu, detail)
+				except Exception:
+					# TODO: Some exceptions should probably stop server
+					traceback.print_exc()
+				finally:
+					# Remove from unsynced regardless of whether it got sync'd
+					# or not, otherwise the list will grow unbounded and
+					# sync for users past first 100 will never be attempted.
+					del unsynced[nu]
+
 def _get_user_uuid(email):
 	with Session() as sess:
 		user = sess.query(User).filter(User.email == email).one_or_none()
@@ -847,6 +824,11 @@ class UserDetail:
 		self.contacts = {}
 		self.capabilities = 0
 		self.msnobj = None
+	
+	def get_contact_by_email(self, email):
+		for ctc in self.contacts.values():
+			if ctc.head.email == email: return ctc
+		return None
 
 def _gen_group_id(detail):
 	id = 1

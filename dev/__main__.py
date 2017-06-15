@@ -2,6 +2,7 @@ def main():
 	from functools import partial
 	import asyncio
 	from util.misc import AIOHTTPRunner
+	from util.auth import AuthService
 	import ctrl_nb, ctrl_sb, ctrl_auth, settings
 	from dev import autossl
 	
@@ -9,13 +10,13 @@ def main():
 		return
 	
 	ssl_context = autossl.create_context()
-	
+	auth_service = AuthService()
 	loop = asyncio.get_event_loop()
 	
-	nb = ctrl_nb.NB(loop, settings.SB)
-	sb = ctrl_sb.SB()
-	a_auth_https = AIOHTTPRunner(ctrl_auth.create_app())
-	a_auth_http = AIOHTTPRunner(ctrl_auth.create_app())
+	nb = ctrl_nb.NB(loop, auth_service, settings.SB)
+	sb = ctrl_sb.SB(auth_service)
+	a_auth_https = AIOHTTPRunner(ctrl_auth.create_app(auth_service))
+	a_auth_http = AIOHTTPRunner(ctrl_auth.create_app(auth_service))
 	
 	servers = loop.run_until_complete(asyncio.gather(
 		loop.create_server(a_auth_https.setup(loop), '0.0.0.0', 443, ssl = ssl_context),
