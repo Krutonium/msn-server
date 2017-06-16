@@ -1,151 +1,134 @@
 import asyncio
-from datetime import datetime
 from collections import defaultdict
-from enum import Enum, IntFlag
-from contextlib import contextmanager
 
-from db import Session, User
-from util.hash import hasher, hasher_md5
 from util.misc import Logger
 from util.msnp import MSNPWriter, MSNPReader, Err
 
 import settings
 
 class NB:
-	def __init__(self, loop, auth_service, sbservices):
-		self.loop = loop
+	def __init__(self, user_service, auth_service, sbservices):
+		self._user = user_service
 		self._auth = auth_service
 		self._sbservices = sbservices
-		# Dict[User.uuid, NBUser]
-		self.records = {}
-		# Dict[NBConn, NBUser]
-		self._records_by_nc = {}
-		# Dict[NBUser, Set[NBConn]]
-		self._nc_from_nu = defaultdict(set)
-		# Dict[NBUser, UserDetail]
+		# Dict[User.uuid, User]
+		self._user_by_uuid = {}
+		# Dict[NBConn, User]
+		self._user_by_nc = {}
+		# Dict[User, Set[NBConn]]
+		self._ncs_by_user = defaultdict(set)
+		# Dict[User, UserDetail]
 		self._unsynced_db = {}
 		
-		self.loop.create_task(_sync_db(self._unsynced_db))
+		asyncio.get_event_loop().create_task(self._sync_db)
 	
 	def login(self, nc, email, token):
-		if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-			email = self._auth.pop_token('nb/login', token)
-		if email is None: return None
-		uuid = _get_user_uuid(email)
-		return self._login_common(nc, uuid)
+		uuid = self._auth.pop_token('nb/login', token)
+		return self._login_common(nc, uuid, email)
 	
 	def login_md5(self, nc, email, md5_hash):
-		with Session() as sess:
-			user = sess.query(User).filter(User.email == email).one_or_none()
-			if user is None: return None
-			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-				if not hasher_md5.verify_hash(md5_hash, user.password_md5): return None
-			return self._login_common(nc, user.uuid)
+		uuid = self._user.login_md5(email, md5_hash)
+		return self._login_common(nc, uuid, email)
 	
 	def get_user_md5_salt(self, email):
-		with Session() as sess:
-			user = sess.query(User).filter(User.email == email).one_or_none()
-			if user is None: return None
-			return hasher.extract_salt(user.password_md5)
+		return self._user.get_md5_salt(email)
 	
-	def _login_common(self, nc, uuid):
+	def _login_common(self, nc, uuid, email):
+		if uuid is None:
+			if settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
+				uuid = self._user.get_uuid(email)
 		if uuid is None: return None
-		_update_user_date_login(uuid)
-		nu = self._load_user_record(uuid)
-		self._records_by_nc[nc] = nu
-		self._nc_from_nu[nu].add(nc)
-		self._load_detail(nu)
-		return nu
+		self._user.update_date_login(uuid)
+		user = self._load_user_record(uuid)
+		self._user_by_nc[nc] = user
+		self._ncs_by_user[user].add(nc)
+		user.detail = self._load_detail(user)
+		return user
 	
 	def _generic_notify(self, nc):
-		nu = self._records_by_nc.get(nc)
-		if nu is None: return
+		user = self._user_by_nc.get(nc)
+		if user is None: return
 		# Notify relevant `NBConn`s of status, name, message, media
-		for nc1, nu1 in self._records_by_nc.items():
+		for nc1, user1 in self._user_by_nc.items():
 			if nc1 == nc: continue
-			if nu1.detail is None: continue
-			ctc = nu1.detail.contacts.get(nu.uuid)
+			if user1.detail is None: continue
+			ctc = user1.detail.contacts.get(user.uuid)
 			if ctc is None: continue
 			nc1.notify_presence(ctc)
 	
 	def _sync_contact_statuses(self):
-		for user_head in self.records.values():
-			detail = user_head.detail
+		for user in self._user_by_uuid.values():
+			detail = user.detail
 			if detail is None: continue
 			for ctc in detail.contacts.values():
-				_compute_visible_status(user_head, ctc)
+				ctc.compute_visible_status(user)
 	
 	def _load_user_record(self, uuid):
-		if uuid not in self.records:
-			with Session() as sess:
-				user = sess.query(User).filter(User.uuid == uuid).one_or_none()
-				if user is None: return None
-				user_head = NBUser(user)
-			self.records[uuid] = user_head
-		return self.records[uuid]
+		if uuid not in self._user_by_uuid:
+			user = self._user.get(uuid)
+			if user is None: return None
+			self._user_by_uuid[uuid] = user
+		return self._user_by_uuid[uuid]
 	
-	def _load_detail(self, nu):
-		if nu.detail: return
-		with Session() as sess:
-			user = sess.query(User).filter(User.uuid == nu.uuid).one()
-			status = UserStatus(Substatus.FLN, user.name, user.message, None)
-			detail = UserDetail(status, user.settings)
-			for g in user.groups:
-				grp = Group(**g)
-				detail.groups[grp.id] = grp
-			for c in user.contacts:
-				ctc_head = self._load_user_record(c['uuid'])
-				if ctc_head is None: continue
-				status = UserStatus(Substatus.FLN, c['name'], c['message'], None)
-				ctc = Contact(ctc_head, set(c['groups']), c['lists'], status)
-				detail.contacts[ctc.head.uuid] = ctc
-		nu.detail = detail
+	def _load_detail(self, user):
+		if user.detail: return user.detail
+		return self._user.get_detail(user.uuid)
 	
-	# TODO: Hacky workaround for design defect
-	@contextmanager
-	def _hacky_scoped_detail(self, nu):
-		needs_load = (nu.detail is None)
-		if needs_load: self._load_detail(nu)
-		try: yield
-		finally:
-			if needs_load: nu.detail = None
-
-	def _mark_modified(self, user_head):
-		self._unsynced_db[user_head] = user_head.detail
+	def _mark_modified(self, user, *, detail = None):
+		ud = user.detail or detail
+		if detail: assert ud is detail
+		self._unsynced_db[user] = ud
 	
-	def get_contact_connections(self, user_uuid, contact_email):
-		user = self.records.get(user_uuid)
-		if user is None: return Err.InternalServerError
-		if user.detail is None: return Err.InternalServerError
-		ctc = user.detail.get_contact_by_email(contact_email)
-		if ctc is None: return Err.InvalidPrincipal
+	def notify_call(self, caller_uuid, callee_uuid, sbsess_id):
+		caller = self._user_by_uuid.get(caller_uuid)
+		if caller is None: return Err.InternalServerError
+		if caller.detail is None: return Err.InternalServerError
+		ctc = caller.detail.contacts.get(callee_uuid)
 		if ctc.status.is_offlineish(): return Err.PrincipalNotOnline
-		return self._nc_from_nu[ctc.head]
+		ctc_ncs = self._ncs_by_user[ctc.head]
+		if not ctc_ncs: return Err.PrincipalNotOnline
+		for ctc_nc in ctc_ncs:
+			token = self._auth.create_token('sb/cal', ctc.head.uuid)
+			ctc_nc.notify_ring(sbsess_id, token, caller)
 	
 	def get_sbservice(self):
 		return self._sbservices[0]
 	
 	def on_leave(self, nc):
-		nu = self._records_by_nc.get(nc)
-		if nu is None: return
-		self._nc_from_nu[nu].discard(nc)
-		if self._nc_from_nu[nu]:
+		user = self._user_by_nc.get(nc)
+		if user is None: return
+		self._ncs_by_user[user].discard(nc)
+		if self._ncs_by_user[user]:
 			# There are still other people logged in as this user,
 			# so don't send offline notifications.
-			self._records_by_nc.pop(nc)
+			self._user_by_nc.pop(nc)
 			return
 		# User is offline, send notifications
-		nu.detail = None
+		user.detail = None
 		self._sync_contact_statuses()
 		self._generic_notify(nc)
-		self._records_by_nc.pop(nc)
+		self._user_by_nc.pop(nc)
 	
-	def notify_reverse_add(self, nu1, nu2):
-		# `nu2` was added to `nu1`'s RL
-		if nu1 == nu2: return
-		if nu1 not in self._nc_from_nu: return
-		for nc in self._nc_from_nu[nu1]:
-			nc.notify_add_rl(nu2)
+	def notify_reverse_add(self, user1, user2):
+		# `user2` was added to `user1`'s RL
+		if user1 == user2: return
+		if user1 not in self._ncs_by_user: return
+		for nc in self._ncs_by_user[user1]:
+			nc.notify_add_rl(user2)
+	
+	async def _sync_db(self):
+		import traceback
+		
+		unsynced = self._unsynced_db
+		user_service = self._user
+		
+		while True:
+			await asyncio.sleep(1)
+			if not unsynced: continue
+			user_service.save_batch([
+				(user, unsynced.pop(user))
+				for user in list(unsynced.keys())[:100]
+			])
 
 class NBConn(asyncio.Protocol):
 	STATE_QUIT = 'q'
@@ -164,6 +147,7 @@ class NBConn(asyncio.Protocol):
 	def __init__(self, nb):
 		self.nb = nb
 		self.logger = Logger('NB')
+		self._user = nb._user
 	
 	def connection_made(self, transport):
 		self.transport = transport
@@ -173,7 +157,7 @@ class NBConn(asyncio.Protocol):
 		self.state = NBConn.STATE_VERS
 		self.dialect = None
 		self.iln_sent = False
-		self.nbuser = None
+		self.user = None
 		self.syn_ser = None
 		self.usr_email = None
 	
@@ -200,19 +184,19 @@ class NBConn(asyncio.Protocol):
 	
 	# Hooks for NB
 	
-	def notify_ring(self, sbsess, token, ringer_email, ringer_name):
+	def notify_ring(self, sbsess_id, token, ringer_email, ringer_name):
 		sb = self.nb.get_sbservice()
-		self.writer.write('RNG', sbsess.id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, ringer_email, ringer_name)
+		self.writer.write('RNG', sbsess_id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, ringer_email, ringer_name)
 	
 	def notify_presence(self, ctc):
 		self._send_presence_notif(None, ctc)
 	
-	def notify_add_rl(self, nu):
-		name = (nu.detail and nu.detail.status.name) or nu.email
+	def notify_add_rl(self, user):
+		name = (user.status.name or user.email)
 		if self.dialect < 10:
-			self.writer.write('ADD', 0, Lst.RL.name, nu.email, name)
+			self.writer.write('ADD', 0, Lst.RL.name, user.email, name)
 		else:
-			self.writer.write('ADC', 0, Lst.RL.name, 'N={}'.format(nu.email), 'F={}'.format(name))
+			self.writer.write('ADC', 0, Lst.RL.name, 'N={}'.format(user.email), 'F={}'.format(name))
 	
 	# State = Version
 	
@@ -253,7 +237,7 @@ class NBConn(asyncio.Protocol):
 				self.writer.write('USR', trid, authtype, 'S', salt)
 				return
 			if stage == 'S':
-				self.nbuser = self.nb.login_md5(self, self.usr_email, args[0])
+				self.user = self.nb.login_md5(self, self.usr_email, args[0])
 				self._util_usr_final(trid)
 				return
 		
@@ -274,25 +258,25 @@ class NBConn(asyncio.Protocol):
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
 				#>>> USR trid SSO S auth_token b64_response
-				self.nbuser = self.nb.login(self, self.usr_email, args[0])
+				self.user = self.nb.login(self, self.usr_email, args[0])
 				self._util_usr_final(trid)
 				return
 		
 		self.writer.write(Err.AuthFail, trid)
 	
 	def _util_usr_final(self, trid):
-		if self.nbuser is None:
+		if self.user is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		#verified = self.nbuser.verified
+		#verified = self.user.verified
 		if self.dialect < 10:
-			args = (self.nbuser.detail.status.name,)
+			args = (self.user.status.name,)
 		else:
 			args = ()
 		verified = True
 		if self.dialect >= 8:
 			args += ((1 if verified else 0), 0)
-		self.writer.write('USR', trid, 'OK', self.nbuser.email, *args)
+		self.writer.write('USR', trid, 'OK', self.user.email, *args)
 		
 		if self.dialect < 13:
 			self.state = NBConn.STATE_SYNC
@@ -314,8 +298,8 @@ MSPAuth: banana-mspauth-potato
 	
 	def _s_syn(self, trid, *extra):
 		writer = self.writer
-		nu = self.nbuser
-		detail = nu.detail
+		user = self.user
+		detail = user.detail
 		contacts = detail.contacts
 		groups = detail.groups
 		settings = detail.settings
@@ -364,7 +348,7 @@ MSPAuth: banana-mspauth-potato
 			writer.write('SYN', trid, TIMESTAMP, TIMESTAMP, len(contacts), len(groups))
 			writer.write('GTC', settings.get('GTC', 'A'))
 			writer.write('BLP', settings.get('BLP', 'AL'))
-			writer.write('PRP', 'MFN', detail.status.name)
+			writer.write('PRP', 'MFN', user.status.name)
 			
 			for g in groups.values():
 				writer.write('LSG', g.name, g.id)
@@ -383,10 +367,10 @@ MSPAuth: banana-mspauth-potato
 		self.writer.write('QNG', (60 if self.dialect >= 9 else None))
 	
 	def _l_uux(self, trid, data):
-		nu = self.nbuser
-		nu.detail.status.message = data['PSM']
-		nu.detail.status.media = data['CurrentMedia']
-		self.nb._mark_modified(nu)
+		user = self.user
+		user.status.message = data['PSM']
+		user.status.media = data['CurrentMedia']
+		self.nb._mark_modified(user)
 		self.nb._sync_contact_statuses()
 		self.nb._generic_notify(self)
 		self.writer.write('UUX', trid, 0)
@@ -399,10 +383,10 @@ MSPAuth: banana-mspauth-potato
 		if len(name) > 61:
 			self.writer.write(Err.GroupNameTooLong, trid)
 			return
-		nu = self.nbuser
-		group_id = _gen_group_id(nu.detail)
-		nu.detail.groups[group_id] = Group(group_id, name)
-		self.nb._mark_modified(nu)
+		user = self.user
+		group_id = _gen_group_id(user.detail)
+		user.detail.groups[group_id] = Group(group_id, name)
+		self.nb._mark_modified(user)
 		self.writer.write('ADG', trid, self._ser(), name, group_id, 0)
 	
 	def _l_rmg(self, trid, group_id):
@@ -410,8 +394,8 @@ MSPAuth: banana-mspauth-potato
 		if group_id == '0':
 			self.writer.write(Err.GroupZeroUnremovable, trid)
 			return
-		nu = self.nbuser
-		groups = nu.detail.groups
+		user = self.user
+		groups = user.detail.groups
 		if group_id == 'New%20Group':
 			# Bug: MSN 7.0 sends name instead of id in a particular scenario
 			for g in groups.values():
@@ -423,9 +407,9 @@ MSPAuth: banana-mspauth-potato
 		except KeyError:
 			self.writer.write(Err.GroupInvalid, trid)
 		else:
-			for ctc in nu.detail.contacts.values():
+			for ctc in user.detail.contacts.values():
 				ctc.groups.discard(group_id)
-			self.nb._mark_modified(nu)
+			self.nb._mark_modified(user)
 			if self.dialect < 10:
 				self.writer.write('RMG', trid, self._ser(), group_id)
 			else:
@@ -433,8 +417,8 @@ MSPAuth: banana-mspauth-potato
 	
 	def _l_reg(self, trid, group_id, name, ignored = None):
 		#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
-		nu = self.nbuser
-		g = nu.detail.groups.get(group_id)
+		user = self.user
+		g = user.detail.groups.get(group_id)
 		if g is None:
 			self.writer.write(Err.GroupInvalid, trid)
 			return
@@ -442,7 +426,7 @@ MSPAuth: banana-mspauth-potato
 			self.writer.write(Err.GroupNameTooLong, trid)
 			return
 		g.name = name
-		self.nb._mark_modified(nu)
+		self.nb._mark_modified(user)
 		if self.dialect < 10:
 			self.writer.write('REG', trid, self._ser(), group_id, name, 0)
 		else:
@@ -454,7 +438,7 @@ MSPAuth: banana-mspauth-potato
 			#>>> ADC 278 AL N=foo@hotmail.com
 			#>>> ADC 277 FL N=foo@hotmail.com F=foo@hotmail.com
 			email = usr[2:]
-			contact_uuid = _get_user_uuid(email)
+			contact_uuid = self._user.get_uuid(email)
 			if contact_uuid is None:
 				self.writer.write(Err.InvalidPrincipal, trid)
 				return
@@ -470,7 +454,7 @@ MSPAuth: banana-mspauth-potato
 
 	def _l_add(self, trid, lst_name, email, name = None, group_id = None):
 		#>>> ADD 122 FL email name group
-		contact_uuid = _get_user_uuid(email)
+		contact_uuid = self._user.get_uuid(email)
 		if contact_uuid is None:
 			self.writer.write(Err.InvalidPrincipal, trid)
 			return
@@ -481,22 +465,21 @@ MSPAuth: banana-mspauth-potato
 		assert ctc_head is not None
 		lst = getattr(Lst, lst_name)
 		
-		nu = self.nbuser
-		ctc = self._add_to_list(nu, ctc_head, lst, name)
+		user = self.user
+		ctc = self._add_to_list(user, ctc_head, lst, name)
 		if lst == Lst.FL:
 			if group_id is not None and group_id != '0':
-				if group_id not in nu.detail.groups:
+				if group_id not in user.detail.groups:
 					self.writer.write(Err.GroupInvalid, trid)
 					return
 				if group_id in ctc.groups:
 					self.writer.write(Err.PrincipalOnList, trid)
 					return
 				ctc.groups.add(group_id)
-				self.nb._mark_modified(nu)
+				self.nb._mark_modified(user)
 			# FL needs a matching RL on the contact
-			with self.nb._hacky_scoped_detail(ctc_head):
-				self._add_to_list(ctc_head, nu, Lst.RL, nu.detail.status.name)
-			self.nb.notify_reverse_add(ctc_head, nu)
+			self._add_to_list(ctc_head, user, Lst.RL, user.status.name)
+			self.nb.notify_reverse_add(ctc_head, user)
 		
 		self.nb._sync_contact_statuses()
 		self.nb._generic_notify(self)
@@ -519,13 +502,13 @@ MSPAuth: banana-mspauth-potato
 		if lst_name == 'RL':
 			self.state = NBConn.STATE_QUIT
 			return
-		nu = self.nbuser
+		user = self.user
 		if lst_name == 'FL':
 			if self.dialect < 10:
-				contact_uuid = _get_user_uuid(usr)
+				contact_uuid = self._user.get_uuid(usr)
 			else:
 				contact_uuid = usr
-			ctc = nu.detail.contacts.get(contact_uuid)
+			ctc = user.detail.contacts.get(contact_uuid)
 			if ctc is None:
 				self.writer.write(Err.PrincipalNotOnList, trid)
 				return
@@ -533,14 +516,13 @@ MSPAuth: banana-mspauth-potato
 			if group_id is None:
 				#>>> ['REM', '279', 'FL', '00000000-0000-0000-0002-000000000001']
 				# Remove from FL
-				self._remove_from_list(nu, ctc.head, Lst.FL)
+				self._remove_from_list(user, ctc.head, Lst.FL)
 				# Remove matching RL
-				with self.nb._hacky_scoped_detail(ctc.head):
-					self._remove_from_list(ctc.head, nu, Lst.RL)
+				self._remove_from_list(ctc.head, user, Lst.RL)
 			else:
 				#>>> ['REM', '247', 'FL', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000002']
 				# Only remove group
-				if group_id not in nu.detail.groups and group_id != '0':
+				if group_id not in user.detail.groups and group_id != '0':
 					self.writer.write(Err.GroupInvalid, trid)
 					return
 				try:
@@ -549,20 +531,20 @@ MSPAuth: banana-mspauth-potato
 					if group_id == '0':
 						self.writer.write(Err.PrincipalNotInGroup, trid)
 						return
-				self.nb._mark_modified(nu)
+				self.nb._mark_modified(user)
 		else:
 			#>>> ['REM', '248', 'AL', 'bob1@hotmail.com']
 			email = usr
 			lb = getattr(Lst, lst_name)
 			found = False
-			for ctc in nu.detail.contacts.values():
+			for ctc in user.detail.contacts.values():
 				if ctc.head.email != email: continue
 				ctc.lists &= ~lb
 				found = True
 			if not found:
 				self.writer.write(Err.PrincipalNotOnList, trid)
 				return
-			self.nb._mark_modified(nu)
+			self.nb._mark_modified(user)
 		self.writer.write('REM', trid, lst_name, self._ser(), usr, group_id)
 	
 	def _l_gtc(self, trid, value):
@@ -583,11 +565,11 @@ MSPAuth: banana-mspauth-potato
 	def _l_chg(self, trid, sts_name, capabilities = None, msnobj = None):
 		#>>> ['CHG', '120', 'BSY', '1073791020', '<msnobj .../>']
 		capabilities = capabilities or 0
-		nu = self.nbuser
-		nu.detail.status.substatus = getattr(Substatus, sts_name)
-		nu.detail.capabilities = capabilities
-		nu.detail.msnobj = msnobj
-		self.nb._mark_modified(nu)
+		user = self.user
+		user.status.substatus = getattr(Substatus, sts_name)
+		user.detail.capabilities = capabilities
+		user.detail.msnobj = msnobj
+		self.nb._mark_modified(user)
 		self.nb._sync_contact_statuses()
 		self.nb._generic_notify(self)
 		self.writer.write('CHG', trid, sts_name, capabilities, msnobj)
@@ -597,7 +579,7 @@ MSPAuth: banana-mspauth-potato
 		if self.dialect >= 10:
 			self.writer.write(Err.CommandDisabled, trid)
 			return
-		if email == self.nbuser.email:
+		if email == self.user.email:
 			self._change_display_name(name)
 		self.writer.write('REA', trid, self._ser(), email, name)
 	
@@ -613,9 +595,9 @@ MSPAuth: banana-mspauth-potato
 		self.writer.write('PRP', trid, key, value)
 	
 	def _change_display_name(self, name):
-		nu = self.nbuser
-		nu.detail.status.name = name
-		self.nb._mark_modified(nu)
+		user = self.user
+		user.status.name = name
+		self.nb._mark_modified(user)
 		self.nb._sync_contact_statuses()
 		self.nb._generic_notify(self)
 	
@@ -628,7 +610,7 @@ MSPAuth: banana-mspauth-potato
 		if dest != 'SB':
 			self.writer.write(Err.InvalidParameter, trid)
 			return
-		token = self.nb._auth.create_token('xfr', self.nbuser.email)
+		token = self.nb._auth.create_token('sb/xfr', self.user.uuid)
 		sb = self.nb.get_sbservice()
 		self.writer.write('XFR', trid, dest, '{}:{}'.format(sb.host, sb.port), 'CKI', token)
 	
@@ -651,21 +633,21 @@ MSPAuth: banana-mspauth-potato
 	# Utils
 	
 	def _setting_change(self, name, trid, value):
-		nu = self.nbuser
-		nu.detail.settings[name] = value
-		self.nb._mark_modified(nu)
+		user = self.user
+		user.detail.settings[name] = value
+		self.nb._mark_modified(user)
 		self.writer.write(name, trid, self._ser(), value)
 	
 	def _send_iln(self, trid):
 		if self.iln_sent: return
-		nu = self.nbuser
-		for ctc in nu.detail.contacts.values():
+		user = self.user
+		for ctc in user.detail.contacts.values():
 			self._send_presence_notif(trid, ctc)
 		self.iln_sent = True
 	
 	def _send_iln_add(self, trid, ctc_uuid):
-		nu = self.nbuser
-		ctc = nu.detail.contacts.get(ctc_uuid)
+		user = self.user
+		ctc = user.detail.contacts.get(ctc_uuid)
 		if ctc is None: return
 		self._send_presence_notif(trid, ctc)
 	
@@ -690,27 +672,29 @@ MSPAuth: banana-mspauth-potato
 			if self.dialect >= 11:
 				self.writer.write('UBX', head.email, { 'PSM': status.message, 'CurrentMedia': status.media })
 	
-	def _add_to_list(self, nu, ctc_head, lst, name):
-		# Add `ctc_head` to `nu`'s `lst`
-		contacts = nu.detail.contacts
+	def _add_to_list(self, user, ctc_head, lst, name):
+		# Add `ctc_head` to `user`'s `lst`
+		detail = self.nb._load_detail(user)
+		contacts = detail.contacts
 		if ctc_head.uuid not in contacts:
-			contacts[ctc_head.uuid] = Contact(ctc_head, set(), 0, UserStatus(Substatus.FLN, name, None, None))
+			contacts[ctc_head.uuid] = Contact(ctc_head, set(), 0, UserStatus(name))
 		ctc = contacts.get(ctc_head.uuid)
 		if ctc.status.name is None:
 			ctc.status.name = name
 		ctc.lists |= lst
-		self.nb._mark_modified(nu)
+		self.nb._mark_modified(user)
 		return ctc
 	
-	def _remove_from_list(self, nu, ctc_head, lst):
-		# Remove `ctc_head` from `nu`'s `lst`
-		contacts = nu.detail.contacts
+	def _remove_from_list(self, user, ctc_head, lst):
+		# Remove `ctc_head` from `user`'s `lst`
+		detail = self.nb._load_detail(user)
+		contacts = detail.contacts
 		ctc = contacts.get(ctc_head.uuid)
 		if ctc is None: return
 		ctc.lists &= ~lst
 		if not ctc.lists:
 			del contacts[ctc_head.uuid]
-		self.nb._mark_modified(nu)
+		self.nb._mark_modified(user, detail = detail)
 	
 	def _unknown_cmd(self, m):
 		cmd = m[0]
@@ -726,110 +710,6 @@ MSPAuth: banana-mspauth-potato
 		self.syn_ser += 1
 		return self.syn_ser
 
-async def _sync_db(unsynced):
-	import traceback
-	while True:
-		await asyncio.sleep(1)
-		if not unsynced: continue
-		nus = list(unsynced.keys())[:100]
-		with Session():
-			for nu in nus:
-				detail = unsynced[nu]
-				try:
-					_save_detail(nu, detail)
-				except Exception:
-					# TODO: Some exceptions should probably stop server
-					traceback.print_exc()
-				finally:
-					# Remove from unsynced regardless of whether it got sync'd
-					# or not, otherwise the list will grow unbounded and
-					# sync for users past first 100 will never be attempted.
-					del unsynced[nu]
-
-def _get_user_uuid(email):
-	with Session() as sess:
-		user = sess.query(User).filter(User.email == email).one_or_none()
-		return user and user.uuid
-
-def _save_detail(nu, detail):
-	with Session() as sess:
-		user = sess.query(User).filter(User.uuid == nu.uuid).one()
-		user.name = detail.status.name
-		user.message = detail.status.message
-		user.settings = detail.settings
-		user.groups = [{ 'id': g.id, 'name': g.name } for g in detail.groups.values()]
-		user.contacts = [{
-			'uuid': c.head.uuid, 'name': c.status.name, 'message': c.status.message,
-			'lists': c.lists, 'groups': list(c.groups),
-		} for c in detail.contacts.values()]
-		sess.add(user)
-
-def _compute_visible_status(nu, ctc):
-	# Set Contact.status based on BLP and Contact.lists
-	# If not blocked, Contact.status == Contact.head.detail.status
-	ctc_status = (ctc.head.detail and ctc.head.detail.status)
-	if ctc_status is None or _is_blocking(ctc.head, nu):
-		ctc.status.substatus = Substatus.FLN
-	else:
-		ctc.status.substatus = ctc_status.substatus
-		ctc.status.name = ctc_status.name
-		ctc.status.message = ctc_status.message
-		ctc.status.media = ctc_status.media
-
-def _is_blocking(blocker, blockee):
-	detail = blocker.detail
-	contact = detail.contacts.get(blockee.uuid)
-	lists = (contact and contact.lists or 0)
-	if lists & Lst.BL: return True
-	if lists & Lst.AL: return False
-	return (detail.settings.get('BLP', 'AL') == 'BL')
-
-def _update_user_date_login(uuid):
-	with Session() as sess:
-		sess.query(User).filter(User.uuid == uuid).update({
-			'date_login': datetime.utcnow(),
-		})
-
-class NBUser:
-	def __init__(self, user):
-		self.uuid = user.uuid
-		self.email = user.email
-		self.verified = user.verified
-		self.detail = None
-
-class Contact:
-	def __init__(self, head, groups, lists, status):
-		self.head = head
-		self.groups = groups
-		self.lists = lists
-		self.status = status
-
-class UserStatus:
-	__slots__ = ('substatus', 'name', 'message', 'media')
-	def __init__(self, substatus, name, message, media):
-		self.substatus = substatus
-		self.name = name
-		self.message = message
-		self.media = media
-	
-	def is_offlineish(self):
-		ss = self.substatus
-		return ss == Substatus.FLN or ss == Substatus.HDN
-
-class UserDetail:
-	def __init__(self, status, settings):
-		self.status = status
-		self.settings = settings
-		self.groups = {}
-		self.contacts = {}
-		self.capabilities = 0
-		self.msnobj = None
-	
-	def get_contact_by_email(self, email):
-		for ctc in self.contacts.values():
-			if ctc.head.email == email: return ctc
-		return None
-
 def _gen_group_id(detail):
 	id = 1
 	s = str(id)
@@ -837,29 +717,6 @@ def _gen_group_id(detail):
 		id += 1
 		s = str(id)
 	return s
-
-class Group:
-	def __init__(self, id, name):
-		self.id = id
-		self.name = name
-
-class Substatus(Enum):
-	FLN = object()
-	NLN = object()
-	BSY = object()
-	IDL = object()
-	BRB = object()
-	AWY = object()
-	PHN = object()
-	LUN = object()
-	HDN = object()
-
-class Lst(IntFlag):
-	FL = 0x01
-	AL = 0x02
-	BL = 0x04
-	RL = 0x08
-	PL = 0x10
 
 SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
 <config>

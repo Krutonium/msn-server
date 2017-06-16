@@ -4,24 +4,25 @@ from util.misc import gen_uuid, Logger
 from util.msnp import MSNPWriter, MSNPReader, Err
 
 class SB:
-	def __init__(self, auth_service):
+	def __init__(self, user_service, auth_service):
+		self._user = user_service
+		self._auth = auth_service
 		# Dict[sessid, SBSession]
 		self._sessions = {}
-		self._auth = auth_service
 	
 	def login_xfr(self, sc, token):
-		sbuser = self._load_sbuser('xfr', token)
+		sbuser = self._load_sbuser('sb/xfr', token)
 		if sbuser is None: return None
 		sbsess = SBSession()
 		self._sessions[sbsess.id] = sbsess
 		sbsess.add_sc(sc, sbuser)
 		return sbuser, sbsess
 	
-	def auth_cal(self, email):
-		return self._auth.create_token('cal', email)
+	def auth_cal(self, uuid):
+		return self._auth.create_token('sb/cal', uuid)
 	
 	def login_cal(self, sc, email, token, sessid):
-		sbuser = self._load_sbuser('cal', token)
+		sbuser = self._load_sbuser('sb/cal', token)
 		if sbuser is None: return None
 		if sbuser.email != email: return None
 		sbsess = self._sessions.get(sessid)
@@ -30,13 +31,8 @@ class SB:
 		return sbuser, sbsess
 		
 	def _load_sbuser(self, purpose, token):
-		from db import Session, User
-		with Session() as sess:
-			email = self._auth.pop_token(purpose, token)
-			if email is None: return None
-			user = sess.query(User).filter(User.email == email).one_or_none()
-			if user is None: return None
-			return SBUser(user)
+		uuid = self._auth.pop_token(purpose, token)
+		return self._user.get(uuid)
 
 class SBSession:
 	def __init__(self):
@@ -67,12 +63,6 @@ class SBSession:
 		for sc1, su1 in self._users_by_sc.items():
 			if sc1 == sc: continue
 			sc1.send_leave(su)
-
-class SBUser:
-	def __init__(self, user):
-		self.uuid = user.uuid
-		self.email = user.email
-		self.name = user.name
 
 class SBConn(asyncio.Protocol):
 	STATE_QUIT = 'q'
@@ -118,10 +108,10 @@ class SBConn(asyncio.Protocol):
 	# Hooks
 	
 	def send_message(self, sbuser, data):
-		self.writer.write('MSG', sbuser.email, sbuser.name, data)
+		self.writer.write('MSG', sbuser.email, sbuser.status.name, data)
 	
 	def send_join(self, sbuser):
-		self.writer.write('JOI', sbuser.email, sbuser.name)
+		self.writer.write('JOI', sbuser.email, sbuser.status.name)
 	
 	def send_leave(self, sbuser):
 		self.writer.write('BYE', sbuser.email)
@@ -138,7 +128,7 @@ class SBConn(asyncio.Protocol):
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
 		self.sbuser = sbuser
-		self.writer.write('USR', trid, 'OK', sbuser.email, sbuser.name)
+		self.writer.write('USR', trid, 'OK', sbuser.email, sbuser.status.name)
 	
 	def _a_ans(self, trid, email, token, sessid):
 		#>>> ANS trid email@example.com token sessionid
@@ -154,27 +144,19 @@ class SBConn(asyncio.Protocol):
 		l = len(roster)
 		for i, (sc, su) in enumerate(roster):
 			sc.send_join(self.sbuser)
-			self.writer.write('IRO', trid, i + 1, l, su.email, su.name)
+			self.writer.write('IRO', trid, i + 1, l, su.email, su.status.name)
 		self.writer.write('ANS', trid, 'OK')
 	
 	# State = Live
 	
-	def _l_cal(self, trid, email):
+	def _l_cal(self, trid, callee_email):
 		#>>> CAL trid email@example.com
-		res = self.nb.get_contact_connections(self.sbuser.uuid, email)
-		if isinstance(res, int):
-			self.writer.write(res, trid)
-			return
-		
-		ctc_ncs = res
-		if not ctc_ncs:
-			return Err.PrincipalNotOnline
-		
-		for ctc_nc in ctc_ncs:
-			token = self.sb.auth_cal(email)
-			ctc_nc.notify_ring(self.sbsess, token, self.sbuser.email, self.sbuser.name)
-		
-		self.writer.write('CAL', trid, 'RINGING', self.sbsess.id)
+		callee_uuid = self._user.get_uuid(callee_email)
+		err = self.nb.notify_call(self.sbuser.uuid, callee_uuid, self.sbsess.id)
+		if err:
+			self.writer.write(err, trid)
+		else:
+			self.writer.write('CAL', trid, 'RINGING', self.sbsess.id)
 	
 	def _l_msg(self, trid, ack, data):
 		#>>> MSG trid [UNAD] len

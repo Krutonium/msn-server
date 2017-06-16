@@ -7,6 +7,7 @@ LOGIN_PATH = '/login'
 
 def create_app(auth_service):
 	app = web.Application()
+	app['user_service'] = user_service
 	app['auth_service'] = auth_service
 	
 	app.router.add_get('/nexus-mock', handle_nexus)
@@ -70,14 +71,9 @@ def _extract_pp_credentials(auth_str):
 	return email, pwd
 
 def _login(req, email, pwd):
-	from db import Session, User
-	from util.hash import hasher
-	auth = req.app['auth_service']
-	with Session() as sess:
-		user = sess.query(User).filter(User.email == email).one_or_none()
-		if user is None: return None
-		if not hasher.verify(pwd, user.password): return None
-		return auth.create_token('nb/login', user.email)
+	uuid = req.app['user_service'].login(email, pwd)
+	if uuid is None: return None
+	return req.app['auth_service'].create_token('nb/login', uuid)
 
 async def handle_other(req):
 	return web.Response(status = 404, text = '')
