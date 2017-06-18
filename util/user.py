@@ -26,7 +26,8 @@ class UserService:
 	
 	def get_md5_salt(self, email):
 		with Session() as sess:
-			password_md5 = sess.query(DBUser.password_md5).filter(DBUser.email == email).one_or_none()
+			tmp = sess.query(DBUser.password_md5).filter(DBUser.email == email).one_or_none()
+			password_md5 = tmp and tmp[0]
 		if password_md5 is None: return None
 		return hasher.extract_salt(password_md5)
 	
@@ -38,7 +39,8 @@ class UserService:
 	
 	def get_uuid(self, email):
 		with Session() as sess:
-			return sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
+			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
+			return tmp and tmp[0]
 	
 	def get(self, uuid):
 		if uuid is None: return None

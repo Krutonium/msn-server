@@ -1,7 +1,5 @@
-import asyncio
-
-from util.misc import gen_uuid, Logger
-from util.msnp import MSNPWriter, MSNPReader, Err
+from util.misc import gen_uuid
+from util.msnp import Err
 
 class SB:
 	def __init__(self, user_service, auth_service):
@@ -11,37 +9,37 @@ class SB:
 		self._sessions = {}
 	
 	def login_xfr(self, sc, token):
-		sbuser = self._load_sbuser('sb/xfr', token)
-		if sbuser is None: return None
+		user = self._load_user('sb/xfr', token)
+		if user is None: return None
 		sbsess = SBSession()
 		self._sessions[sbsess.id] = sbsess
-		sbsess.add_sc(sc, sbuser)
-		return sbuser, sbsess
+		sbsess.add_sc(sc, user)
+		return user, sbsess
 	
 	def auth_cal(self, uuid):
 		return self._auth.create_token('sb/cal', uuid)
 	
 	def login_cal(self, sc, email, token, sessid):
-		sbuser = self._load_sbuser('sb/cal', token)
-		if sbuser is None: return None
-		if sbuser.email != email: return None
+		user = self._load_user('sb/cal', token)
+		if user is None: return None
+		if user.email != email: return None
 		sbsess = self._sessions.get(sessid)
 		if sbsess is None: return None
-		sbsess.add_sc(sc, sbuser)
-		return sbuser, sbsess
+		sbsess.add_sc(sc, user)
+		return user, sbsess
 		
-	def _load_sbuser(self, purpose, token):
+	def _load_user(self, purpose, token):
 		uuid = self._auth.pop_token(purpose, token)
 		return self._user.get(uuid)
 
 class SBSession:
 	def __init__(self):
 		self.id = gen_uuid()
-		# Dict[SBConn, SBUser]
+		# Dict[SBConn, User]
 		self._users_by_sc = {}
 	
-	def add_sc(self, sc, sbuser):
-		self._users_by_sc[sc] = sbuser
+	def add_sc(self, sc, user):
+		self._users_by_sc[sc] = user
 	
 	def send_message(self, sc_sender, data):
 		su_sender = self._users_by_sc[sc_sender]
@@ -64,57 +62,33 @@ class SBSession:
 			if sc1 == sc: continue
 			sc1.send_leave(su)
 
-class SBConn(asyncio.Protocol):
+class SBConn:
 	STATE_QUIT = 'q'
 	STATE_AUTH = 'a'
 	STATE_LIVE = 'l'
 	
-	def __init__(self, sb, nb):
+	def __init__(self, sb, nb, writer):
 		self.sb = sb
 		self.nb = nb
-		self.logger = Logger('SB')
-	
-	def connection_made(self, transport):
-		self.transport = transport
-		self.logger.log_connect(transport)
-		self.writer = MSNPWriter(self.logger, transport)
-		self.reader = MSNPReader(self.logger)
+		self.writer = writer
 		self.state = SBConn.STATE_AUTH
 		self.sbsess = None
-		self.sbuser = None
+		self.user = None
 	
-	def connection_lost(self, exc):
+	def connection_lost(self):
 		if self.sbsess:
 			self.sbsess.on_leave(self)
-		self.logger.log_disconnect()
-	
-	def data_received(self, data):
-		with self.writer:
-			for m in self.reader.data_received(data):
-				cmd = m[0].lower()
-				if cmd == 'out':
-					self.state = SBConn.STATE_QUIT
-					break
-				handler = getattr(self, '_{}_{}'.format(self.state, cmd), None)
-				if handler is None:
-					self._unknown_cmd(m)
-				else:
-					handler(*m[1:])
-				if self.state == SBConn.STATE_QUIT:
-					break
-		if self.state == SBConn.STATE_QUIT:
-			self.transport.close()
 	
 	# Hooks
 	
-	def send_message(self, sbuser, data):
-		self.writer.write('MSG', sbuser.email, sbuser.status.name, data)
+	def send_message(self, user, data):
+		self.writer.write('MSG', user.email, user.status.name, data)
 	
-	def send_join(self, sbuser):
-		self.writer.write('JOI', sbuser.email, sbuser.status.name)
+	def send_join(self, user):
+		self.writer.write('JOI', user.email, user.status.name)
 	
-	def send_leave(self, sbuser):
-		self.writer.write('BYE', sbuser.email)
+	def send_leave(self, user):
+		self.writer.write('BYE', user.email)
 	
 	# State = Auth
 	
@@ -124,11 +98,11 @@ class SBConn(asyncio.Protocol):
 		if data is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		(sbuser, sbsess) = data
+		(user, sbsess) = data
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
-		self.sbuser = sbuser
-		self.writer.write('USR', trid, 'OK', sbuser.email, sbuser.status.name)
+		self.user = user
+		self.writer.write('USR', trid, 'OK', user.email, user.status.name)
 	
 	def _a_ans(self, trid, email, token, sessid):
 		#>>> ANS trid email@example.com token sessionid
@@ -136,14 +110,14 @@ class SBConn(asyncio.Protocol):
 		if data is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		(sbuser, sbsess) = data
+		(user, sbsess) = data
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
-		self.sbuser = sbuser
+		self.user = user
 		roster = sbsess.get_roster(self)
 		l = len(roster)
 		for i, (sc, su) in enumerate(roster):
-			sc.send_join(self.sbuser)
+			sc.send_join(self.user)
 			self.writer.write('IRO', trid, i + 1, l, su.email, su.status.name)
 		self.writer.write('ANS', trid, 'OK')
 	
@@ -151,8 +125,7 @@ class SBConn(asyncio.Protocol):
 	
 	def _l_cal(self, trid, callee_email):
 		#>>> CAL trid email@example.com
-		callee_uuid = self._user.get_uuid(callee_email)
-		err = self.nb.notify_call(self.sbuser.uuid, callee_uuid, self.sbsess.id)
+		err = self.nb.notify_call(self.user.uuid, callee_email, self.sbsess.id)
 		if err:
 			self.writer.write(err, trid)
 		else:
@@ -169,8 +142,3 @@ class SBConn(asyncio.Protocol):
 			self.writer.write('NAK', trid)
 		elif ack != 'N': # AD
 			self.writer.write('ACK', trid)
-	
-	# Utils
-	
-	def _unknown_cmd(self, m):
-		self.logger.info("unknown (state = {}): {}".format(self.state, m))

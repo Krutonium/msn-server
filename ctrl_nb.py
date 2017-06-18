@@ -1,10 +1,8 @@
 import asyncio
 from collections import defaultdict
 
-from util.misc import Logger
-from util.msnp import MSNPWriter, MSNPReader, Err
-
-import settings
+from util.msnp import Err
+from models import Contact, Group, UserStatus, Substatus, Lst
 
 class NB:
 	def __init__(self, user_service, auth_service, sbservices):
@@ -31,9 +29,6 @@ class NB:
 	def login_md5(self, nc, email, md5_hash):
 		uuid = self._user.login_md5(email, md5_hash)
 		return self._login_common(nc, uuid, email)
-	
-	def get_user_md5_salt(self, email):
-		return self._user.get_md5_salt(email)
 	
 	def _login_common(self, nc, uuid, email):
 		if uuid is None: return None
@@ -78,11 +73,15 @@ class NB:
 		if detail: assert ud is detail
 		self._unsynced_db[user] = ud
 	
-	def notify_call(self, caller_uuid, callee_uuid, sbsess_id):
+	def notify_call(self, caller_uuid, callee_email, sbsess_id):
 		caller = self._user_by_uuid.get(caller_uuid)
 		if caller is None: return Err.InternalServerError
 		if caller.detail is None: return Err.InternalServerError
+		callee_uuid = self._user.get_uuid(callee_email)
+		if callee_uuid is None: return Err.InternalServerError
 		ctc = caller.detail.contacts.get(callee_uuid)
+		print(callee_email, callee_uuid, caller.detail.contacts)
+		if ctc is None: return Err.InternalServerError
 		if ctc.status.is_offlineish(): return Err.PrincipalNotOnline
 		ctc_ncs = self._ncs_by_user[ctc.head]
 		if not ctc_ncs: return Err.PrincipalNotOnline
@@ -129,11 +128,9 @@ class NB:
 				for user in list(unsynced.keys())[:100]
 			])
 
-class NBConn(asyncio.Protocol):
+class NBConn:
 	STATE_QUIT = 'q'
-	STATE_VERS = 'v'
 	STATE_AUTH = 'a'
-	STATE_SYNC = 's'
 	STATE_LIVE = 'l'
 	
 	DIALECTS = ['MSNP{}'.format(d) for d in (
@@ -143,49 +140,25 @@ class NBConn(asyncio.Protocol):
 		12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2
 	)]
 	
-	def __init__(self, nb):
+	def __init__(self, nb, writer):
 		self.nb = nb
-		self.logger = Logger('NB')
+		self.writer = writer
 		self._user = nb._user
-	
-	def connection_made(self, transport):
-		self.transport = transport
-		self.logger.log_connect(transport)
-		self.writer = MSNPWriter(self.logger, transport)
-		self.reader = MSNPReader(self.logger)
-		self.state = NBConn.STATE_VERS
+		self.state = NBConn.STATE_AUTH
 		self.dialect = None
 		self.iln_sent = False
 		self.user = None
 		self.syn_ser = None
 		self.usr_email = None
 	
-	def connection_lost(self, exc):
+	def connection_lost(self):
 		self.nb.on_leave(self)
-		self.logger.log_disconnect()
-	
-	def data_received(self, data):
-		with self.writer:
-			for m in self.reader.data_received(data):
-				cmd = m[0].lower()
-				if cmd == 'out':
-					self.state = NBConn.STATE_QUIT
-					break
-				handler = getattr(self, '_{}_{}'.format(self.state, cmd), None)
-				if handler is None:
-					self._unknown_cmd(m)
-				else:
-					handler(*m[1:])
-				if self.state == NBConn.STATE_QUIT:
-					break
-		if self.state == NBConn.STATE_QUIT:
-			self.transport.close()
 	
 	# Hooks for NB
 	
-	def notify_ring(self, sbsess_id, token, ringer_email, ringer_name):
+	def notify_ring(self, sbsess_id, token, caller):
 		sb = self.nb.get_sbservice()
-		self.writer.write('RNG', sbsess_id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, ringer_email, ringer_name)
+		self.writer.write('RNG', sbsess_id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, caller.email, caller.status.name)
 	
 	def notify_presence(self, ctc):
 		self._send_presence_notif(None, ctc)
@@ -197,9 +170,9 @@ class NBConn(asyncio.Protocol):
 		else:
 			self.writer.write('ADC', 0, Lst.RL.name, 'N={}'.format(user.email), 'F={}'.format(name))
 	
-	# State = Version
+	# State = Auth
 	
-	def _v_ver(self, trid, *args):
+	def _a_ver(self, trid, *args):
 		dialects = [a.upper() for a in args]
 		d = None
 		for d in NBConn.DIALECTS:
@@ -209,12 +182,10 @@ class NBConn(asyncio.Protocol):
 			return
 		self.writer.write('VER', trid, d)
 		self.dialect = int(d[4:])
-		self.state = NBConn.STATE_AUTH
 	
 	def _a_cvr(self, trid, *args):
 		v = args[5]
 		self.writer.write('CVR', trid, v, v, v, 'http://url.com', 'http://url.com')
-	# State = Auth
 	
 	def _a_inf(self, trid):
 		if self.dialect < 8:
@@ -229,7 +200,7 @@ class NBConn(asyncio.Protocol):
 				return
 			if stage == 'I':
 				email = args[0]
-				salt = self.nb.get_user_md5_salt(email)
+				salt = self._user.get_md5_salt(email)
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
@@ -270,18 +241,18 @@ class NBConn(asyncio.Protocol):
 		if self.user is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		#verified = self.user.verified
 		if self.dialect < 10:
 			args = (self.user.status.name,)
 		else:
 			args = ()
+		#verified = self.user.verified
 		verified = True
 		if self.dialect >= 8:
 			args += ((1 if verified else 0), 0)
 		self.writer.write('USR', trid, 'OK', self.user.email, *args)
+		self.state = NBConn.STATE_LIVE
 		
 		if self.dialect < 13:
-			self.state = NBConn.STATE_SYNC
 			return
 		
 		# Why won't you work!!!
@@ -293,12 +264,10 @@ MSPAuth: banana-mspauth-potato
 		self.writer.write('SBS', 0, 'null')
 		self.writer.write('PRP', 'MFN', 'Test')
 		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.replace('\n', '\r\n').encode('ascii'))
-		
-		self.state = NBConn.STATE_LIVE
 	
-	# State = Sync
+	# State = Live
 	
-	def _s_syn(self, trid, *extra):
+	def _l_syn(self, trid, *extra):
 		writer = self.writer
 		user = self.user
 		detail = user.detail
@@ -359,8 +328,6 @@ MSPAuth: banana-mspauth-potato
 					c.lists, (None if self.dialect < 12 else 1), ','.join(c.groups)
 				)
 		self.state = NBConn.STATE_LIVE
-	
-	# State = Live
 	
 	def _l_gcf(self, trid, filename):
 		self.writer.write('GCF', trid, filename, SHIELDS)
@@ -697,9 +664,6 @@ MSPAuth: banana-mspauth-potato
 		if not ctc.lists:
 			del contacts[ctc_head.uuid]
 		self.nb._mark_modified(user, detail = detail)
-	
-	def _unknown_cmd(self, m):
-		self.logger.info("unknown (state = {}): {}".format(self.state, m))
 	
 	def _ser(self):
 		if self.dialect >= 10:

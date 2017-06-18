@@ -1,7 +1,4 @@
-class Service:
-	def __init__(self, host, port):
-		self.host = host
-		self.port = port
+from models import Service
 
 NB = Service('m1.escargot.log1p.xyz', 1863)
 SB = [

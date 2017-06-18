@@ -9,8 +9,10 @@ class AIOHTTPRunner:
 		self.app = app
 		self.handler = None
 	
-	def setup(self, loop):
+	def setup(self):
+		import asyncio
 		from aiohttp.log import access_logger
+		loop = asyncio.get_event_loop()
 		self.handler = self.app.make_handler(loop = loop, access_log = access_logger)
 		loop.run_until_complete(self.app.startup())
 		return self.handler

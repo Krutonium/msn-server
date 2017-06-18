@@ -20,7 +20,7 @@ class Contact:
 	def compute_visible_status(self, to_user):
 		# Set Contact.status based on BLP and Contact.lists
 		# If not blocked, Contact.status == Contact.head.status
-		if _is_blocking(self.head, to_user):
+		if self.head.detail is None or _is_blocking(self.head, to_user):
 			self.status.substatus = Substatus.FLN
 			return
 		true_status = self.head.status
@@ -80,3 +80,8 @@ class Lst(IntFlag):
 	BL = 0x04
 	RL = 0x08
 	PL = 0x10
+
+class Service:
+	def __init__(self, host, port):
+		self.host = host
+		self.port = port
