@@ -2,7 +2,6 @@ from datetime import datetime
 
 from db import Session, User as DBUser
 from util.hash import hasher, hasher_md5
-import settings
 
 from models import User, Contact, UserStatus, UserDetail, Group
 
@@ -22,8 +21,7 @@ class UserService:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
 			if dbuser is None: return None
-			if not settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-				if not hasher_md5.verify_hash(md5_hash, dbuser.password_md5): return None
+			if not hasher_md5.verify_hash(md5_hash, dbuser.password_md5): return None
 			return dbuser.uuid
 	
 	def get_md5_salt(self, email):

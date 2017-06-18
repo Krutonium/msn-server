@@ -34,9 +34,6 @@ class NB:
 		return self._user.get_md5_salt(email)
 	
 	def _login_common(self, nc, uuid, email):
-		if uuid is None:
-			if settings.DEV_ACCEPT_ALL_LOGIN_TOKENS:
-				uuid = self._user.get_uuid(email)
 		if uuid is None: return None
 		self._user.update_date_login(uuid)
 		user = self._load_user_record(uuid)

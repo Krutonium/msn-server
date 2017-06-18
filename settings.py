@@ -12,7 +12,6 @@ SB = [
 DB = 'sqlite:///msn.sqlite'
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
 DEBUG = True
-DEV_ACCEPT_ALL_LOGIN_TOKENS = False
 
 try:
 	from settings_local import *
