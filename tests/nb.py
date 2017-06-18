@@ -64,7 +64,7 @@ def test_msnp_commands():
 	
 	nc1._l_adc(15, 'FL', 'N=doesnotexist')
 	w1.pop_message(Err.InvalidPrincipal, 15)
-	nc1._l_adc(16, 'FL', 'N=test2@example.com', 'F=Test1')
+	nc1._l_adc(16, 'FL', 'N=test2@example.com', 'F=Test2')
 	msg = w1.pop_message('ADC', 16, 'FL', 'N=test2@example.com', ANY)
 	uuid = msg[-1][2:]
 	assert user.detail.contacts[uuid].head.email == 'test2@example.com'

@@ -99,6 +99,9 @@ class SBConn:
 			self.writer.write(Err.AuthFail, trid)
 			return
 		(user, sbsess) = data
+		if email != user.email:
+			self.writer.write(Err.AuthFail, trid)
+			return
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
 		self.user = user

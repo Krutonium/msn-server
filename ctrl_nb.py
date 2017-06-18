@@ -80,7 +80,6 @@ class NB:
 		callee_uuid = self._user.get_uuid(callee_email)
 		if callee_uuid is None: return Err.InternalServerError
 		ctc = caller.detail.contacts.get(callee_uuid)
-		print(callee_email, callee_uuid, caller.detail.contacts)
 		if ctc is None: return Err.InternalServerError
 		if ctc.status.is_offlineish(): return Err.PrincipalNotOnline
 		ctc_ncs = self._ncs_by_user[ctc.head]
