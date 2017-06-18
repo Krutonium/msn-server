@@ -4,3 +4,5 @@ msn.sqlite
 settings_local.py
 etc/Caddyfile
 dev/cert
+tmp
+hosts.lnk

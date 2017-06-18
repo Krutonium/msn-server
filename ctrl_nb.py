@@ -20,7 +20,9 @@ class NB:
 		# Dict[User, UserDetail]
 		self._unsynced_db = {}
 		
-		asyncio.get_event_loop().create_task(self._sync_db)
+		# TODO: NB isn't guaranteed to be run in a loop (e.g. testing).
+		# Need to figure out a better way to do this.
+		asyncio.get_event_loop().create_task(self._sync_db())
 	
 	def login(self, nc, email, token):
 		uuid = self._auth.pop_token('nb/login', token)
@@ -209,6 +211,9 @@ class NBConn(asyncio.Protocol):
 		self.dialect = int(d[4:])
 		self.state = NBConn.STATE_AUTH
 	
+	def _a_cvr(self, trid, *args):
+		v = args[5]
+		self.writer.write('CVR', trid, v, v, v, 'http://url.com', 'http://url.com')
 	# State = Auth
 	
 	def _a_inf(self, trid):
@@ -694,11 +699,6 @@ MSPAuth: banana-mspauth-potato
 		self.nb._mark_modified(user, detail = detail)
 	
 	def _unknown_cmd(self, m):
-		cmd = m[0]
-		if cmd == 'CVR':
-			v = m[7]
-			self.writer.write(cmd, m[1], v, v, v, 'http://url.com', 'http://url.com')
-			return
 		self.logger.info("unknown (state = {}): {}".format(self.state, m))
 	
 	def _ser(self):

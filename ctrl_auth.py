@@ -5,7 +5,7 @@ import settings
 
 LOGIN_PATH = '/login'
 
-def create_app(auth_service):
+def create_app(user_service, auth_service):
 	app = web.Application()
 	app['user_service'] = user_service
 	app['auth_service'] = auth_service
