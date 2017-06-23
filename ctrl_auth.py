@@ -36,7 +36,7 @@ async def on_response_prepare(req, res):
 async def handle_debug(req):
 	with open('etc/debug.html') as fh:
 		text = fh.read()
-	return web.Response(status = 200, text = text)
+	return web.Response(status = 200, text = text, content_type = 'text/html')
 
 async def handle_nexus(req):
 	return web.Response(status = 200, headers = {
