@@ -7,18 +7,20 @@
 			output.innerHTML = '';
 			
 			var req = new XMLHttpRequest();
-			req.addEventListener('load', function (evt) {
-				output.innerHTML = 'LOAD ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
-			});
-			req.addEventListener('error', function (evt) {
-				output.innerHTML = 'ERROR ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
-			});
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState != 4) return;
+				output.innerHTML = '::: ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
+			}
 			req.open('POST', 'https://m1.escargot.log1p.xyz/NotRST.srf');
+			req.setRequestHeader('X-User', document.getElementById('email').value);
+			req.setRequestHeader('X-Password', document.getElementById('password').value);
 			req.send();
 		}
 	</script>
 	
 	<div>
+		Email: <input type="text" id="email"/><br/>
+		Password: <input type="password" id="password"/><br/>
 		<button type="button" onclick="dotest()">Do Test</button>
 	</div>
 	
