@@ -10,6 +10,7 @@ def create_app(user_service, auth_service):
 	app['user_service'] = user_service
 	app['auth_service'] = auth_service
 	
+	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_get('/nexus-mock', handle_nexus)
 	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_get(LOGIN_PATH, handle_login)
@@ -31,6 +32,11 @@ async def on_response_prepare(req, res):
 	#	print("}")
 	#else:
 	#	print("body {}")
+
+async def handle_debug(req):
+	with open('etc/debug.html') as fh:
+		text = fh.read()
+	return web.Response(status = 200, text = text)
 
 async def handle_nexus(req):
 	return web.Response(status = 200, headers = {

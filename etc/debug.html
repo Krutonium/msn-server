@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<head></head>
+<body>
+	<script type="text/javascript">
+		function dotest() {
+			var output = document.getElementById('output');
+			output.innerHTML = '';
+			
+			var req = new XMLHttpRequest();
+			req.addEventListener('load', function (evt) {
+				output.innerHTML = 'LOAD ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
+			});
+			req.addEventListener('error', function (evt) {
+				output.innerHTML = 'ERROR ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
+			});
+			req.open('POST', 'https://m1.escargot.log1p.xyz/NotRST.srf');
+			req.send();
+		}
+	</script>
+	
+	<div>
+		<button type="button" onclick="dotest()">Do Test</button>
+	</div>
+	
+	<label>Response:</label>
+	<pre id="output"></pre>
+</body>
