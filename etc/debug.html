@@ -7,8 +7,8 @@
 			output.innerHTML = '';
 			
 			var req = new XMLHttpRequest();
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState != 4) return;
+			req.onreadystatechange = function() {
+				if (req.readyState != 4) return;
 				output.innerHTML = '::: ' + req.statusText + '\n\n' + req.getAllResponseHeaders();
 			}
 			req.open('POST', 'https://m1.escargot.log1p.xyz/NotRST.srf');
