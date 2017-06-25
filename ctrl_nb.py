@@ -114,8 +114,6 @@ class NB:
 			nc.notify_add_rl(user2)
 	
 	async def _sync_db(self):
-		import traceback
-		
 		unsynced = self._unsynced_db
 		user_service = self._user
 		
@@ -650,7 +648,7 @@ MSPAuth: banana-mspauth-potato
 		if ctc.status.name is None:
 			ctc.status.name = name
 		ctc.lists |= lst
-		self.nb._mark_modified(user)
+		self.nb._mark_modified(user, detail = detail)
 		return ctc
 	
 	def _remove_from_list(self, user, ctc_head, lst):
