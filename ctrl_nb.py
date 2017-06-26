@@ -114,16 +114,16 @@ class NB:
 			nc.notify_add_rl(user2)
 	
 	async def _sync_db(self):
-		unsynced = self._unsynced_db
-		user_service = self._user
-		
 		while True:
 			await asyncio.sleep(1)
-			if not unsynced: continue
-			user_service.save_batch([
-				(user, unsynced.pop(user))
-				for user in list(unsynced.keys())[:100]
-			])
+			self._sync_db_impl()
+	
+	def _sync_db_impl(self):
+		if not self._unsynced_db: return
+		self._user.save_batch([
+			(user, self._unsynced_db.pop(user))
+			for user in list(self._unsynced_db.keys())[:100]
+		])
 
 class NBConn:
 	STATE_QUIT = 'q'

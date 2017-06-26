@@ -30,6 +30,11 @@ class UserService:
 	
 	def get_detail(self, uuid):
 		return self._detail_by_uuid.get(uuid)
+	
+	def save_batch(self, to_save):
+		for user, detail in to_save:
+			assert detail is not None
+			self._detail_by_uuid[user.uuid] = detail
 
 class MSNPWriter:
 	def __init__(self):

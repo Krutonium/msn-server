@@ -73,6 +73,11 @@ def test_msnp_commands():
 	nc1._l_adc(17, 'FL', 'C={}'.format(uuid), group_uuid)
 	w1.pop_message('ADC', 17, 'FL', 'C={}'.format(uuid), group_uuid)
 	assert user.detail.contacts[uuid].groups == { group_uuid }
+	
+	assert nb._unsynced_db, "has unsynced data"
+	nb._sync_db_impl()
+	assert not nb._unsynced_db, "db was synced"
+	
 	nc1._l_adc(18, 'BL', 'N=test2@example.com')
 	w1.pop_message('ADC', 18, 'BL', 'N=test2@example.com')
 	assert user.detail.contacts[uuid].lists == Lst.FL | Lst.BL
