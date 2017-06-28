@@ -3,15 +3,17 @@ import asyncio
 from util.msnp import MSNPReader, MSNPWriter
 
 class MSNPConn(asyncio.Protocol):
-	def __init__(self, logger, impl_factory):
-		self.logger = logger
+	def __init__(self, logger_factory, impl_factory):
+		self.logger_factory = logger_factory
 		self.impl_factory = impl_factory
 	
 	def connection_made(self, transport):
-		self.logger.log_connect(transport)
+		logger = self.logger_factory()
+		logger.log_connect(transport)
 		self.transport = transport
-		self.writer = MSNPWriter(self.logger, transport)
-		self.reader = MSNPReader(self.logger)
+		self.logger = logger
+		self.writer = MSNPWriter(logger, transport)
+		self.reader = MSNPReader(logger)
 		self._impl = self.impl_factory(self.writer)
 	
 	def connection_lost(self, exc):

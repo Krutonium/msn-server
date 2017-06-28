@@ -20,9 +20,9 @@ def run_everything(*, http_stuff = None, nb_port = None, sb_services = None, dev
 	
 	coros = [
 		loop.create_server(a_auth_http.setup(), http_stuff[0], http_stuff[1]),
-		loop.create_server(partial(MSNPConn, Logger('nb'), partial(ctrl_nb.NBConn, nb)), '0.0.0.0', nb_port),
+		loop.create_server(partial(MSNPConn, partial(Logger, 'nb'), partial(ctrl_nb.NBConn, nb)), '0.0.0.0', nb_port),
 		*(
-			loop.create_server(partial(MSNPConn, Logger('sb'), partial(ctrl_sb.SBConn, sb, nb)), '0.0.0.0', port)
+			loop.create_server(partial(MSNPConn, partial(Logger, 'sb'), partial(ctrl_sb.SBConn, sb, nb)), '0.0.0.0', port)
 			for port, sb in sbs
 		)
 	]
