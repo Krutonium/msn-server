@@ -71,6 +71,7 @@ class NB:
 	def _mark_modified(self, user, *, detail = None):
 		ud = user.detail or detail
 		if detail: assert ud is detail
+		assert ud is not None
 		self._unsynced_db[user] = ud
 	
 	def notify_call(self, caller_uuid, callee_email, sbsess_id):
@@ -120,10 +121,17 @@ class NB:
 	
 	def _sync_db_impl(self):
 		if not self._unsynced_db: return
-		self._user.save_batch([
-			(user, self._unsynced_db.pop(user))
-			for user in list(self._unsynced_db.keys())[:100]
-		])
+		try:
+			users = list(self._unsynced_db.keys())[:100]
+			batch = []
+			for user in users:
+				detail = self._unsynced_db.pop(user, None)
+				if not detail: continue
+				batch.append((user, detail))
+			self._user.save_batch(batch)
+		except Exception:
+			import traceback
+			traceback.print_exc()
 
 class NBConn:
 	STATE_QUIT = 'q'
