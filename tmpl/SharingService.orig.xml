@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<soap:Header>
+		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
+			<Version>12.03.1527.0001</Version>
+			<CacheKey>12r3:Yg72qUk/bW1BZBA7+TuamiW4Hhtcv4UuUsua/M7IKZ/anrCaV6frqDXKlhBll5r1kUGt8fL+mbXtBFMWlc6R6QD50SdysZJaNHmt19lqjA8IkjG7LpKgicSf/fxJz/mjrriLE5CTa8wQAyrU0ZW14dew6T3E6/TfHny0UwGpDU4=</CacheKey><CacheKeyChanged>true</CacheKeyChanged><PreferredHostName>by5.contacts.msn.com</PreferredHostName>
+		</ServiceHeader>
+	</soap:Header>
+	<soap:Body>
+		<FindMembershipResponse xmlns="http://www.msn.com/webservices/AddressBook">
+			<FindMembershipResult>
+				<Services>
+					<Service>
+						<Memberships>
+							<Membership>
+								<MemberRole>Allow</MemberRole>
+								<Members>
+									<Member xsi:type="PassportMember"><MembershipId>2</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-03T14:02:44.873-08:00</LastChanged><Changes /><PassportName>alexreg@gmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>-4545347189655364198</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>3</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-03T14:04:03.657-08:00</LastChanged><Changes /><PassportName>myrpg@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>-4093035398468562965</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>9</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-25T13:47:08.637-07:00</LastChanged><Changes /><PassportName>samuel_w88@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>4295072099795277229</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>12</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-31T06:51:36.197-07:00</LastChanged><Changes /><PassportName>alsuren@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>8707560931027741803</CID><PassportChanges /></Member>
+								</Members>
+								<MembershipIsComplete>true</MembershipIsComplete>
+							</Membership>
+							<Membership>
+								<MemberRole>Reverse</MemberRole>
+								<Members>
+									<Member xsi:type="PassportMember"><MembershipId>4</MembershipId><Type>Passport</Type><DisplayName>Alex</DisplayName><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-03T14:05:00.17-08:00</LastChanged><Changes /><PassportName>myrpg@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>-4093035398468562965</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>5</MembershipId><Type>Passport</Type><DisplayName>Alex</DisplayName><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-04T08:09:50.073-08:00</LastChanged><Changes /><PassportName>alexreg@gmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>-4545347189655364198</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>10</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-25T13:47:11.56-07:00</LastChanged><Changes /><PassportName>samuel_w88@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>4295072099795277229</CID><PassportChanges /></Member>
+									<Member xsi:type="PassportMember"><MembershipId>13</MembershipId><Type>Passport</Type><State>Accepted</State><Deleted>false</Deleted><LastChanged>2007-03-31T06:51:36.197-07:00</LastChanged><Changes /><PassportName>alsuren@hotmail.com</PassportName><IsPassportNameHidden>false</IsPassportNameHidden><PassportId>0</PassportId><CID>8707560931027741803</CID><PassportChanges /></Member>
+								</Members>
+								<MembershipIsComplete>true</MembershipIsComplete>
+							</Membership>
+						</Memberships>
+						<Info>
+							<Handle><Id>2</Id><Type>Messenger</Type><ForeignId /></Handle>
+							<InverseRequired>false</InverseRequired>
+							<AuthorizationCriteria>2ndDegreeSocNet;MsgrAllow</AuthorizationCriteria>
+							<IsBot>false</IsBot>
+						</Info>
+						<Changes />
+						<LastChange>2007-03-31T06:51:36.197-07:00</LastChange>
+						<Deleted>false</Deleted>
+					</Service>
+				</Services>
+				<OwnerNamespace>
+					<Info>
+						<Handle><Id>00000000-0000-0000-0006-400094d0115b</Id><IsPassportNameHidden>false</IsPassportNameHidden><CID>0</CID></Handle>
+						<CreatorPuid>0</CreatorPuid><CreatorCID>1903433052111977819</CreatorCID>
+						<CreatorPassportName>alsuren@hotmail.co.uk</CreatorPassportName>
+						<CircleAttributes><IsPresenceEnabled>false</IsPresenceEnabled><IsEvent>false</IsEvent><Domain>WindowsLive</Domain></CircleAttributes>
+						<MessengerApplicationServiceCreated>false</MessengerApplicationServiceCreated>
+					</Info>
+					<Changes />
+					<CreateDate>2007-03-03T14:01:45.293-08:00</CreateDate>
+					<LastChange>2007-03-31T06:51:20.463-07:00</LastChange>
+				</OwnerNamespace>
+			</FindMembershipResult>
+		</FindMembershipResponse>
+	</soap:Body>
+</soap:Envelope>

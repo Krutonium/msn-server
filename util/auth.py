@@ -14,9 +14,9 @@ class AuthService:
 		self._bytoken = {}
 		self._idxbase = 0
 	
-	def create_token(self, purpose, data, *, lifetime = 30):
+	def create_token(self, purpose, data, *, lifetime = 30, token = None):
 		self._remove_expired()
-		td = TokenData(purpose, data, self._time() + lifetime)
+		td = TokenData(purpose, data, self._time() + lifetime, token = token)
 		assert td.token not in self._bytoken
 		idx = bisect.bisect_left(self._ordered, td)
 		self._ordered.insert(idx, td)
@@ -44,8 +44,8 @@ class AuthService:
 
 @total_ordering
 class TokenData:
-	def __init__(self, purpose, data, expiry):
-		self.token = gen_salt(20)
+	def __init__(self, purpose, data, expiry, *, token = None):
+		self.token = token or gen_salt(20)
 		self.purpose = purpose
 		self.expiry = expiry
 		self.data = data

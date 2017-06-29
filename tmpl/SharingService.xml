@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<soap:Header>
+		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
+			<Version>12.03.1527.0001</Version>
+			<CacheKey>12r3:Y{{ random_crap }}72qUk/bW1BZBA7+TuamiW4Hhtcv4UuUsua/M7IKZ/anrCaV6frqDXKlhBll5r1kUGt8fL+mbXtBFMWlc6R6QD50SdysZJaNHmt19lqjA8IkjG7LpKgicSf/fxJz/mjrriLE5CTa8wQAyrU0ZW14dew6T3E6/TfHny0UwGpDU4=</CacheKey>
+			<CacheKeyChanged>true</CacheKeyChanged>
+			<PreferredHostName>by5.contacts.msn.com</PreferredHostName>
+		</ServiceHeader>
+	</soap:Header>
+	<soap:Body>
+		<FindMembershipResponse xmlns="http://www.msn.com/webservices/AddressBook">
+			<FindMembershipResult>
+				<Services>
+					<Service>
+						<Memberships>
+							{%- for lst in lists -%}
+								<MemberRole>{{ lst.label }}</MemberRole>
+								<Members>
+									{%- for contact in detail.contacts.values() -%}
+										{%- if contact.lists.__and__(lst) -%}
+											<Member xsi:type="PassportMember">
+												<MembershipId>0</MembershipId>
+												<Type>Passport</Type>
+												<State>Accepted</State>
+												<Deleted>false</Deleted>
+												<LastChanged>{{ now }}Z</LastChanged>
+												<Changes />
+												<PassportName>{{ contact.head.email }}</PassportName>
+												<IsPassportNameHidden>false</IsPassportNameHidden>
+												<PassportId>0</PassportId>
+												<CID>0</CID>
+												<PassportChanges />
+											</Member>
+										{%- endif -%}
+									{%- endfor -%}
+								</Members>
+								<MembershipIsComplete>true</MembershipIsComplete>
+							{%- endfor -%}
+						</Memberships>
+						<Info>
+							<Handle><Id>2</Id><Type>Messenger</Type><ForeignId /></Handle>
+							<InverseRequired>false</InverseRequired>
+							<AuthorizationCriteria>2ndDegreeSocNet;MsgrAllow</AuthorizationCriteria>
+							<IsBot>false</IsBot>
+						</Info>
+						<Changes />
+						<LastChange>{{ now }}Z</LastChange>
+						<Deleted>false</Deleted>
+					</Service>
+				</Services>
+				<OwnerNamespace>
+					<Info>
+						<Handle>
+							<Id>00000000-0000-0000-0006-400094d0115b</Id>
+							<IsPassportNameHidden>false</IsPassportNameHidden>
+							<CID>0</CID>
+						</Handle>
+						<CreatorPuid>0</CreatorPuid><CreatorCID>1903433052111977819</CreatorCID>
+						<CreatorPassportName>{{ user.email }}</CreatorPassportName>
+						<CircleAttributes>
+							<IsPresenceEnabled>false</IsPresenceEnabled>
+							<IsEvent>false</IsEvent>
+							<Domain>WindowsLive</Domain>
+						</CircleAttributes>
+						<MessengerApplicationServiceCreated>false</MessengerApplicationServiceCreated>
+					</Info>
+					<Changes />
+					<CreateDate>{{ now }}Z</CreateDate>
+					<LastChange>{{ now }}Z</LastChange>
+				</OwnerNamespace>
+			</FindMembershipResult>
+		</FindMembershipResponse>
+	</soap:Body>
+</soap:Envelope>

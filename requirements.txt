@@ -3,3 +3,4 @@ aiohttp
 sqlalchemy
 cryptography
 pytest
+jinja2

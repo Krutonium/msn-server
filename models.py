@@ -80,6 +80,11 @@ class Lst(IntFlag):
 	BL = 0x04
 	RL = 0x08
 	PL = 0x10
+Lst.FL.label = "Follow"
+Lst.AL.label = "Allow"
+Lst.BL.label = "Block"
+Lst.RL.label = "Reverse"
+Lst.PL.label = "Pending"
 
 class Service:
 	def __init__(self, host, port):

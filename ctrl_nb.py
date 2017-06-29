@@ -236,7 +236,10 @@ class NBConn:
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
 				#>>> USR trid SSO S auth_token b64_response
-				self.user = self.nb.login(self, self.usr_email, args[0])
+				token = args[0]
+				self.user = self.nb.login(self, self.usr_email, token)
+				if self.user and self.dialect >= 13:
+					self.nb._auth.create_token('contacts', self.user.uuid, token = token, lifetime = 24 * 60 * 60)
 				self._util_usr_final(trid)
 				return
 		
