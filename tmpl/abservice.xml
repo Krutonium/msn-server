@@ -41,7 +41,7 @@
 								</contactInfo>
 								<propertiesChanged />
 								<fDeleted>false</fDeleted>
-								<lastChange>{{ now }}Z</lastChange>
+								<lastChange>{{ now }}</lastChange>
 							</Contact>
 						{%- endif -%}
 					{%- endfor -%}
@@ -65,9 +65,9 @@
 						<NotifyExternalPartner>false</NotifyExternalPartner>
 						<AddressBookType>Individual</AddressBookType>
 					</abInfo>
-					<lastChange>{{ now }}Z</lastChange>
+					<lastChange>{{ now }}</lastChange>
 					<DynamicItemLastChanged>0001-01-01T00:00:00</DynamicItemLastChanged>
-					<createDate>{{ now }}Z</createDate>
+					<createDate>{{ now }}</createDate>
 					<propertiesChanged />
 				</ab>
 			</ABFindAllResult>

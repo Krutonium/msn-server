@@ -15,27 +15,29 @@
 					<Service>
 						<Memberships>
 							{%- for lst in lists -%}
-								<MemberRole>{{ lst.label }}</MemberRole>
-								<Members>
-									{%- for contact in detail.contacts.values() -%}
-										{%- if contact.lists.__and__(lst) -%}
-											<Member xsi:type="PassportMember">
-												<MembershipId>0</MembershipId>
-												<Type>Passport</Type>
-												<State>Accepted</State>
-												<Deleted>false</Deleted>
-												<LastChanged>{{ now }}Z</LastChanged>
-												<Changes />
-												<PassportName>{{ contact.head.email }}</PassportName>
-												<IsPassportNameHidden>false</IsPassportNameHidden>
-												<PassportId>0</PassportId>
-												<CID>0</CID>
-												<PassportChanges />
-											</Member>
-										{%- endif -%}
-									{%- endfor -%}
-								</Members>
-								<MembershipIsComplete>true</MembershipIsComplete>
+								<Membership>
+									<MemberRole>{{ lst.label }}</MemberRole>
+									<Members>
+										{%- for contact in detail.contacts.values() -%}
+											{%- if contact.lists.__and__(lst) -%}
+												<Member xsi:type="PassportMember">
+													<MembershipId>0</MembershipId>
+													<Type>Passport</Type>
+													<State>Accepted</State>
+													<Deleted>false</Deleted>
+													<LastChanged>{{ now }}</LastChanged>
+													<Changes />
+													<PassportName>{{ contact.head.email }}</PassportName>
+													<IsPassportNameHidden>false</IsPassportNameHidden>
+													<PassportId>0</PassportId>
+													<CID>0</CID>
+													<PassportChanges />
+												</Member>
+											{%- endif -%}
+										{%- endfor -%}
+									</Members>
+									<MembershipIsComplete>true</MembershipIsComplete>
+								</Membership>
 							{%- endfor -%}
 						</Memberships>
 						<Info>
@@ -45,7 +47,7 @@
 							<IsBot>false</IsBot>
 						</Info>
 						<Changes />
-						<LastChange>{{ now }}Z</LastChange>
+						<LastChange>{{ now }}</LastChange>
 						<Deleted>false</Deleted>
 					</Service>
 				</Services>
@@ -66,8 +68,8 @@
 						<MessengerApplicationServiceCreated>false</MessengerApplicationServiceCreated>
 					</Info>
 					<Changes />
-					<CreateDate>{{ now }}Z</CreateDate>
-					<LastChange>{{ now }}Z</LastChange>
+					<CreateDate>{{ now }}</CreateDate>
+					<LastChange>{{ now }}</LastChange>
 				</OwnerNamespace>
 			</FindMembershipResult>
 		</FindMembershipResponse>

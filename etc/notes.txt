@@ -39,6 +39,7 @@ MSN 7.0.0813: 0x147079 | nexus: 0x2d098 | 0x2d140
 MSN 7.0.0820: 0x147112 | nexus: 0x2cfb8 | 0x2d060
 MSN 7.5.0311: 0x157607 | nexus: 0x2e8f8 | 0x2e9b8
 MSN 7.5.0324: 0x1580ec | --             | 0x2e9e8
+WLM 8.1.0178: 0x1430ef
 
 MSN <  5: uses registry for messenger.hotmail.com
 MSN >= 5: uses nexus
