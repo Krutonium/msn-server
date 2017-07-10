@@ -14,6 +14,9 @@ def create_app(user_service, auth_service):
 	app.router.add_get('/nexus-mock', handle_nexus)
 	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_get(LOGIN_PATH, handle_login)
+	app.router.add_get('/Config/MsgrConfig.asmx', handle_msgrconfig)
+	app.router.add_post('/Config/MsgrConfig.asmx', handle_msgrconfig)
+	
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	
 	app.on_response_prepare.append(on_response_prepare)
@@ -37,6 +40,17 @@ async def handle_debug(req):
 	with open('etc/debug.html') as fh:
 		text = fh.read()
 	return web.Response(status = 200, text = text, content_type = 'text/html')
+
+async def handle_msgrconfig(req):
+	msgr_config = _get_msgr_config()
+	return web.Response(status = 200, content_type = 'text/xml', text = msgr_config)
+
+def _get_msgr_config():
+	with open('tmpl/MsgrConfigEnvelope.xml') as fh:
+		envelope = fh.read()
+	with open('tmpl/MsgrConfig.xml') as fh:
+		config = fh.read()
+	return envelope.format(MsgrConfig = config)
 
 async def handle_nexus(req):
 	return web.Response(status = 200, headers = {
