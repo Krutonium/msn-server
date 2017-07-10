@@ -112,9 +112,6 @@ async def _get_user_for_soap_request(req):
 	return action, user
 
 async def handle_msgrconfig(req):
-	return web.Response(status = 200, text = '')
-
-async def handle_msgrconfig(req):
 	msgr_config = _get_msgr_config()
 	return web.Response(status = 200, content_type = 'text/xml', text = msgr_config)
 
