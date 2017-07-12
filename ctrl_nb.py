@@ -86,7 +86,7 @@ class NB:
 		ctc_ncs = self._ncs_by_user[ctc.head]
 		if not ctc_ncs: return Err.PrincipalNotOnline
 		for ctc_nc in ctc_ncs:
-			token = self._auth.create_token('sb/cal', ctc.head.uuid)
+			token = self._auth.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'dialect': ctc_nc.dialect })
 			ctc_nc.notify_ring(sbsess_id, token, caller)
 	
 	def get_sbservice(self):
@@ -163,7 +163,12 @@ class NBConn:
 	
 	def notify_ring(self, sbsess_id, token, caller):
 		sb = self.nb.get_sbservice()
-		self.writer.write('RNG', sbsess_id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, caller.email, caller.status.name)
+		extra = ()
+		if self.dialect >= 13:
+			extra = ('U', 'messenger.hotmail.com')
+		if self.dialect >= 14:
+			extra += (1,)
+		self.writer.write('RNG', sbsess_id, '{}:{}'.format(sb.host, sb.port), 'CKI', token, caller.email, caller.status.name, *extra)
 	
 	def notify_presence(self, ctc):
 		self._send_presence_notif(None, ctc)
@@ -587,9 +592,14 @@ MSPAuth: banana-mspauth-potato
 		if dest != 'SB':
 			self.writer.write(Err.InvalidParameter, trid)
 			return
-		token = self.nb._auth.create_token('sb/xfr', self.user.uuid)
+		token = self.nb._auth.create_token('sb/xfr', { 'uuid': self.user.uuid, 'dialect': self.dialect })
 		sb = self.nb.get_sbservice()
-		self.writer.write('XFR', trid, dest, '{}:{}'.format(sb.host, sb.port), 'CKI', token)
+		extra = ()
+		if self.dialect >= 13:
+			extra = ('U', 'messenger.msn.com')
+		if self.dialect >= 14:
+			extra += (1,)
+		self.writer.write('XFR', trid, dest, '{}:{}'.format(sb.host, sb.port), 'CKI', token, *extra)
 	
 	def _l_adl(self, trid, data):
 		# TODO
@@ -603,7 +613,7 @@ MSPAuth: banana-mspauth-potato
 		# TODO
 		self.writer.write('FQY', trid, b'')
 	
-	def _l_uun(self, trid, email, arg0, arg1, data):
+	def _l_uun(self, trid, email, arg0, data):
 		# TODO
 		self.writer.write('UUN', trid, 'OK')
 	
@@ -633,8 +643,14 @@ MSPAuth: banana-mspauth-potato
 		is_offlineish = status.is_offlineish()
 		if is_offlineish and trid is not None: return
 		head = ctc.head
+		
+		if self.dialect >= 14:
+			networkid = 1
+		else:
+			networkid = None
+		
 		if is_offlineish:
-			self.writer.write('FLN', head.email)
+			self.writer.write('FLN', head.email, networkid)
 		else:
 			if trid: frst = ('ILN', trid)
 			else: frst = ('NLN',)
@@ -642,12 +658,11 @@ MSPAuth: banana-mspauth-potato
 			if self.dialect >= 8:
 				rst.append(head.detail.capabilities)
 			if self.dialect >= 9:
-				rst.append(head.detail.msnobj)
-			else:
-				rst.append(None)
-			self.writer.write(*frst, status.substatus.name, head.email, status.name, *rst)
+				rst.append(head.detail.msnobj or '<msnobj/>')
+			self.writer.write(*frst, status.substatus.name, head.email, networkid, status.name, *rst)
+			
 			if self.dialect >= 11:
-				self.writer.write('UBX', head.email, { 'PSM': status.message, 'CurrentMedia': status.media })
+				self.writer.write('UBX', head.email, networkid, { 'PSM': status.message, 'CurrentMedia': status.media })
 	
 	def _add_to_list(self, user, ctc_head, lst, name):
 		# Add `ctc_head` to `user`'s `lst`

@@ -18,17 +18,23 @@ def create_app(user_service, auth_service):
 		autoescape = jinja2.select_autoescape(default = True),
 	)
 	
-	app.router.add_get('/etc/debug', handle_debug)
+	# MSN >= 5
 	app.router.add_get('/nexus-mock', handle_nexus)
-	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_get(LOGIN_PATH, handle_login)
+	
+	# MSN >= 6
 	app.router.add_get('/Config/MsgrConfig.asmx', handle_msgrconfig)
 	app.router.add_post('/Config/MsgrConfig.asmx', handle_msgrconfig)
 	
-	# MSN 8.1.0178
-	app.router.add_post('/abservice/SharingService.asmx', handle_sharingservice)
-	app.router.add_post('/abservice/abservice.asmx', handle_abservice)
+	# MSN >= 7.5
+	app.router.add_post('/NotRST.srf', handle_not_rst)
 	
+	# MSN 8.1.0178
+	app.router.add_post('/abservice/SharingService.asmx', handle_soap)
+	app.router.add_post('/abservice/abservice.asmx', handle_soap)
+	
+	# Misc
+	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	
 	app.on_response_prepare.append(on_response_prepare)
@@ -51,65 +57,64 @@ async def on_response_prepare(req, res):
 async def handle_debug(req):
 	return render(req, 'debug.html')
 
-async def handle_sharingservice(req):
-	action, user = await _get_user_for_soap_request(req)
+async def handle_soap(req):
+	action, user = await _preprocess_soap(req)
 	if user is None:
 		return web.Response(status = 403, text = '')
-	if action != 'FindMembership':
-		if action.endswith('/delta'):
-			return render(req, 'fault.fullsync.xml')
-		else:
-			return render(req, 'fault.xml', { 'action': action })
+	if bool(action.find('.//{http://www.msn.com/webservices/AddressBook}deltasOnly')):
+		return render(req, 'fault.fullsync.xml')
+	action_str = _get_tag_localname(action)
 	detail = req.app['user_service'].get_detail(user.uuid)
-	return render(req, 'SharingService.xml', {
-		'user': user,
-		'detail': detail,
-		'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
-		'now': datetime.utcnow().isoformat() + 'Z',
-		'random_crap': str(random())[2:],
-	})
+	now_str = datetime.utcnow().isoformat() + 'Z'
+	if action_str == 'FindMembership':
+		return render(req, 'SharingService.xml', {
+			'user': user,
+			'detail': detail,
+			'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
+			'now': now_str,
+			'random_crap': str(random())[2:],
+		})
+	elif action_str == 'ABFindAll':
+		return render(req, 'abservice.xml', {
+			'user': user,
+			'detail': detail,
+			'Lst': models.Lst,
+			'list': list,
+			'now': now_str,
+			'random_crap': str(random())[2:],
+		})
+	else:
+		import lxml
+		print("Unknown SOAP:")
+		print(lxml.etree.tostring(action, pretty_print = True).decode('utf-8'))
+		return render(req, 'fault.xml', { 'action': action_str })
 
-async def handle_abservice(req):
-	action, user = await _get_user_for_soap_request(req)
-	if user is None:
-		return web.Response(status = 403, text = '')
-	if action != 'ABFindAll':
-		if action.endswith('/delta'):
-			return render(req, 'fault.fullsync.xml')
-		else:
-			return render(req, 'fault.xml', { 'action': action })
-	detail = req.app['user_service'].get_detail(user.uuid)
-	return render(req, 'abservice.xml', {
-		'user': user,
-		'detail': detail,
-		'Lst': models.Lst,
-		'list': list,
-		'now': datetime.utcnow().isoformat() + 'Z',
-		'random_crap': str(random())[2:],
-	})
-
-async def _get_user_for_soap_request(req):
-	from lxml import etree
+async def _preprocess_soap(req):
 	from lxml.objectify import fromstring as parse_xml
 	
 	body = await req.read()
-	elm = parse_xml(body)
-	sbody = elm.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
-	action = etree.QName(sbody.getchildren()[0].tag).localname
-	deltas = bool(elm.find('.//{http://www.msn.com/webservices/AddressBook}deltasOnly'))
-	if deltas is True:
-		action += '/delta'
-	print("request", action)
-	token = elm.find('.//{http://www.msn.com/webservices/AddressBook}TicketToken')
-	if token is None: return action, None
-	auth = req.app['auth_service']
-	uuid = auth.pop_token('contacts', token)
-	if uuid is None: return action, None
-	user = req.app['user_service'].get(uuid)
-	if user is None: return action, None
-	# Refresh the token for later use
-	auth.create_token('contacts', uuid, token = token, lifetime = 24 * 60 * 60)
+	root = parse_xml(body)
+	
+	user = None
+	token = root.find('.//{http://www.msn.com/webservices/AddressBook}TicketToken')
+	if token is not None:
+		auth = req.app['auth_service']
+		uuid = auth.pop_token('contacts', token)
+		if uuid is not None:
+			user = req.app['user_service'].get(uuid)
+	
+	if user is not None:
+		action = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body/*[1]')
+		# Refresh the token for later use
+		auth.create_token('contacts', uuid, token = token, lifetime = 24 * 60 * 60)
+	else:
+		action = None
+	
 	return action, user
+
+def _get_tag_localname(elm):
+	import lxml
+	return lxml.etree.QName(elm.tag).localname
 
 async def handle_msgrconfig(req):
 	msgr_config = _get_msgr_config()

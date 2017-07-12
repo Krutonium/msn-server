@@ -22,9 +22,9 @@ def test_msnp_commands():
 	# User 2 login
 	nc2 = NBConn(nb, MSNPWriter())
 	user2 = _login_msnp(nc2, 'test2@example.com')
-	nc1.writer.pop_message('NLN', 'NLN', 'test2@example.com', ANY, ANY)
+	nc1.writer.pop_message('NLN', 'NLN', 'test2@example.com', ANY, ANY, ANY)
 	nc1.writer.pop_message('UBX', 'test2@example.com', ANY)
-	nc2.writer.pop_message('ILN', 5, 'NLN', 'test1@example.com', ANY, ANY)
+	nc2.writer.pop_message('ILN', 5, 'NLN', 'test1@example.com', ANY, ANY, ANY)
 	nc2.writer.pop_message('UBX', 'test1@example.com', ANY)
 	
 	# User 1 starts convo

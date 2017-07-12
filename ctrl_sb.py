@@ -9,28 +9,28 @@ class SB:
 		self._sessions = {}
 	
 	def login_xfr(self, sc, token):
-		user = self._load_user('sb/xfr', token)
+		user, dialect = self._load_user('sb/xfr', token)
 		if user is None: return None
 		sbsess = SBSession()
 		self._sessions[sbsess.id] = sbsess
 		sbsess.add_sc(sc, user)
-		return user, sbsess
+		return user, sbsess, dialect
 	
 	def auth_cal(self, uuid):
 		return self._auth.create_token('sb/cal', uuid)
 	
 	def login_cal(self, sc, email, token, sessid):
-		user = self._load_user('sb/cal', token)
+		user, dialect = self._load_user('sb/cal', token)
 		if user is None: return None
 		if user.email != email: return None
 		sbsess = self._sessions.get(sessid)
 		if sbsess is None: return None
 		sbsess.add_sc(sc, user)
-		return user, sbsess
+		return user, sbsess, dialect
 		
 	def _load_user(self, purpose, token):
-		uuid = self._auth.pop_token(purpose, token)
-		return self._user.get(uuid)
+		data = self._auth.pop_token(purpose, token)
+		return self._user.get(data['uuid']), data['dialect']
 
 class SBSession:
 	def __init__(self):
@@ -74,6 +74,7 @@ class SBConn:
 		self.state = SBConn.STATE_AUTH
 		self.sbsess = None
 		self.user = None
+		self.dialect = None
 	
 	def connection_lost(self):
 		if self.sbsess:
@@ -85,7 +86,10 @@ class SBConn:
 		self.writer.write('MSG', user.email, user.status.name, data)
 	
 	def send_join(self, user):
-		self.writer.write('JOI', user.email, user.status.name)
+		extra = ()
+		if self.dialect >= 13:
+			extra = (user.detail.capabilities,)
+		self.writer.write('JOI', user.email, user.status.name, *extra)
 	
 	def send_leave(self, user):
 		self.writer.write('BYE', user.email)
@@ -98,13 +102,14 @@ class SBConn:
 		if data is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		(user, sbsess) = data
+		(user, sbsess, dialect) = data
 		if email != user.email:
 			self.writer.write(Err.AuthFail, trid)
 			return
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
 		self.user = user
+		self.dialect = dialect
 		self.writer.write('USR', trid, 'OK', user.email, user.status.name)
 	
 	def _a_ans(self, trid, email, token, sessid):
@@ -113,15 +118,19 @@ class SBConn:
 		if data is None:
 			self.writer.write(Err.AuthFail, trid)
 			return
-		(user, sbsess) = data
+		(user, sbsess, dialect) = data
 		self.state = SBConn.STATE_LIVE
 		self.sbsess = sbsess
 		self.user = user
+		self.dialect = dialect
 		roster = sbsess.get_roster(self)
 		l = len(roster)
 		for i, (sc, su) in enumerate(roster):
 			sc.send_join(self.user)
-			self.writer.write('IRO', trid, i + 1, l, su.email, su.status.name)
+			extra = ()
+			if self.dialect >= 13:
+				extra = (su.detail.capabilities,)
+			self.writer.write('IRO', trid, i + 1, l, su.email, su.status.name, *extra)
 		self.writer.write('ANS', trid, 'OK')
 	
 	# State = Live
