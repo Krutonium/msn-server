@@ -4,7 +4,7 @@
 		<soap:Fault>
 			<faultcode>soap:Client</faultcode>
 			<faultstring>Full sync required.  Details: Delta syncs disabled.</faultstring>
-			<faultactor>http://www.msn.com/webservices/AddressBook/ABFindAll</faultactor>
+			<faultactor>http://www.msn.com/webservices/AddressBook/{{ faultactor }}</faultactor>
 			<detail>
 				<errorcode xmlns="http://www.msn.com/webservices/AddressBook">FullSyncRequired</errorcode>
 				<errorstring xmlns="http://www.msn.com/webservices/AddressBook">Full sync required.  Details: Delta syncs disabled.</errorstring>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope
+xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<soap:Header>
+		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
+			<Version>12.01.0920.0001</Version>
+			<CacheKeyChanged>false</CacheKeyChanged>
+		</ServiceHeader>
+	</soap:Header>
+	<soap:Body>
+		<ABGroupAddResponse xmlns="http://www.msn.com/webservices/AddressBook">
+			<ABGroupAddResult>
+				<guid>62b9fd12-df18-4b39-837b-035eef22df29</guid>
+			</ABGroupAddResult>
+		</ABGroupAddResponse>
+	</soap:Body>
+</soap:Envelope>

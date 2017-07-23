@@ -3,7 +3,7 @@
 	<soap:Header>
 		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
 			<Version>12.03.1527.0001</Version>
-			<CacheKey>12r3:Y{{ random_crap }}72qUk/bW1BZBA7+TuamiW4Hhtcv4UuUsua/M7IKZ/anrCaV6frqDXKlhBll5r1kUGt8fL+mbXtBFMWlc6R6QD50SdysZJaNHmt19lqjA8IkjG7LpKgicSf/fxJz/mjrriLE5CTa8wQAyrU0ZW14dew6T3E6/TfHny0UwGpDU4=</CacheKey>
+			<CacheKey>12r3:Y72qUk/bW1BZBA7+TuamiW4Hhtcv4UuUsua/M7IKZ/anrCaV6frqDXKlhBll5r1kUGt8fL+mbXtBFMWlc6R6QD50SdysZJaNHmt19lqjA8IkjG7LpKgicSf/fxJz/mjrriLE5CTa8wQAyrU0ZW14dew6T3E6/TfHny0UwGpDU4=</CacheKey>
 			<CacheKeyChanged>true</CacheKeyChanged>
 			<PreferredHostName>by5.contacts.msn.com</PreferredHostName>
 		</ServiceHeader>
