@@ -1,4 +1,5 @@
 import io
+from enum import IntEnum
 from urllib.parse import quote, unquote
 from lxml.objectify import fromstring as parse_xml
 
@@ -26,6 +27,8 @@ class MSNPWriter:
 			).encode('utf-8')
 		elif m[0] in ('ILN', 'NLN', 'CHG'):
 			m[-1] = urlescape_msnobj(m[-1])
+		elif isinstance(m[0], Err):
+			m[0] = int(m[0])
 		if isinstance(m[-1], bytes):
 			data = m[-1]
 			m = list(m)
@@ -108,7 +111,7 @@ class MSNPReader:
 		self._i += n
 		return self._data[i:e]
 
-class Err:
+class Err(IntEnum):
 	InvalidParameter = 201
 	InvalidPrincipal = 205
 	PrincipalOnList = 215
@@ -121,6 +124,13 @@ class Err:
 	InternalServerError = 500
 	CommandDisabled = 502
 	AuthFail = 911
+
+class MSNPException(Exception):
+	def __init__(self, id):
+		self.id = id
+	
+	def __repr__(self):
+		return repr(self.id)
 
 def parse_uux(data):
 	elm = parse_xml(data.decode('utf-8'))

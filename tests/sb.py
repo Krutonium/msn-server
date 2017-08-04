@@ -68,8 +68,8 @@ def _login_msnp(nc, email):
 	nc._a_usr(3, 'TWN', 'I', email)
 	w.pop_message('USR', 3, 'TWN', 'S', ANY)
 	
-	uuid = nc.nb._user.get_uuid(email)
-	token = nc.nb._auth.create_token('nb/login', uuid)
+	uuid = nc.nb._user_service.get_uuid(email)
+	token = nc.nb._auth_service.create_token('nb/login', uuid)
 	nc._a_usr(4, 'TWN', 'S', token)
 	w.pop_message('USR', 4, 'OK', email, '1', '0')
 	

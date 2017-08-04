@@ -1,13 +1,14 @@
 import asyncio
 from collections import defaultdict
 
-from util.msnp import Err
+from util.msnp import Err, MSNPException
+from util.contacts import ContactsService
 from models import Contact, Group, UserStatus, Substatus, Lst
 
 class NB:
 	def __init__(self, user_service, auth_service, sbservices):
-		self._user = user_service
-		self._auth = auth_service
+		self._user_service = user_service
+		self._auth_service = auth_service
 		self._sbservices = sbservices
 		# Dict[User.uuid, User]
 		self._user_by_uuid = {}
@@ -23,26 +24,26 @@ class NB:
 		asyncio.get_event_loop().create_task(self._sync_db())
 	
 	def login(self, nc, email, token):
-		uuid = self._auth.pop_token('nb/login', token)
+		uuid = self._auth_service.pop_token('nb/login', token)
 		return self._login_common(nc, uuid, email)
 	
 	def login_md5(self, nc, email, md5_hash):
-		uuid = self._user.login_md5(email, md5_hash)
+		uuid = self._user_service.login_md5(email, md5_hash)
 		return self._login_common(nc, uuid, email)
 	
 	def _login_common(self, nc, uuid, email):
 		if uuid is None: return None
-		self._user.update_date_login(uuid)
-		user = self._load_user_record(uuid)
+		self._user_service.update_date_login(uuid)
+		user = self.load_user_record(uuid)
 		self._user_by_nc[nc] = user
 		self._ncs_by_user[user].add(nc)
-		user.detail = self._load_detail(user)
+		user.detail = self.load_detail(user)
 		return user
 	
-	def _generic_notify(self, nc):
+	def generic_notify(self, nc):
+		# Notify relevant `NBConn`s of status, name, message, media
 		user = self._user_by_nc.get(nc)
 		if user is None: return
-		# Notify relevant `NBConn`s of status, name, message, media
 		for nc1, user1 in self._user_by_nc.items():
 			if nc1 == nc: continue
 			if user1.detail is None: continue
@@ -50,25 +51,26 @@ class NB:
 			if ctc is None: continue
 			nc1.notify_presence(ctc)
 	
-	def _sync_contact_statuses(self):
+	def sync_contact_statuses(self):
+		# Recompute all `Contact.status`'s
 		for user in self._user_by_uuid.values():
 			detail = user.detail
 			if detail is None: continue
 			for ctc in detail.contacts.values():
 				ctc.compute_visible_status(user)
 	
-	def _load_user_record(self, uuid):
+	def load_user_record(self, uuid):
 		if uuid not in self._user_by_uuid:
-			user = self._user.get(uuid)
+			user = self._user_service.get(uuid)
 			if user is None: return None
 			self._user_by_uuid[uuid] = user
 		return self._user_by_uuid[uuid]
 	
-	def _load_detail(self, user):
+	def load_detail(self, user):
 		if user.detail: return user.detail
-		return self._user.get_detail(user.uuid)
+		return self._user_service.get_detail(user.uuid)
 	
-	def _mark_modified(self, user, *, detail = None):
+	def mark_modified(self, user, *, detail = None):
 		ud = user.detail or detail
 		if detail: assert ud is detail
 		assert ud is not None
@@ -78,7 +80,7 @@ class NB:
 		caller = self._user_by_uuid.get(caller_uuid)
 		if caller is None: return Err.InternalServerError
 		if caller.detail is None: return Err.InternalServerError
-		callee_uuid = self._user.get_uuid(callee_email)
+		callee_uuid = self._user_service.get_uuid(callee_email)
 		if callee_uuid is None: return Err.InternalServerError
 		ctc = caller.detail.contacts.get(callee_uuid)
 		if ctc is None: return Err.InternalServerError
@@ -86,7 +88,7 @@ class NB:
 		ctc_ncs = self._ncs_by_user[ctc.head]
 		if not ctc_ncs: return Err.PrincipalNotOnline
 		for ctc_nc in ctc_ncs:
-			token = self._auth.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'dialect': ctc_nc.dialect })
+			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'dialect': ctc_nc.dialect })
 			ctc_nc.notify_ring(sbsess_id, token, caller)
 	
 	def get_sbservice(self):
@@ -103,8 +105,8 @@ class NB:
 			return
 		# User is offline, send notifications
 		user.detail = None
-		self._sync_contact_statuses()
-		self._generic_notify(nc)
+		self.sync_contact_statuses()
+		self.generic_notify(nc)
 		self._user_by_nc.pop(nc)
 	
 	def notify_reverse_add(self, user1, user2):
@@ -128,7 +130,7 @@ class NB:
 				detail = self._unsynced_db.pop(user, None)
 				if not detail: continue
 				batch.append((user, detail))
-			self._user.save_batch(batch)
+			self._user_service.save_batch(batch)
 		except Exception:
 			import traceback
 			traceback.print_exc()
@@ -148,7 +150,8 @@ class NBConn:
 	def __init__(self, nb, writer):
 		self.nb = nb
 		self.writer = writer
-		self._user = nb._user
+		self._user_service = nb._user_service
+		self._contacts = None
 		self.state = NBConn.STATE_AUTH
 		self.dialect = None
 		self.iln_sent = False
@@ -210,7 +213,7 @@ class NBConn:
 				return
 			if stage == 'I':
 				email = args[0]
-				salt = self._user.get_md5_salt(email)
+				salt = self._user_service.get_md5_salt(email)
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
@@ -244,7 +247,7 @@ class NBConn:
 				token = args[0]
 				self.user = self.nb.login(self, self.usr_email, token)
 				if self.user and self.dialect >= 13:
-					self.nb._auth.create_token('contacts', self.user.uuid, token = token, lifetime = 24 * 60 * 60)
+					self.nb._auth_service.create_token('contacts', self.user.uuid, token = token, lifetime = 24 * 60 * 60)
 				self._util_usr_final(trid)
 				return
 		
@@ -264,6 +267,7 @@ class NBConn:
 			args += ((1 if verified else 0), 0)
 		self.writer.write('USR', trid, 'OK', self.user.email, *args)
 		self.state = NBConn.STATE_LIVE
+		self._contacts = ContactsService(self.nb, self.user)
 		
 		if self.dialect < 13:
 			return
@@ -352,9 +356,9 @@ MSPAuth: banana-mspauth-potato
 		user = self.user
 		user.status.message = data['PSM']
 		user.status.media = data['CurrentMedia']
-		self.nb._mark_modified(user)
-		self.nb._sync_contact_statuses()
-		self.nb._generic_notify(self)
+		self.nb.mark_modified(user)
+		self.nb.sync_contact_statuses()
+		self.nb.generic_notify(self)
 		self.writer.write('UUX', trid, 0)
 	
 	def _l_url(self, trid, *ignored):
@@ -362,109 +366,76 @@ MSPAuth: banana-mspauth-potato
 	
 	def _l_adg(self, trid, name, ignored = None):
 		#>>> ADG 276 New Group
-		if len(name) > 61:
-			self.writer.write(Err.GroupNameTooLong, trid)
+		try:
+			group = self._contacts.add_group(name)
+		except MSNPException as ex:
+			self.writer.write(ex.id, trid)
 			return
-		user = self.user
-		group_id = _gen_group_id(user.detail)
-		user.detail.groups[group_id] = Group(group_id, name)
-		self.nb._mark_modified(user)
-		self.writer.write('ADG', trid, self._ser(), name, group_id, 0)
+		self.writer.write('ADG', trid, self._ser(), name, group.id, 0)
 	
 	def _l_rmg(self, trid, group_id):
 		#>>> RMG 250 00000000-0000-0000-0001-000000000001
-		if group_id == '0':
-			self.writer.write(Err.GroupZeroUnremovable, trid)
-			return
-		user = self.user
-		groups = user.detail.groups
 		if group_id == 'New%20Group':
 			# Bug: MSN 7.0 sends name instead of id in a particular scenario
-			for g in groups.values():
+			for g in self.user.detail.groups.values():
 				if g.name != 'New Group': continue
 				group_id = g.id
 				break
+		
 		try:
-			del groups[group_id]
-		except KeyError:
-			self.writer.write(Err.GroupInvalid, trid)
-		else:
-			for ctc in user.detail.contacts.values():
-				ctc.groups.discard(group_id)
-			self.nb._mark_modified(user)
-			if self.dialect < 10:
-				self.writer.write('RMG', trid, self._ser(), group_id)
-			else:
-				self.writer.write('RMG', trid, 1, group_id)
+			self._contacts.remove_group(group_id)
+		except MSNPException as ex:
+			self.writer.write(ex.id, trid)
+			return
+		
+		self.writer.write('RMG', trid, self._ser() or 1, group_id)
 	
 	def _l_reg(self, trid, group_id, name, ignored = None):
 		#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
-		user = self.user
-		g = user.detail.groups.get(group_id)
-		if g is None:
-			self.writer.write(Err.GroupInvalid, trid)
+		try:
+			self._contacts.edit_group(group_id, name)
+		except MSNPException as ex:
+			self.writer.write(ex.id, trid)
 			return
-		if len(name) > 61:
-			self.writer.write(Err.GroupNameTooLong, trid)
-			return
-		g.name = name
-		self.nb._mark_modified(user)
 		if self.dialect < 10:
 			self.writer.write('REG', trid, self._ser(), group_id, name, 0)
 		else:
 			self.writer.write('REG', trid, 1, name, group_id, 0)
 	
-	def _l_adc(self, trid, lst_name, usr, arg2 = None):
-		if usr.startswith('N='):
+	def _l_adc(self, trid, lst_name, arg1, arg2 = None):
+		if arg1.startswith('N='):
 			#>>> ADC 249 BL N=bob1@hotmail.com
 			#>>> ADC 278 AL N=foo@hotmail.com
 			#>>> ADC 277 FL N=foo@hotmail.com F=foo@hotmail.com
-			email = usr[2:]
-			contact_uuid = self._user.get_uuid(email)
-			if contact_uuid is None:
-				self.writer.write(Err.InvalidPrincipal, trid)
-				return
+			contact_uuid = self._user_service.get_uuid(arg1[2:])
 			group_id = None
 			name = (arg2[2:] if arg2 else None)
 		else:
 			# Add C= to group
 			#>>> ADC 246 FL C=00000000-0000-0000-0002-000000000002 00000000-0000-0000-0001-000000000003
-			contact_uuid = usr[2:]
+			contact_uuid = arg1[2:]
 			group_id = arg2
 			name = None
-		self._add_to_list_bidi(trid, lst_name, contact_uuid, name, group_id)
-
+		
+		self._add_common(trid, lst_name, contact_uuid, name, group_id)
+	
 	def _l_add(self, trid, lst_name, email, name = None, group_id = None):
 		#>>> ADD 122 FL email name group
-		contact_uuid = self._user.get_uuid(email)
-		if contact_uuid is None:
-			self.writer.write(Err.InvalidPrincipal, trid)
-			return
-		self._add_to_list_bidi(trid, lst_name, contact_uuid, name, group_id)
-
-	def _add_to_list_bidi(self, trid, lst_name, contact_uuid, name = None, group_id = None):
-		ctc_head = self.nb._load_user_record(contact_uuid)
-		assert ctc_head is not None
+		contact_uuid = self._user_service.get_uuid(email)
+		self._add_common(trid, lst_name, contact_uuid, name, group_id)
+	
+	def _add_common(self, trid, lst_name, contact_uuid, name = None, group_id = None):
 		lst = getattr(Lst, lst_name)
 		
-		user = self.user
-		ctc = self._add_to_list(user, ctc_head, lst, name)
-		if lst == Lst.FL:
-			if group_id is not None and group_id != '0':
-				if group_id not in user.detail.groups:
-					self.writer.write(Err.GroupInvalid, trid)
-					return
-				if group_id in ctc.groups:
-					self.writer.write(Err.PrincipalOnList, trid)
-					return
-				ctc.groups.add(group_id)
-				self.nb._mark_modified(user)
-			# FL needs a matching RL on the contact
-			self._add_to_list(ctc_head, user, Lst.RL, user.status.name)
-			self.nb.notify_reverse_add(ctc_head, user)
+		try:
+			ctc, ctc_head = self._contacts.add_contact(contact_uuid, lst, name)
+			if group_id:
+				self._contacts.add_group_contact(group_id, contact_uuid)
+		except MSNPException as ex:
+			self.writer.write(ex.id, trid)
+			return
 		
-		self.nb._sync_contact_statuses()
-		self.nb._generic_notify(self)
+		self.nb.generic_notify(self)
 		
 		if self.dialect >= 10:
 			if lst == Lst.FL:
@@ -477,56 +448,37 @@ MSPAuth: banana-mspauth-potato
 		else:
 			self.writer.write('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
 		
-		if lst == Lst.FL:
-			self._send_iln_add(trid, ctc_head.uuid)
+		if lst is Lst.FL:
+			self._send_presence_notif(trid, ctc)
 	
 	def _l_rem(self, trid, lst_name, usr, group_id = None):
-		if lst_name == 'RL':
+		lst = getattr(Lst, lst_name)
+		if lst is Lst.RL:
 			self.state = NBConn.STATE_QUIT
 			return
-		user = self.user
-		if lst_name == 'FL':
+		if lst is Lst.FL:
+			#>>> REM 279 FL 00000000-0000-0000-0002-000000000001
+			#>>> REM 247 FL 00000000-0000-0000-0002-000000000002 00000000-0000-0000-0001-000000000002
 			if self.dialect < 10:
-				contact_uuid = self._user.get_uuid(usr)
+				contact_uuid = self._user_service.get_uuid(usr)
 			else:
 				contact_uuid = usr
-			ctc = user.detail.contacts.get(contact_uuid)
-			if ctc is None:
-				self.writer.write(Err.PrincipalNotOnList, trid)
-				return
-			
-			if group_id is None:
-				#>>> ['REM', '279', 'FL', '00000000-0000-0000-0002-000000000001']
-				# Remove from FL
-				self._remove_from_list(user, ctc.head, Lst.FL)
-				# Remove matching RL
-				self._remove_from_list(ctc.head, user, Lst.RL)
-			else:
-				#>>> ['REM', '247', 'FL', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000002']
-				# Only remove group
-				if group_id not in user.detail.groups and group_id != '0':
-					self.writer.write(Err.GroupInvalid, trid)
-					return
-				try:
-					ctc.groups.remove(group_id)
-				except KeyError:
-					if group_id == '0':
-						self.writer.write(Err.PrincipalNotInGroup, trid)
-						return
-				self.nb._mark_modified(user)
 		else:
-			#>>> ['REM', '248', 'AL', 'bob1@hotmail.com']
+			#>>> REM 248 AL bob1@hotmail.com
 			email = usr
-			lb = getattr(Lst, lst_name)
-			found = False
-			for ctc in user.detail.contacts.values():
+			contact_uuid = None
+			for ctc in self.user.detail.contacts.values():
 				if ctc.head.email != email: continue
-				ctc.lists &= ~lb
-				found = True
-			if not found:
-				self.writer.write(Err.PrincipalNotOnList, trid)
-				return
-			self.nb._mark_modified(user)
+				contact_uuid = ctc.head.uuid
+				break
+		try:
+			if group_id:
+				self._contacts.remove_group_contact(group_id, contact_uuid)
+			else:
+				self._contacts.remove_contact(contact_uuid, lst)
+		except MSNPException as ex:
+			self.writer.write(ex.id, trid)
+			return
 		self.writer.write('REM', trid, lst_name, self._ser(), usr, group_id)
 	
 	def _l_gtc(self, trid, value):
@@ -534,26 +486,26 @@ MSPAuth: banana-mspauth-potato
 			self.writer.write(Err.CommandDisabled, trid)
 			return
 		# "Alert me when other people add me ..." Y/N
-		#>>> ['GTC', '152', 'N']
+		#>>> GTC 152 N
 		self._setting_change('GTC', trid, value)
 	
 	def _l_blp(self, trid, value):
 		# Check "Only people on my Allow List ..." AL/BL
-		#>>> ['BLP', '143', 'BL']
+		#>>> BLP 143 BL
 		self._setting_change('BLP', trid, value)
-		self.nb._sync_contact_statuses()
-		self.nb._generic_notify(self)
+		self.nb.sync_contact_statuses()
+		self.nb.generic_notify(self)
 	
 	def _l_chg(self, trid, sts_name, capabilities = None, msnobj = None):
-		#>>> ['CHG', '120', 'BSY', '1073791020', '<msnobj .../>']
+		#>>> CHG 120 BSY 1073791020 <msnobj .../>
 		capabilities = capabilities or 0
 		user = self.user
 		user.status.substatus = getattr(Substatus, sts_name)
 		user.detail.capabilities = capabilities
 		user.detail.msnobj = msnobj
-		self.nb._mark_modified(user)
-		self.nb._sync_contact_statuses()
-		self.nb._generic_notify(self)
+		self.nb.mark_modified(user)
+		self.nb.sync_contact_statuses()
+		self.nb.generic_notify(self)
 		self.writer.write('CHG', trid, sts_name, capabilities, msnobj)
 		self._send_iln(trid)
 	
@@ -570,7 +522,7 @@ MSPAuth: banana-mspauth-potato
 		self.writer.write('SND', trid, email)
 	
 	def _l_prp(self, trid, key, value):
-		#>>> ['PRP', '115', 'MFN', '~~woot~~']
+		#>>> PRP 115 MFN ~~woot~~
 		if key == 'MFN':
 			self._change_display_name(value)
 		# TODO: Save other settings?
@@ -579,12 +531,12 @@ MSPAuth: banana-mspauth-potato
 	def _change_display_name(self, name):
 		user = self.user
 		user.status.name = name
-		self.nb._mark_modified(user)
-		self.nb._sync_contact_statuses()
-		self.nb._generic_notify(self)
+		self.nb.mark_modified(user)
+		self.nb.sync_contact_statuses()
+		self.nb.generic_notify(self)
 	
 	def _l_sbp(self, trid, uuid, key, value):
-		#>>> ['SBP', '153', '00000000-0000-0000-0002-000000000002', 'MFN', 'Bob 1 New']
+		#>>> SBP 153 00000000-0000-0000-0002-000000000002 MFN Bob%201%20New
 		# Can be ignored: controller handles syncing contact names.
 		self.writer.write('SBP', trid, uuid, key, value)
 	
@@ -592,7 +544,7 @@ MSPAuth: banana-mspauth-potato
 		if dest != 'SB':
 			self.writer.write(Err.InvalidParameter, trid)
 			return
-		token = self.nb._auth.create_token('sb/xfr', { 'uuid': self.user.uuid, 'dialect': self.dialect })
+		token = self.nb._auth_service.create_token('sb/xfr', { 'uuid': self.user.uuid, 'dialect': self.dialect })
 		sb = self.nb.get_sbservice()
 		extra = ()
 		if self.dialect >= 13:
@@ -622,7 +574,7 @@ MSPAuth: banana-mspauth-potato
 	def _setting_change(self, name, trid, value):
 		user = self.user
 		user.detail.settings[name] = value
-		self.nb._mark_modified(user)
+		self.nb.mark_modified(user)
 		self.writer.write(name, trid, self._ser(), value)
 	
 	def _send_iln(self, trid):
@@ -631,12 +583,6 @@ MSPAuth: banana-mspauth-potato
 		for ctc in user.detail.contacts.values():
 			self._send_presence_notif(trid, ctc)
 		self.iln_sent = True
-	
-	def _send_iln_add(self, trid, ctc_uuid):
-		user = self.user
-		ctc = user.detail.contacts.get(ctc_uuid)
-		if ctc is None: return
-		self._send_presence_notif(trid, ctc)
 	
 	def _send_presence_notif(self, trid, ctc):
 		status = ctc.status
@@ -664,43 +610,11 @@ MSPAuth: banana-mspauth-potato
 			if self.dialect >= 11:
 				self.writer.write('UBX', head.email, networkid, { 'PSM': status.message, 'CurrentMedia': status.media })
 	
-	def _add_to_list(self, user, ctc_head, lst, name):
-		# Add `ctc_head` to `user`'s `lst`
-		detail = self.nb._load_detail(user)
-		contacts = detail.contacts
-		if ctc_head.uuid not in contacts:
-			contacts[ctc_head.uuid] = Contact(ctc_head, set(), 0, UserStatus(name))
-		ctc = contacts.get(ctc_head.uuid)
-		if ctc.status.name is None:
-			ctc.status.name = name
-		ctc.lists |= lst
-		self.nb._mark_modified(user, detail = detail)
-		return ctc
-	
-	def _remove_from_list(self, user, ctc_head, lst):
-		# Remove `ctc_head` from `user`'s `lst`
-		detail = self.nb._load_detail(user)
-		contacts = detail.contacts
-		ctc = contacts.get(ctc_head.uuid)
-		if ctc is None: return
-		ctc.lists &= ~lst
-		if not ctc.lists:
-			del contacts[ctc_head.uuid]
-		self.nb._mark_modified(user, detail = detail)
-	
 	def _ser(self):
 		if self.dialect >= 10:
 			return None
 		self.syn_ser += 1
 		return self.syn_ser
-
-def _gen_group_id(detail):
-	id = 1
-	s = str(id)
-	while s in detail.groups:
-		id += 1
-		s = str(id)
-	return s
 
 SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
 <config>
