@@ -16,7 +16,7 @@ def run_everything(*, http_stuff = None, nb_port = None, sb_services = None, dev
 		(sb_service.port, ctrl_sb.SB(user_service, auth_service))
 		for sb_service in sb_services
 	]
-	a_auth_http = AIOHTTPRunner(ctrl_auth.create_app(user_service, auth_service))
+	a_auth_http = AIOHTTPRunner(ctrl_auth.create_app(nb))
 	
 	coros = [
 		loop.create_server(a_auth_http.setup(), http_stuff[0], http_stuff[1]),
@@ -32,7 +32,7 @@ def run_everything(*, http_stuff = None, nb_port = None, sb_services = None, dev
 		if not autossl.perform_checks():
 			return
 		ssl_context = autossl.create_context()
-		a_auth_https = AIOHTTPRunner(ctrl_auth.create_app(user_service, auth_service))
+		a_auth_https = AIOHTTPRunner(ctrl_auth.create_app(nb))
 		coros.append(loop.create_server(a_auth_https.setup(), '0.0.0.0', 443, ssl = ssl_context))
 	else:
 		a_auth_https = None

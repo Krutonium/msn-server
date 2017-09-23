@@ -9,7 +9,7 @@
 	<soap:Body>
 		<ABGroupContactAddResponse xmlns="http://www.msn.com/webservices/AddressBook">
 			<ABGroupContactAddResult>
-				<guid>239abf4f-64a8-4c7b-bc5d-78875e00798d</guid>
+				<guid>{{ contact_uuid }}</guid>
 			</ABGroupContactAddResult>
 		</ABGroupContactAddResponse>
 	</soap:Body>

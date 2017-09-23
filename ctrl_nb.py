@@ -10,12 +10,9 @@ class NB:
 		self._user_service = user_service
 		self._auth_service = auth_service
 		self._sbservices = sbservices
+		self._ncs = NBConnCollection()
 		# Dict[User.uuid, User]
 		self._user_by_uuid = {}
-		# Dict[NBConn, User]
-		self._user_by_nc = {}
-		# Dict[User, Set[NBConn]]
-		self._ncs_by_user = defaultdict(set)
 		# Dict[User, UserDetail]
 		self._unsynced_db = {}
 		
@@ -23,29 +20,39 @@ class NB:
 		# Need to figure out a better way to do this.
 		asyncio.get_event_loop().create_task(self._sync_db())
 	
+	def pre_login(self, email, pwd):
+		uuid = self._user_service.login(email, pwd)
+		if uuid is None: return None
+		return self._auth_service.create_token('nb/login', uuid)
+	
 	def login(self, nc, email, token):
 		uuid = self._auth_service.pop_token('nb/login', token)
-		return self._login_common(nc, uuid, email)
+		return self._login_common(nc, uuid, email, token)
 	
 	def login_md5(self, nc, email, md5_hash):
 		uuid = self._user_service.login_md5(email, md5_hash)
-		return self._login_common(nc, uuid, email)
+		return self._login_common(nc, uuid, email, None)
 	
-	def _login_common(self, nc, uuid, email):
+	def get_nbconn(self, token):
+		return self._ncs.get_nc_by_token(token)
+	
+	def _login_common(self, nc, uuid, email, token):
 		if uuid is None: return None
 		self._user_service.update_date_login(uuid)
 		user = self.load_user_record(uuid)
-		self._user_by_nc[nc] = user
-		self._ncs_by_user[user].add(nc)
+		nc.user = user
+		nc.token = token
+		self._ncs.add_nc(nc)
 		user.detail = self.load_detail(user)
 		return user
 	
 	def generic_notify(self, nc):
 		# Notify relevant `NBConn`s of status, name, message, media
-		user = self._user_by_nc.get(nc)
+		user = nc.user
 		if user is None: return
-		for nc1, user1 in self._user_by_nc.items():
+		for nc1 in self._ncs.get_ncs():
 			if nc1 == nc: continue
+			user1 = nc1.user
 			if user1.detail is None: continue
 			ctc = user1.detail.contacts.get(user.uuid)
 			if ctc is None: continue
@@ -85,7 +92,7 @@ class NB:
 		ctc = caller.detail.contacts.get(callee_uuid)
 		if ctc is None: return Err.InternalServerError
 		if ctc.status.is_offlineish(): return Err.PrincipalNotOnline
-		ctc_ncs = self._ncs_by_user[ctc.head]
+		ctc_ncs = self._ncs.get_ncs_by_user(ctc.head)
 		if not ctc_ncs: return Err.PrincipalNotOnline
 		for ctc_nc in ctc_ncs:
 			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'dialect': ctc_nc.dialect })
@@ -95,25 +102,22 @@ class NB:
 		return self._sbservices[0]
 	
 	def on_leave(self, nc):
-		user = self._user_by_nc.get(nc)
+		user = nc.user
 		if user is None: return
-		self._ncs_by_user[user].discard(nc)
-		if self._ncs_by_user[user]:
+		self._ncs.remove_nc(nc)
+		if self._ncs.get_ncs_by_user(user):
 			# There are still other people logged in as this user,
 			# so don't send offline notifications.
-			self._user_by_nc.pop(nc)
 			return
 		# User is offline, send notifications
 		user.detail = None
 		self.sync_contact_statuses()
 		self.generic_notify(nc)
-		self._user_by_nc.pop(nc)
 	
 	def notify_reverse_add(self, user1, user2):
 		# `user2` was added to `user1`'s RL
 		if user1 == user2: return
-		if user1 not in self._ncs_by_user: return
-		for nc in self._ncs_by_user[user1]:
+		for nc in self._ncs.get_ncs_by_user(user1):
 			nc.notify_add_rl(user2)
 	
 	async def _sync_db(self):
@@ -134,6 +138,37 @@ class NB:
 		except Exception:
 			import traceback
 			traceback.print_exc()
+
+class NBConnCollection:
+	def __init__(self):
+		# Dict[User, Set[NBConn]]
+		self._ncs_by_user = defaultdict(set)
+		# Dict[NBConn.token, NBConn]
+		self._nc_by_token = {}
+	
+	def get_ncs_by_user(self, user):
+		if user not in self._ncs_by_user:
+			return ()
+		return self._ncs_by_user[user]
+	
+	def get_ncs(self):
+		for ncs in self._ncs_by_user.values():
+			yield from ncs
+	
+	def get_nc_by_token(self, token):
+		return self._nc_by_token.get(token)
+	
+	def add_nc(self, nc):
+		assert nc.user
+		self._ncs_by_user[nc.user].add(nc)
+		if nc.token:
+			self._nc_by_token[nc.token] = nc
+	
+	def remove_nc(self, nc):
+		assert nc.user
+		self._ncs_by_user[nc.user].discard(nc)
+		if nc.token:
+			del self._nc_by_token[nc.token]
 
 class NBConn:
 	STATE_QUIT = 'q'
@@ -156,6 +191,7 @@ class NBConn:
 		self.dialect = None
 		self.iln_sent = False
 		self.user = None
+		self.token = None
 		self.syn_ser = None
 		self.usr_email = None
 	
@@ -223,7 +259,8 @@ class NBConn:
 				self.writer.write('USR', trid, authtype, 'S', salt)
 				return
 			if stage == 'S':
-				self.user = self.nb.login_md5(self, self.usr_email, args[0])
+				token = args[0]
+				self.nb.login_md5(self, self.usr_email, token)
 				self._util_usr_final(trid)
 				return
 		
@@ -238,16 +275,12 @@ class NBConn:
 				else:
 					token = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
 				self.writer.write('USR', trid, authtype, 'S', *token)
-				#if self.dialect >= 13:
-				#	self.writer.write('GCF', 0, None, SHIELDS)
 				return
 			if stage == 'S':
 				#>>> USR trid TWN S auth_token
 				#>>> USR trid SSO S auth_token b64_response
 				token = args[0]
-				self.user = self.nb.login(self, self.usr_email, token)
-				if self.user and self.dialect >= 13:
-					self.nb._auth_service.create_token('contacts', self.user.uuid, token = token, lifetime = 24 * 60 * 60)
+				self.nb.login(self, self.usr_email, token)
 				self._util_usr_final(trid)
 				return
 		
@@ -448,6 +481,7 @@ MSPAuth: banana-mspauth-potato
 		else:
 			self.writer.write('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
 		
+		# TODO: This should be done in add_contact
 		if lst is Lst.FL:
 			self._send_presence_notif(trid, ctc)
 	

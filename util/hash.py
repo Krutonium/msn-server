@@ -1,5 +1,5 @@
 import hashlib
-import hmac
+import secrets
 import random
 import base64
 import binascii
@@ -34,7 +34,7 @@ class Hasher:
 		
 		assert algorithm == hasher.algorithm
 		encoded_2 = hasher.encode(password, salt, *stuff)
-		return hmac.compare_digest(encoded, encoded_2)
+		return secrets.compare_digest(encoded, encoded_2)
 	
 	_HASHERS = {}
 
@@ -66,12 +66,11 @@ class MD5PasswordHasher(Hasher):
 		try: (_, _, hash) = encoded.split(cls.separator)
 		except ValueError: return False
 		hash = binascii.hexlify(base64.b64decode(hash)).decode('ascii')
-		return hmac.compare_digest(hash_1, hash)
+		return secrets.compare_digest(hash_1, hash)
 Hasher._HASHERS[MD5PasswordHasher.algorithm] = MD5PasswordHasher
 
 def gen_salt(length = 15):
-	seed_chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-	return ''.join(random.choice(seed_chars) for i in range(length))
+	return secrets.token_hex(length)[:length]
 
 hasher = PBKDF2PasswordHasher
 hasher_md5 = MD5PasswordHasher

@@ -3,6 +3,7 @@ Useful Links
 http://msn-messenger-protocol.herokuapp.com/index.php
 http://msnpiki.tadeu.org/index.php
 http://web.archive.org/web/20150310041951/http://msnpiki.msnfanatic.com/index.php
+http://web.archive.org/web/20120119043443/http://telepathy.freedesktop.org/wiki/Pymsn/MSNP/ContactListActions
 https://tools.ietf.org/html/draft-movva-msn-messenger-protocol-00
 https://social.msdn.microsoft.com/Forums/sqlserver/en-US/f0766af1-beed-4381-beb0-a45ed8acd4c7/cant-authenticate-loginnetpassportcom?forum=wlmessengerdev
 http://web.archive.org/web/20040218095638/http://wisoftware.host.sk/msn6/

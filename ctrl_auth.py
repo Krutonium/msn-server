@@ -10,10 +10,9 @@ import models
 
 LOGIN_PATH = '/login'
 
-def create_app(user_service, auth_service):
+def create_app(nb):
 	app = web.Application()
-	app['user_service'] = user_service
-	app['auth_service'] = auth_service
+	app['nb'] = nb
 	app['jinja_env'] = jinja2.Environment(
 		loader = jinja2.FileSystemLoader('tmpl'),
 		autoescape = jinja2.select_autoescape(default = True),
@@ -21,6 +20,7 @@ def create_app(user_service, auth_service):
 	
 	# MSN >= 5
 	app.router.add_get('/nexus-mock', handle_nexus)
+	app.router.add_get('/rdr/pprdr.asp', handle_nexus)
 	app.router.add_get(LOGIN_PATH, handle_login)
 	
 	# MSN >= 6
@@ -60,65 +60,81 @@ async def handle_debug(req):
 	return render(req, 'debug.html')
 
 async def handle_abservice(req):
-	header, action, user = await _preprocess_soap(req)
-	if user is None:
+	#import pdb; pdb.set_trace()
+	header, action, nc = await _preprocess_soap(req)
+	if nc is None:
 		return web.Response(status = 403, text = '')
 	action_str = _get_tag_localname(action)
-	if bool(action.find('.//{http://www.msn.com/webservices/AddressBook}deltasOnly')):
+	if _find_element(action, 'deltasOnly'):
 		return render(req, 'abservice/Fault.fullsync.xml', { 'faultactor': action_str })
 	now_str = datetime.utcnow().isoformat() + 'Z'
-	detail = req.app['user_service'].get_detail(user.uuid)
+	user = nc.user
+	detail = user.detail
 	
-	if action_str == 'FindMembership':
-		return render(req, 'abservice/FindMembershipResponse.xml', {
-			'user': user,
-			'detail': detail,
-			'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
-			'now': now_str,
-		})
-	if action_str == 'AddMember':
-		# TODO
-		return render(req, 'abservice/AddMemberResponse.xml')
-	if action_str == 'DeleteMember':
-		# TODO
-		return render(req, 'abservice/DeleteMemberResponse.xml')
+	_print_xml(action)
 	
-	if action_str == 'ABFindAll':
-		return render(req, 'abservice/ABFindAllResponse.xml', {
-			'user': user,
-			'detail': detail,
-			'Lst': models.Lst,
-			'list': list,
-			'now': now_str,
-		})
-	if action_str == 'ABContactAdd':
-		# TODO
-		return render(req, 'abservice/ABContactAddResponse.xml')
-	if action_str == 'ABContactDelete':
-		# TODO
-		return render(req, 'abservice/ABContactDeleteResponse.xml')
-	if action_str == 'ABGroupAdd':
-		# TODO
-		return render(req, 'abservice/ABGroupAddResponse.xml')
-	if action_str == 'ABGroupUpdate':
-		# TODO
-		return render(req, 'abservice/ABGroupUpdateResponse.xml')
-	if action_str == 'ABGroupDelete':
-		# TODO
-		return render(req, 'abservice/ABGroupDeleteResponse.xml')
-	if action_str == 'ABGroupContactAdd':
-		# TODO
-		return render(req, 'abservice/ABGroupContactAddResponse.xml')
-	if action_str == 'ABGroupContactDelete':
-		# TODO
-		return render(req, 'abservice/ABGroupContactDeleteResponse.xml')
+	try:
+		if action_str == 'FindMembership':
+			return render(req, 'abservice/FindMembershipResponse.xml', {
+				'user': user,
+				'detail': detail,
+				'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
+				'now': now_str,
+			})
+		if action_str == 'AddMember':
+			# TODO
+			return render(req, 'abservice/AddMemberResponse.xml')
+		if action_str == 'DeleteMember':
+			# TODO
+			return render(req, 'abservice/DeleteMemberResponse.xml')
+		
+		if action_str == 'ABFindAll':
+			return render(req, 'abservice/ABFindAllResponse.xml', {
+				'user': user,
+				'detail': detail,
+				'Lst': models.Lst,
+				'list': list,
+				'now': now_str,
+			})
+		if action_str == 'ABContactAdd':
+			# TODO
+			return render(req, 'abservice/ABContactAddResponse.xml')
+		if action_str == 'ABContactDelete':
+			contact_uuid = _find_element(action, 'contactId')
+			nc._contacts.remove_contact(contact_uuid)
+			return render(req, 'abservice/ABContactDeleteResponse.xml')
+		if action_str == 'ABGroupAdd':
+			# TODO
+			return render(req, 'abservice/ABGroupAddResponse.xml')
+		if action_str == 'ABGroupUpdate':
+			# TODO
+			return render(req, 'abservice/ABGroupUpdateResponse.xml')
+		if action_str == 'ABGroupDelete':
+			group_id = _find_element(action, 'guid')
+			nc._contacts.remove_group(group_id)
+			return render(req, 'abservice/ABGroupDeleteResponse.xml')
+		if action_str == 'ABGroupContactAdd':
+			group_id = _find_element(action, 'guid')
+			contact_uuid = _find_element(action, 'contactId')
+			nc._contacts.add_group_contact(group_id, contact_uuid)
+			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
+				'contact_uuid': contact_uuid,
+			})
+		if action_str == 'ABGroupContactDelete':
+			group_id = _find_element(action, 'guid')
+			contact_uuid = _find_element(action, 'contactId')
+			nc._contacts.remove_group_contact(group_id, contact_uuid)
+			return render(req, 'abservice/ABGroupContactDeleteResponse.xml')
+	except MSNPException:
+		return render(req, 'Fault.generic.xml')
 	
 	return _unknown_soap(req, header, action)
 
 async def handle_storageservice(req):
-	header, action, user = await _preprocess_soap(req)
+	header, action, nc = await _preprocess_soap(req)
 	action_str = _get_tag_localname(action)
 	now_str = datetime.utcnow().isoformat() + 'Z'
+	user = nc.user
 	if action_str == 'GetProfile':
 		return render(req, 'storageservice/GetProfileResponse.xml', {
 			'user': user,
@@ -152,9 +168,12 @@ def _unknown_soap(req, header, action, *, expected = False):
 	action_str = _get_tag_localname(action)
 	if not expected and settings.DEBUG:
 		print("Unknown SOAP:", action_str)
-		print(lxml.etree.tostring(header, pretty_print = True).decode('utf-8'))
-		print(lxml.etree.tostring(action, pretty_print = True).decode('utf-8'))
+		_print_xml(header)
+		_print_xml(action)
 	return render(req, 'Fault.unsupported.xml', { 'faultactor': action_str })
+
+def _print_xml(xml):
+	print(lxml.etree.tostring(xml, pretty_print = True).decode('utf-8'))
 
 async def _preprocess_soap(req):
 	from lxml.objectify import fromstring as parse_xml
@@ -162,26 +181,24 @@ async def _preprocess_soap(req):
 	body = await req.read()
 	root = parse_xml(body)
 	
-	user = None
-	token = root.find('.//{http://www.msn.com/webservices/AddressBook}TicketToken')
-	if token is None:
-		token = root.find('.//{http://www.msn.com/webservices/storage/w10}TicketToken')
-	if token is not None:
-		auth = req.app['auth_service']
-		uuid = auth.pop_token('contacts', token)
-		if uuid is not None:
-			user = req.app['user_service'].get(uuid)
-			if user is not None:
-				# Refresh the token for later use
-				auth.create_token('contacts', uuid, token = token, lifetime = 24 * 60 * 60)
+	token = _find_element(root, 'TicketToken')
+	nc = req.app['nb'].get_nbconn(token)
 	
-	header = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Header')
-	action = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body/*[1]')
+	header = _find_element(root, 'Header')
+	action = _find_element(root, 'Body/*[1]')
 	
-	return header, action, user
+	return header, action, nc
 
 def _get_tag_localname(elm):
 	return lxml.etree.QName(elm.tag).localname
+
+def _find_element(xml, query):
+	thing = xml.find('.//{*}' + query.replace('/', '/{*}'))
+	if isinstance(thing, lxml.objectify.StringElement):
+		thing = str(thing)
+	elif isinstance(thing, lxml.objectify.BoolElement):
+		thing = bool(thing)
+	return thing
 
 async def handle_msgrconfig(req):
 	msgr_config = _get_msgr_config()
@@ -233,9 +250,7 @@ def _extract_pp_credentials(auth_str):
 	return email, pwd
 
 def _login(req, email, pwd):
-	uuid = req.app['user_service'].login(email, pwd)
-	if uuid is None: return None
-	return req.app['auth_service'].create_token('nb/login', uuid)
+	return req.app['nb'].pre_login(email, pwd)
 
 async def handle_other(req):
 	if settings.DEBUG:
