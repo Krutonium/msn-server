@@ -2,7 +2,24 @@
 
 ## Setup 
 
-- in your `HOSTS`, add `127.0.0.1 m1.escargot.log1p.xyz`
+- you will need python 3.6+
+- ([MSYS2](https://github.com/valtron/llvm-stuff/wiki/Set-up-Windows-dev-environment-with-MSYS2) env recommended for Windows users)
+- `cd` into `msn-server`
+- run `python cmd/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
+- run `python cmd/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords)
+- to create users, run `python cmd/user.py -h` for instructions
+- for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
+- for WLM, use a 8.1.0178 **clean** install, and in your `HOSTS` add:
+	```
+	127.0.0.1 messenger.hotmail.com
+	127.0.0.1 gateway.messenger.hotmail.com
+	127.0.0.1 byrdr.omega.contacts.msn.com
+	127.0.0.1 config.messenger.msn.com
+	127.0.0.1 nexus.passport.com
+	127.0.0.1 loginnet.passport.com
+	127.0.0.1 login.live.com
+	127.0.0.1 tkrdr.storage.msn.com
+	```
 - run `python dev`
 
 The **first time** you run `python dev`, a root certificate `DO_NOT_TRUST_DevEscargotRoot.crt` is created in `dev/cert`,
