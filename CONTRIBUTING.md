@@ -5,6 +5,7 @@
 - you will need python 3.6+
 - ([MSYS2](https://github.com/valtron/llvm-stuff/wiki/Set-up-Windows-dev-environment-with-MSYS2) env recommended for Windows users)
 - `cd` into `msn-server`
+- install dependencies: `python -m pip install -r requirements.txt`
 - run `python cmd/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
 - run `python cmd/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords)
 - to create users, run `python cmd/user.py -h` for instructions
