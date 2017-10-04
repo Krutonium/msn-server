@@ -234,7 +234,7 @@ class NBConn:
 	
 	def _a_cvr(self, trid, *args):
 		v = args[5]
-		self.writer.write('CVR', trid, v, v, v, 'http://url.com', 'http://url.com')
+		self.writer.write('CVR', trid, v, v, v, 'http://escargot.log1p.xyz/', 'http://escargot.log1p.xyz/')
 	
 	def _a_inf(self, trid):
 		if self.dialect < 8:
