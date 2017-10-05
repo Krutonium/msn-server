@@ -2,7 +2,7 @@ def main():
 	from util import runner
 	import settings
 	runner.run_everything(
-		http_stuff = ('127.0.0.1', 8081),
+		http_stuff = ('127.0.0.1', 8081, 443),
 		nb_port = settings.NB.port,
 		sb_services = settings.SB,
 	)

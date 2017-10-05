@@ -33,7 +33,7 @@ def run_everything(*, http_stuff = None, nb_port = None, sb_services = None, dev
 			return
 		ssl_context = autossl.create_context()
 		a_auth_https = AIOHTTPRunner(ctrl_auth.create_app(nb))
-		coros.append(loop.create_server(a_auth_https.setup(), '0.0.0.0', 443, ssl = ssl_context))
+		coros.append(loop.create_server(a_auth_https.setup(), '0.0.0.0', http_stuff[2], ssl = ssl_context))
 	else:
 		a_auth_https = None
 	
