@@ -42,6 +42,10 @@ class UserService:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
 			return tmp and tmp[0]
 	
+	def get_cid(self, email):
+		uuid = self.get_uuid(email)
+		return (uuid[0:8] + uuid[28:36]).upper()
+
 	def get(self, uuid):
 		if uuid is None: return None
 		if uuid not in self._cache_by_uuid:

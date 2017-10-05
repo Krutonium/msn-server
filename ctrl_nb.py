@@ -280,6 +280,8 @@ class NBConn:
 				#>>> USR trid TWN S auth_token
 				#>>> USR trid SSO S auth_token b64_response
 				token = args[0]
+				if (token[0:2] == 't='):
+					token = token[2:22]
 				self.nb.login(self, self.usr_email, token)
 				self._util_usr_final(trid)
 				return

@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
 import jinja2
 from aiohttp import web
 from random import random
+from util.user import UserService
 
 import settings
 import models
@@ -29,6 +30,9 @@ def create_app(nb):
 	
 	# MSN >= 7.5
 	app.router.add_post('/NotRST.srf', handle_not_rst)
+	app.router.add_post('/RST.srf', handle_rst)
+	app.router.add_post('/RST2', handle_rst)
+	app.router.add_post('/RST2.srf', handle_rst)
 	
 	# MSN 8.1.0178
 	app.router.add_post('/abservice/SharingService.asmx', handle_abservice)
@@ -182,6 +186,9 @@ async def _preprocess_soap(req):
 	root = parse_xml(body)
 	
 	token = _find_element(root, 'TicketToken')
+	if (token[0:2] == 't='):
+		token = token[2:22]
+
 	nc = req.app['nb'].get_nbconn(token)
 	
 	header = _find_element(root, 'Header')
@@ -236,6 +243,71 @@ async def handle_not_rst(req):
 		headers['X-Token'] = token
 	return web.Response(status = 200, headers = headers)
 
+async def handle_rst(req):
+	from lxml.objectify import fromstring as parse_xml
+	
+	body = await req.read()
+	root = parse_xml(body)
+	
+	email = _find_element(root, 'Username')
+	pwd = _find_element(root, 'Password')
+
+	if email is None or pwd is None:
+		return web.Response(status = 400)
+
+	token = _login(req, email, pwd)
+
+	if token is not None:
+		timez = datetime.utcnow().isoformat() + 'Z'
+		tomorrowz = (datetime.utcnow() + timedelta(days=1)).isoformat() + 'Z'
+
+		# load PUID and CID, assume them to be the same for our purposes
+		user_service = UserService()
+		cid = user_service.get_cid(email)
+
+		peername = req.transport.get_extra_info('peername')
+		host = '127.0.0.1'
+		if peername is not None:
+			host, port = peername
+
+		# get list of requested domains
+		domains = root.findall('.//{*}Address')
+		domains.pop(0) # ignore Passport token request
+
+		tokenxml = ''
+		tmpl = req.app['jinja_env'].get_template('RST/RST.token.xml')
+
+		# collect tokens for requested domains
+		for i in range(len(domains)):
+			tokenxml += tmpl.render(**({
+				'domain': domains[i],
+				'timez': timez,
+				'tomorrowz': tomorrowz,
+				'i': i + 1,
+				'pptoken1': token
+			}))
+
+		tmpl = req.app['jinja_env'].get_template('RST/RST.xml')
+		return web.Response(
+			status = 200,
+			content_type = 'text/xml',
+			text = tmpl.render(**({
+				'puidhex': cid,
+				'timez': timez,
+				'tomorrowz': tomorrowz,
+				'cid': cid,
+				'email': email,
+				'firstname': 'John', # we don't have those on file, do we
+				'lastname': 'Doe',
+				'ip': host,
+				'pptoken1': token
+			})).replace('{ tokenxml }', tokenxml)
+		)
+
+	return render(req, 'RST/RST.error.xml', {
+		'timez': datetime.utcnow().isoformat() + 'Z',
+	}, status = 403)
+
 def _extract_pp_credentials(auth_str):
 	if auth_str is None:
 		return None, None
@@ -257,13 +329,13 @@ async def handle_other(req):
 		print("! Unknown: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
 	return web.Response(status = 404, text = '')
 
-def render(req, tmpl_name, ctxt = None):
+def render(req, tmpl_name, ctxt = None, status = 200):
 	if tmpl_name.endswith('.xml'):
 		content_type = 'text/xml'
 	else:
 		content_type = 'text/html'
 	tmpl = req.app['jinja_env'].get_template(tmpl_name)
 	content = tmpl.render(**(ctxt or {}))
-	return web.Response(status = 200, content_type = content_type, text = content)
+	return web.Response(status = status, content_type = content_type, text = content)
 
 PP = 'Passport1.4 '
