@@ -1,5 +1,7 @@
 import asyncio
+import time
 from collections import defaultdict
+from uuid import UUID
 
 from util.msnp import Err, MSNPException
 from util.contacts import ContactsService
@@ -307,14 +309,48 @@ class NBConn:
 		if self.dialect < 13:
 			return
 		
-		# Why won't you work!!!
+		# calculate member ID
+		(high, low) = self._splituuid(self.user.uuid)
+
+		# TODO determine client IP and port
+		ip = ''
+		port = ''
+
+		# build MSG Hotmail payload
 		msg = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsprofile; charset=UTF-8
-MSPAuth: banana-mspauth-potato
+LoginTime: {time}
+MemberIdHigh: {high}
+MemberIdLow: {low}
+lang_preference: 1033
+preferredEmail:
+country:
+PostalCode:
+Gender:
+Kid: 0
+Age:
+BDayPre:
+Birthday:
+Wallet:
+Flags: 536872513
+sid: 507
+MSPAuth: t={token}Y6+H31sTUOFkqjNTDYqAAFLr5Ote7BMrMnUIzpg860jh084QMgs5djRQLLQP0TVOFkKdWDwAJdEWcfsI9YL8otN9kSfhTaPHR1njHmG0H98O2NE/Ck6zrog3UJFmYlCnHidZk1g3AzUNVXmjZoyMSyVvoHLjQSzoGRpgHg3hHdi7zrFhcYKWD8XeNYdoz9wfA2YAAAgZIgF9kFvsy2AC0Fl/ezc/fSo6YgB9TwmXyoK0wm0F9nz5EfhHQLu2xxgsvMOiXUSFSpN1cZaNzEk/KGVa3Z33Mcu0qJqvXoLyv2VjQyI0VLH6YlW5E+GMwWcQurXB9hT/DnddM5Ggzk3nX8uMSV4kV+AgF1EWpiCdLViRI6DmwwYDtUJU6W6wQXsfyTm6CNMv0eE0wFXmZvoKaL24fggkp99dX+m1vgMQJ39JblVH9cmnnkBQcKkV8lnQJ003fd6iIFzGpgPBW5Z3T1Bp7uzSGMWnHmrEw8eOpKC5ny4x8uoViXDmA2UId23xYSoJ/GQrMjqB+NslqnuVsOBE1oWpNrmfSKhGU1X0kR4Eves56t5i5n3XU+7ne0MkcUzlrMi89n2j8aouf0zeuD7o+ngqvfRCsOqjaU71XWtuD4ogu2X7/Ajtwkxg/UJDFGAnCxFTTd4dqrrEpKyMK8eWBMaartFxwwrH39HMpx1T9JgknJ1hFWELzG8b302sKy64nCseOTGaZrdH63pjGkT7vzyIxVH/b+yJwDRmy/PlLz7fmUj6zpTBNmCtl1EGFOEFdtI2R04EprIkLXbtpoIPA7m0TPZURpnWufCSsDtD91ChxR8j/FnQ/gOOyKg/EJrTcHvM1e50PMRmoRZGlltBRRwBV+ArPO64On6zygr5zud5o/aADF1laBjkuYkjvUVsXwgnaIKbTLN2+sr/WjogxT1Yins79jPa1+3dDenxZtE/rHA/6qsdJmo5BJZqNYQUFrnpkU428LryMnBaNp2BW51JRsWXPAA7yCi0wDlHzEDxpqaOnhI4Ol87ra+VAg==
+ClientIP: {ip}
+ClientPort: {port}
+ABCHMigrated: 1
+MPOPEnabled: 0
 
-'''
+'''.format(
+			time = time.time(),
+			high = high,
+			low = low,
+			token = self.token,
+			ip = ip,
+			port = port
+		)
+
 		self.writer.write('SBS', 0, 'null')
-		self.writer.write('PRP', 'MFN', 'Test')
+		self.writer.write('PRP', 'MFN', self.user.status.name)
 		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.replace('\n', '\r\n').encode('ascii'))
 	
 	# State = Live
@@ -651,6 +687,21 @@ MSPAuth: banana-mspauth-potato
 			return None
 		self.syn_ser += 1
 		return self.syn_ser
+
+	def _memberid(self, email):
+		email = email.lower()
+		x = 0
+		i = 0
+		while i < len(email):
+			x = (x * 101 + ord(email[i])) % 4294967296
+			i += 1
+		return x
+
+	def _splituuid(self, uuid):
+		uuid = UUID(uuid)
+		high = str(uuid.time_low % (1<<32))
+		low = str(uuid.node % (1<<32))
+		return (high, low)
 
 SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
 <config>
