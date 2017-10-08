@@ -72,7 +72,7 @@ async def handle_abservice(req):
 	action_str = _get_tag_localname(action)
 	if _find_element(action, 'deltasOnly'):
 		return render(req, 'abservice/Fault.fullsync.xml', { 'faultactor': action_str })
-	now_str = datetime.utcnow().isoformat() + 'Z'
+	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
 	user = nc.user
 	detail = user.detail
 	cachekey = secrets.token_urlsafe(172)
@@ -164,7 +164,7 @@ async def handle_abservice(req):
 async def handle_storageservice(req):
 	header, action, nc, token = await _preprocess_soap(req)
 	action_str = _get_tag_localname(action)
-	now_str = datetime.utcnow().isoformat() + 'Z'
+	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
 	user = nc.user
 	cachekey = secrets.token_urlsafe(172)
 	
@@ -357,7 +357,7 @@ async def handle_rst(req):
 		)
 
 	return render(req, 'RST/RST.error.xml', {
-		'timez': datetime.utcnow().isoformat() + 'Z',
+		'timez': datetime.utcnow().isoformat()[0:19] + 'Z',
 	}, status = 403)
 
 def _extract_pp_credentials(auth_str):
@@ -387,6 +387,9 @@ def render(req, tmpl_name, ctxt = None, status = 200):
 	else:
 		content_type = 'text/html'
 	tmpl = req.app['jinja_env'].get_template(tmpl_name)
+	user_service = UserService()
+	tmpl.globals['get_date_created'] = user_service.get_date_created
+	tmpl.globals['get_cid'] = user_service.get_cid
 	content = tmpl.render(**(ctxt or {}))
 	return web.Response(status = status, content_type = content_type, text = content)
 

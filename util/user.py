@@ -37,6 +37,11 @@ class UserService:
 				'date_login': datetime.utcnow(),
 			})
 	
+	def get_date_created(self, email):
+		with Session() as sess:
+			tmp = sess.query(DBUser.date_created).filter(DBUser.email == email).one_or_none()
+			return tmp and (str(tmp[0])[0:19].replace(' ', 'T') + 'Z')
+	
 	def get_uuid(self, email):
 		with Session() as sess:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
@@ -50,7 +55,10 @@ class UserService:
 			return cid
 
 		# convert to decimal string
-		return str(int(cid, 16))
+		cid = int(cid, 16)
+		if cid > 0x7FFFFFFF:
+			cid -= 0x100000000
+		return str(cid)
 
 	def get(self, uuid):
 		if uuid is None: return None
