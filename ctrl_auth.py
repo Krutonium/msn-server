@@ -310,12 +310,12 @@ async def handle_rst(req):
 	token = _login(req, email, pwd)
 
 	if token is not None:
-		timez = datetime.utcnow().isoformat() + 'Z'
-		tomorrowz = (datetime.utcnow() + timedelta(days=1)).isoformat() + 'Z'
+		timez = datetime.utcnow().isoformat()[0:19] + 'Z'
+		tomorrowz = (datetime.utcnow() + timedelta(days=1)).isoformat()[0:19] + 'Z'
 
 		# load PUID and CID, assume them to be the same for our purposes
 		user_service = UserService()
-		cid = user_service.get_cid(email)
+		cid = user_service.get_cid(email).lower()
 
 		peername = req.transport.get_extra_info('peername')
 		host = '127.0.0.1'

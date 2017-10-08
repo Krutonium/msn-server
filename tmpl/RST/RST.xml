@@ -19,7 +19,7 @@
     </psf:browserCookies>
     <psf:credProperties>
         <psf:credProperty Name="MainBrandID">MSFT</psf:credProperty>
-        <psf:credProperty Name="BrandIDList"/>
+        <psf:credProperty Name="BrandIDList"></psf:credProperty>
         <psf:credProperty Name="IsWinLiveUser">true</psf:credProperty>
         <psf:credProperty Name="CID">{{ cid }}</psf:credProperty>
         <psf:credProperty Name="AuthMembername">{{ email }}</psf:credProperty>
@@ -35,7 +35,7 @@
         <psf:credProperty Name="AssociatedForStrongAuth">0</psf:credProperty>
     </psf:credProperties>
     <psf:extProperties>
-        <psf:extProperty Name="ANON" Expiry="Mon, Wed, 30-Dec-2037 16:00:00 GMT" Domains="bing.com;atdmt.com" IgnoreRememberMe="false">A=2AD1B6380CC38C61A2E95994FFFFFFFF&amp;E=1456&amp;W=1</psf:extProperty>
+        <psf:extProperty Name="ANON" Expiry="Wed, 30-Dec-2037 16:00:00 GMT" Domains="bing.com;atdmt.com" IgnoreRememberMe="false">A=2AD1B6380CC38C61A2E95994FFFFFFFF&amp;E=1456&amp;W=1</psf:extProperty>
         <psf:extProperty Name="NAP" Expiry="Wed, 30-Dec-2037 16:00:00 GMT" Domains="bing.com;atdmt.com" IgnoreRememberMe="false">V=1.9&amp;E=13fc&amp;C=tq1sGI5NyECr4nbob0bsqOGQx85gOAzYs8FuhJP5L22WfJl-67MNNQ&amp;W=1</psf:extProperty>
         <psf:extProperty Name="LastUsedCredType">1</psf:extProperty>
         <psf:extProperty Name="WebCredType">1</psf:extProperty>
