@@ -91,7 +91,12 @@ async def handle_abservice(req):
 				'now': now_str,
 			})
 		if action_str == 'AddMember':
-			# TODO
+			email = _find_element(action, 'PassportName')
+
+			user_service = UserService()
+			contact_uuid = user_service.get_uuid(email)
+
+			nc._contacts.add_contact(contact_uuid, models.Lst.AL, email)
 			return render(req, 'abservice/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			# TODO
@@ -108,7 +113,12 @@ async def handle_abservice(req):
 				'now': now_str,
 			})
 		if action_str == 'ABContactAdd':
-			# TODO
+			email = _find_element(action, 'passportName')
+
+			user_service = UserService()
+			contact_uuid = user_service.get_uuid(email)
+
+			nc._contacts.add_contact(contact_uuid, models.Lst.FL, email)
 			return render(req, 'abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
