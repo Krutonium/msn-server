@@ -15,6 +15,7 @@ class MSNPConn(asyncio.Protocol):
 		self.writer = MSNPWriter(logger, transport)
 		self.reader = MSNPReader(logger)
 		self._impl = self.impl_factory(self.writer)
+		self._impl.transport = self.transport
 	
 	def connection_lost(self, exc):
 		self.logger.log_disconnect()
