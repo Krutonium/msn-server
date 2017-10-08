@@ -344,7 +344,7 @@ async def handle_rst(req):
 			status = 200,
 			content_type = 'text/xml',
 			text = tmpl.render(**({
-				'puidhex': cid,
+				'puidhex': cid.upper(),
 				'timez': timez,
 				'tomorrowz': tomorrowz,
 				'cid': cid,
