@@ -9,6 +9,7 @@ SB = [
 DB = 'sqlite:///msn.sqlite'
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
 DEBUG = True
+STORAGE_HOST = 'm1.escargot.log1p.xyz'
 
 try:
 	from settings_local import *

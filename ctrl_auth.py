@@ -3,6 +3,9 @@ from urllib.parse import unquote
 import lxml
 import jinja2
 import secrets
+import base64
+import os
+import time
 from aiohttp import web
 from random import random
 
@@ -40,6 +43,7 @@ def create_app(nb, user_service):
 	app.router.add_post('/abservice/SharingService.asmx', handle_abservice)
 	app.router.add_post('/abservice/abservice.asmx', handle_abservice)
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
+	app.router.add_get('/storage/usertile/*', handle_usertile)
 	
 	# Misc
 	app.router.add_get('/etc/debug', handle_debug)
@@ -77,7 +81,6 @@ async def handle_abservice(req):
 	user = nc.user
 	detail = user.detail
 	cachekey = secrets.token_urlsafe(172)
-	host = 'm1.escargot.log1p.xyz'
 	
 	#_print_xml(action)
 	user_service = req.app['user_service']
@@ -86,7 +89,7 @@ async def handle_abservice(req):
 		if action_str == 'FindMembership':
 			return render(req, 'sharing/FindMembershipResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 				'user': user,
 				'detail': detail,
 				'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
@@ -111,7 +114,7 @@ async def handle_abservice(req):
 		if action_str == 'ABFindAll':
 			return render(req, 'abservice/ABFindAllResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 				'user': user,
 				'detail': detail,
 				'Lst': models.Lst,
@@ -124,27 +127,27 @@ async def handle_abservice(req):
 			nc._contacts.add_contact(contact_uuid, models.Lst.FL, email)
 			return render(req, 'abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.remove_contact(contact_uuid, models.Lst.FL)
 			return render(req, 'abservice/ABContactDeleteResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactUpdate':
 			# TODO: This is called when deleting a user without checking "Also remove from my Hotmail contacts"
 			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
 			group = nc._contacts.add_group(name)
 			return render(req, 'abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 				'group_id': group.id,
 			})
 		if action_str == 'ABGroupUpdate':
@@ -153,14 +156,14 @@ async def handle_abservice(req):
 			nc._contacts.edit_group(group_id, name)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupDelete':
 			group_id = str(_find_element(action, 'guid'))
 			nc._contacts.remove_group(group_id)
 			return render(req, 'abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupContactAdd':
 			group_id = str(_find_element(action, 'guid'))
@@ -168,7 +171,7 @@ async def handle_abservice(req):
 			nc._contacts.add_group_contact(group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 				'contact_uuid': contact_uuid,
 			})
 		if action_str == 'ABGroupContactDelete':
@@ -177,7 +180,7 @@ async def handle_abservice(req):
 			nc._contacts.remove_group_contact(group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactDeleteResponse.xml', {
 				'cachekey': cachekey,
-				'host': host,
+				'host': settings.LOGIN_HOST,
 			})
 		if action_str in { 'UpdateDynamicItem' }:
 			# TODO
@@ -191,6 +194,7 @@ async def handle_storageservice(req):
 	header, action, nc, token = await _preprocess_soap(req)
 	action_str = _get_tag_localname(action)
 	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
+	timestamp = time.time()
 	user = nc.user
 	cachekey = secrets.token_urlsafe(172)
 	
@@ -204,6 +208,8 @@ async def handle_storageservice(req):
 			'pptoken1': token,
 			'user': user,
 			'now': now_str,
+			'timestamp': timestamp,
+			'host': settings.STORAGE_HOST
 		})
 	if action_str == 'FindDocuments':
 		# TODO
@@ -228,12 +234,7 @@ async def handle_storageservice(req):
 			'pptoken1': token,
 		})
 	if action_str == 'CreateDocument':
-		# TODO
-		return render(req, 'storageservice/CreateDocumentResponse.xml', {
-			'user': user,
-			'cid': cid,
-			'pptoken1': token,
-		})
+		return await handle_create_document(req, action, user, cid, token, timestamp)
 	if action_str == 'CreateRelationships':
 		# TODO
 		return render(req, 'storageservice/CreateRelationshipsResponse.xml', {
@@ -357,34 +358,67 @@ async def handle_rst(req):
 		
 		# collect tokens for requested domains
 		for i in range(len(domains)):
-			tokenxml += tmpl.render(**({
-				'domain': domains[i],
-				'timez': timez,
-				'tomorrowz': tomorrowz,
-				'i': i + 1,
-				'pptoken1': token
-			}))
-		
+
+			tokenxml += tmpl.render(
+				domain = domains[i],
+				timez = timez,
+				tomorrowz = tomorrowz,
+				i = i + 1,
+				pptoken1 = token,
+			)
+
 		tmpl = req.app['jinja_env'].get_template('RST/RST.xml')
 		return web.Response(
 			status = 200,
 			content_type = 'text/xml',
-			text = tmpl.render(**({
-				'puidhex': cid.upper(),
-				'timez': timez,
-				'tomorrowz': tomorrowz,
-				'cid': cid,
-				'email': email,
-				'firstname': 'John', # we don't have those on file, do we
-				'lastname': 'Doe',
-				'ip': host,
-				'pptoken1': token
-			})).replace('{ tokenxml }', tokenxml)
+			text = tmpl.render(
+				puidhex = cid.upper(),
+				timez = timez,
+				tomorrowz = tomorrowz,
+				cid = cid,
+				email = email,
+				firstname = 'John', # we don't have those on file, do we
+				lastname = 'Doe',
+				ip = host,
+				pptoken1 = token,
+			).replace('{ tokenxml }', tokenxml)
 		)
 	
 	return render(req, 'RST/RST.error.xml', {
 		'timez': datetime.utcnow().isoformat()[0:19] + 'Z',
 	}, status = 403)
+
+async def handle_create_document(req, action, user, cid, token, timestamp):
+	# get image data
+	name = _find_element(action, 'Name')
+	streamtype = _find_element(action, 'DocumentStreamType')
+
+	if (streamtype == 'UserTileStatic'):
+		mime = _find_element(action, 'MimeType')
+		data = _find_element(action, 'Data')
+		data = base64.b64decode(data)
+
+		# store display picture as file
+		path = 'storage/dp/{u1}/{u2}'.format(
+			u1 = user.uuid[0:1],
+			u2 = user.uuid[0:2],
+		)
+		if not os.path.exists(path):
+			os.makedirs(path)
+		fp = open('{path}/{uuid}.{mime}'.format(
+			path = path,
+			uuid = user.uuid,
+			mime = mime
+		), 'wb')
+		fp.write(data)
+		fp.close()
+
+	return render(req, 'storageservice/CreateDocumentResponse.xml', {
+		'user': user,
+		'cid': cid,
+		'pptoken1': token,
+		'timestamp': timestamp,
+	})
 
 def _extract_pp_credentials(auth_str):
 	if auth_str is None:
