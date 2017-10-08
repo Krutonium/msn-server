@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
 import jinja2
+import secrets
 from aiohttp import web
 from random import random
 from util.user import UserService
@@ -65,7 +66,7 @@ async def handle_debug(req):
 
 async def handle_abservice(req):
 	#import pdb; pdb.set_trace()
-	header, action, nc = await _preprocess_soap(req)
+	header, action, nc, token = await _preprocess_soap(req)
 	if nc is None:
 		return web.Response(status = 403, text = '')
 	action_str = _get_tag_localname(action)
@@ -74,12 +75,16 @@ async def handle_abservice(req):
 	now_str = datetime.utcnow().isoformat() + 'Z'
 	user = nc.user
 	detail = user.detail
+	cachekey = secrets.token_urlsafe(172)
+	host = 'm1.escargot.log1p.xyz'
 	
 	_print_xml(action)
-	
+
 	try:
 		if action_str == 'FindMembership':
 			return render(req, 'abservice/FindMembershipResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
 				'user': user,
 				'detail': detail,
 				'lists': [models.Lst.AL, models.Lst.BL, models.Lst.RL, models.Lst.PL],
@@ -94,6 +99,8 @@ async def handle_abservice(req):
 		
 		if action_str == 'ABFindAll':
 			return render(req, 'abservice/ABFindAllResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
 				'user': user,
 				'detail': detail,
 				'Lst': models.Lst,
@@ -102,67 +109,112 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABContactAdd':
 			# TODO
-			return render(req, 'abservice/ABContactAddResponse.xml')
+			return render(req, 'abservice/ABContactAddResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.remove_contact(contact_uuid)
-			return render(req, 'abservice/ABContactDeleteResponse.xml')
+			return render(req, 'abservice/ABContactDeleteResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 		if action_str == 'ABGroupAdd':
 			# TODO
-			return render(req, 'abservice/ABGroupAddResponse.xml')
+			return render(req, 'abservice/ABGroupAddResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 		if action_str == 'ABGroupUpdate':
 			# TODO
-			return render(req, 'abservice/ABGroupUpdateResponse.xml')
+			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 		if action_str == 'ABGroupDelete':
 			group_id = _find_element(action, 'guid')
 			nc._contacts.remove_group(group_id)
-			return render(req, 'abservice/ABGroupDeleteResponse.xml')
+			return render(req, 'abservice/ABGroupDeleteResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 		if action_str == 'ABGroupContactAdd':
 			group_id = _find_element(action, 'guid')
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.add_group_contact(group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
 				'contact_uuid': contact_uuid,
 			})
 		if action_str == 'ABGroupContactDelete':
 			group_id = _find_element(action, 'guid')
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.remove_group_contact(group_id, contact_uuid)
-			return render(req, 'abservice/ABGroupContactDeleteResponse.xml')
+			return render(req, 'abservice/ABGroupContactDeleteResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
 	except MSNPException:
 		return render(req, 'Fault.generic.xml')
 	
 	return _unknown_soap(req, header, action)
 
 async def handle_storageservice(req):
-	header, action, nc = await _preprocess_soap(req)
+	header, action, nc, token = await _preprocess_soap(req)
 	action_str = _get_tag_localname(action)
 	now_str = datetime.utcnow().isoformat() + 'Z'
 	user = nc.user
+	cachekey = secrets.token_urlsafe(172)
+	
+	user_service = UserService()
+	cid = user_service.get_cid(user.email)
+
 	if action_str == 'GetProfile':
 		return render(req, 'storageservice/GetProfileResponse.xml', {
+			'cachekey': cachekey,
+			'cid': cid,
+			'pptoken1': token,
 			'user': user,
 			'now': now_str,
 		})
 	if action_str == 'FindDocuments':
 		# TODO
 		return render(req, 'storageservice/FindDocumentsResponse.xml', {
+			'cachekey': cachekey,
+			'cid': cid,
+			'pptoken1': token,
 			'user': user,
 		})
 	if action_str == 'UpdateProfile':
 		# TODO
-		return render(req, 'storageservice/UpdateProfileResponse.xml')
+		return render(req, 'storageservice/UpdateProfileResponse.xml', {
+			'cachekey': cachekey,
+			'cid': cid,
+			'pptoken1': token,
+		})
 	if action_str == 'DeleteRelationships':
 		# TODO
-		return render(req, 'storageservice/DeleteRelationshipsResponse.xml')
+		return render(req, 'storageservice/DeleteRelationshipsResponse.xml', {
+			'cachekey': cachekey,
+			'cid': cid,
+			'pptoken1': token,
+		})
 	if action_str == 'CreateDocument':
 		# TODO
 		return render(req, 'storageservice/CreateDocumentResponse.xml', {
 			'user': user,
+			'cid': cid,
+			'pptoken1': token,
 		})
 	if action_str == 'CreateRelationships':
 		# TODO
-		return render(req, 'storageservice/CreateRelationshipsResponse.xml')
+		return render(req, 'storageservice/CreateRelationshipsResponse.xml', {
+			'cachekey': cachekey,
+			'cid': cid,
+			'pptoken1': token,
+		})
 	if action_str in { 'ShareItem' }:
 		# TODO
 		return _unknown_soap(req, header, action, expected = True)
@@ -194,7 +246,7 @@ async def _preprocess_soap(req):
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
 	
-	return header, action, nc
+	return header, action, nc, token
 
 def _get_tag_localname(elm):
 	return lxml.etree.QName(elm.tag).localname

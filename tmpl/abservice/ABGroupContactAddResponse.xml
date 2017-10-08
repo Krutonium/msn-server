@@ -3,7 +3,8 @@
 	<soap:Header>
 		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
 			<Version>12.01.0920.0001</Version>
-			<CacheKeyChanged>false</CacheKeyChanged>
+			<CacheKey>12r1:{{ cachekey }}</CacheKey>
+			<CacheKeyChanged>true</CacheKeyChanged>
 		</ServiceHeader>
 	</soap:Header>
 	<soap:Body>

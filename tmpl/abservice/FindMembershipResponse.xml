@@ -3,9 +3,9 @@
 	<soap:Header>
 		<ServiceHeader xmlns="http://www.msn.com/webservices/AddressBook">
 			<Version>12.03.1527.0001</Version>
-			<CacheKey>12r3:Y72qUk/bW1BZBA7+TuamiW4Hhtcv4UuUsua/M7IKZ/anrCaV6frqDXKlhBll5r1kUGt8fL+mbXtBFMWlc6R6QD50SdysZJaNHmt19lqjA8IkjG7LpKgicSf/fxJz/mjrriLE5CTa8wQAyrU0ZW14dew6T3E6/TfHny0UwGpDU4=</CacheKey>
+			<CacheKey>12r3:{{ cachekey }}</CacheKey>
 			<CacheKeyChanged>true</CacheKeyChanged>
-			<PreferredHostName>by5.contacts.msn.com</PreferredHostName>
+			<PreferredHostName>{{ host }}</PreferredHostName>
 		</ServiceHeader>
 	</soap:Header>
 	<soap:Body>
@@ -30,7 +30,7 @@
 													<PassportName>{{ contact.head.email }}</PassportName>
 													<IsPassportNameHidden>false</IsPassportNameHidden>
 													<PassportId>0</PassportId>
-													<CID>0</CID>
+													<CID>{{ contact.head.email }}</CID>
 													<PassportChanges />
 												</Member>
 											{%- endif -%}
