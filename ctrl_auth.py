@@ -84,7 +84,7 @@ async def handle_abservice(req):
 	
 	try:
 		if action_str == 'FindMembership':
-			return render(req, 'abservice/FindMembershipResponse.xml', {
+			return render(req, 'sharing/FindMembershipResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
 				'user': user,
@@ -97,7 +97,7 @@ async def handle_abservice(req):
 			email = _find_element(action, 'PassportName')
 			contact_uuid = user_service.get_uuid(email)
 			nc._contacts.add_contact(contact_uuid, lst, email)
-			return render(req, 'abservice/AddMemberResponse.xml')
+			return render(req, 'sharing/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
@@ -106,7 +106,7 @@ async def handle_abservice(req):
 			else:
 				contact_uuid = str(_find_element(action, 'MembershipId')).split('/')[1]
 			nc._contacts.remove_contact(contact_uuid, lst)
-			return render(req, 'abservice/DeleteMemberResponse.xml')
+			return render(req, 'sharing/DeleteMemberResponse.xml')
 		
 		if action_str == 'ABFindAll':
 			return render(req, 'abservice/ABFindAllResponse.xml', {
