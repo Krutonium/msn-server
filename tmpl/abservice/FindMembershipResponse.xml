@@ -32,7 +32,7 @@
 													<PassportName>{{ contact.head.email }}</PassportName>
 													<IsPassportNameHidden>false</IsPassportNameHidden>
 													<PassportId>0</PassportId>
-													<CID>{{ get_cid(contact.head.email, true) }}</CID>
+													<CID>{{ get_cid(contact.head.email, decimal = True) }}</CID>
 													<PassportChanges />
 													<LookedupByCID>false</LookedupByCID>
 												</Member>

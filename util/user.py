@@ -47,13 +47,13 @@ class UserService:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
 			return tmp and tmp[0]
 	
-	def get_cid(self, email, decimal = False):
+	def get_cid(self, email, *, decimal = False):
 		uuid = self.get_uuid(email)
-		cid = (uuid[0:8] + uuid[28:36]).upper()
-
-		if (decimal is False):
+		cid = (uuid[0:8] + uuid[28:36]).lower()
+		
+		if not decimal:
 			return cid
-
+		
 		# convert to decimal string
 		cid = int(cid, 16)
 		if cid > 0x7FFFFFFF:

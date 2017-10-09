@@ -324,7 +324,7 @@ async def handle_rst(req):
 		
 		# load PUID and CID, assume them to be the same for our purposes
 		user_service = req.app['user_service']
-		cid = user_service.get_cid(email).lower()
+		cid = user_service.get_cid(email)
 		
 		peername = req.transport.get_extra_info('peername')
 		host = '127.0.0.1'
