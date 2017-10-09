@@ -5,16 +5,16 @@ import jinja2
 import secrets
 from aiohttp import web
 from random import random
-from util.user import UserService
 
 import settings
 import models
 
 LOGIN_PATH = '/login'
 
-def create_app(nb):
+def create_app(nb, user_service):
 	app = web.Application()
 	app['nb'] = nb
+	app['user_service'] = user_service
 	app['jinja_env'] = jinja2.Environment(
 		loader = jinja2.FileSystemLoader('tmpl'),
 		autoescape = jinja2.select_autoescape(default = True),
@@ -79,7 +79,8 @@ async def handle_abservice(req):
 	host = 'm1.escargot.log1p.xyz'
 	
 	_print_xml(action)
-
+	user_service = req.app['user_service']
+	
 	try:
 		if action_str == 'FindMembership':
 			return render(req, 'abservice/FindMembershipResponse.xml', {
@@ -92,10 +93,9 @@ async def handle_abservice(req):
 			})
 		if action_str == 'AddMember':
 			email = _find_element(action, 'PassportName')
-
-			user_service = UserService()
+			
 			contact_uuid = user_service.get_uuid(email)
-
+			
 			nc._contacts.add_contact(contact_uuid, models.Lst.AL, email)
 			return render(req, 'abservice/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
@@ -114,10 +114,9 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
-
-			user_service = UserService()
+			
 			contact_uuid = user_service.get_uuid(email)
-
+			
 			nc._contacts.add_contact(contact_uuid, models.Lst.FL, email)
 			return render(req, 'abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
@@ -178,9 +177,9 @@ async def handle_storageservice(req):
 	user = nc.user
 	cachekey = secrets.token_urlsafe(172)
 	
-	user_service = UserService()
+	user_service = req.app['user_service']
 	cid = user_service.get_cid(user.email)
-
+	
 	if action_str == 'GetProfile':
 		return render(req, 'storageservice/GetProfileResponse.xml', {
 			'cachekey': cachekey,
@@ -316,29 +315,29 @@ async def handle_rst(req):
 
 	if email is None or pwd is None:
 		return web.Response(status = 400)
-
+	
 	token = _login(req, email, pwd)
-
+	
 	if token is not None:
 		timez = datetime.utcnow().isoformat()[0:19] + 'Z'
 		tomorrowz = (datetime.utcnow() + timedelta(days=1)).isoformat()[0:19] + 'Z'
-
+		
 		# load PUID and CID, assume them to be the same for our purposes
-		user_service = UserService()
+		user_service = req.app['user_service']
 		cid = user_service.get_cid(email).lower()
-
+		
 		peername = req.transport.get_extra_info('peername')
 		host = '127.0.0.1'
 		if peername is not None:
-			host, port = peername
-
+			host, _ = peername
+		
 		# get list of requested domains
 		domains = root.findall('.//{*}Address')
 		domains.pop(0) # ignore Passport token request
-
+		
 		tokenxml = ''
 		tmpl = req.app['jinja_env'].get_template('RST/RST.token.xml')
-
+		
 		# collect tokens for requested domains
 		for i in range(len(domains)):
 			tokenxml += tmpl.render(**({
@@ -348,7 +347,7 @@ async def handle_rst(req):
 				'i': i + 1,
 				'pptoken1': token
 			}))
-
+		
 		tmpl = req.app['jinja_env'].get_template('RST/RST.xml')
 		return web.Response(
 			status = 200,
@@ -365,7 +364,7 @@ async def handle_rst(req):
 				'pptoken1': token
 			})).replace('{ tokenxml }', tokenxml)
 		)
-
+	
 	return render(req, 'RST/RST.error.xml', {
 		'timez': datetime.utcnow().isoformat()[0:19] + 'Z',
 	}, status = 403)
@@ -397,7 +396,7 @@ def render(req, tmpl_name, ctxt = None, status = 200):
 	else:
 		content_type = 'text/html'
 	tmpl = req.app['jinja_env'].get_template(tmpl_name)
-	user_service = UserService()
+	user_service = req.app['user_service']
 	tmpl.globals['get_date_created'] = user_service.get_date_created
 	tmpl.globals['get_cid'] = user_service.get_cid
 	content = tmpl.render(**(ctxt or {}))
