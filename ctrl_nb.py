@@ -311,11 +311,13 @@ class NBConn:
 		
 		# calculate member ID
 		(high, low) = self._splituuid(self.user.uuid)
-
-		# TODO determine client IP and port
-		ip = ''
-		port = ''
-
+		
+		if transport:
+			(ip, port) = self.transport.get_extra_info('peername')
+		else:
+			# TODO: Need to handle this when implementing persistence-less chat (HTTP gateway/XMPP)
+			(ip, port) = ('', '')
+		
 		# build MSG Hotmail payload
 		msg = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsprofile; charset=UTF-8
