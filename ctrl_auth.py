@@ -79,7 +79,7 @@ async def handle_abservice(req):
 	cachekey = secrets.token_urlsafe(172)
 	host = 'm1.escargot.log1p.xyz'
 	
-	_print_xml(action)
+	#_print_xml(action)
 	user_service = req.app['user_service']
 	
 	try:
@@ -125,8 +125,14 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
-			nc._contacts.remove_contact(contact_uuid)
+			nc._contacts.remove_contact(contact_uuid, models.Lst.FL)
 			return render(req, 'abservice/ABContactDeleteResponse.xml', {
+				'cachekey': cachekey,
+				'host': host,
+			})
+		if action_str == 'ABContactUpdate':
+			# TODO: This is called when deleting a user without checking "Also remove from my Hotmail contacts"
+			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
 			})
@@ -166,6 +172,9 @@ async def handle_abservice(req):
 				'cachekey': cachekey,
 				'host': host,
 			})
+		if action_str in { 'UpdateDynamicItem' }:
+			# TODO
+			return _unknown_soap(req, header, action, expected = True)
 	except MSNPException:
 		return render(req, 'Fault.generic.xml')
 	
