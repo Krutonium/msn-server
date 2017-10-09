@@ -8,6 +8,7 @@ from random import random
 
 import settings
 import models
+from util.msnp import MSNPException
 
 LOGIN_PATH = '/login'
 

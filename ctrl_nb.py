@@ -312,7 +312,7 @@ class NBConn:
 		# calculate member ID
 		(high, low) = self._splituuid(self.user.uuid)
 		
-		if transport:
+		if self.transport:
 			(ip, port) = self.transport.get_extra_info('peername')
 		else:
 			# TODO: Need to handle this when implementing persistence-less chat (HTTP gateway/XMPP)
