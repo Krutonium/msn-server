@@ -34,6 +34,8 @@ class ContactsService:
 		else:
 			assert lst is not Lst.RL
 			ctc.lists &= ~lst
+		self.nb.mark_modified(self.user)
+		self.nb.sync_contact_statuses()
 	
 	def add_group(self, name):
 		if len(name) > MAX_GROUP_NAME_LENGTH:

@@ -80,6 +80,15 @@ class Lst(IntFlag):
 	BL = 0x04
 	RL = 0x08
 	PL = 0x10
+	
+	@classmethod
+	def Parse(cls, label):
+		if not hasattr(cls, '_MAP'):
+			map = {}
+			for lst in cls:
+				map[lst.label.lower()] = lst
+			cls._MAP = map
+		return cls._MAP.get(label.lower())
 Lst.FL.label = "Follow"
 Lst.AL.label = "Allow"
 Lst.BL.label = "Block"
