@@ -137,26 +137,30 @@ async def handle_abservice(req):
 				'host': host,
 			})
 		if action_str == 'ABGroupAdd':
-			# TODO
+			name = _find_element(action, 'name')
+			group = nc._contacts.add_group(name)
 			return render(req, 'abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
+				'group_id': group.id,
 			})
 		if action_str == 'ABGroupUpdate':
-			# TODO
+			group_id = str(_find_element(action, 'groupId'))
+			name = _find_element(action, 'name')
+			nc._contacts.edit_group(group_id, name)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
 			})
 		if action_str == 'ABGroupDelete':
-			group_id = _find_element(action, 'guid')
+			group_id = str(_find_element(action, 'guid'))
 			nc._contacts.remove_group(group_id)
 			return render(req, 'abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': host,
 			})
 		if action_str == 'ABGroupContactAdd':
-			group_id = _find_element(action, 'guid')
+			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.add_group_contact(group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
@@ -165,7 +169,7 @@ async def handle_abservice(req):
 				'contact_uuid': contact_uuid,
 			})
 		if action_str == 'ABGroupContactDelete':
-			group_id = _find_element(action, 'guid')
+			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
 			nc._contacts.remove_group_contact(group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactDeleteResponse.xml', {

@@ -13,7 +13,7 @@ xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 	<soap:Body>
 		<ABGroupAddResponse xmlns="http://www.msn.com/webservices/AddressBook">
 			<ABGroupAddResult>
-				<guid>62b9fd12-df18-4b39-837b-035eef22df29</guid>
+				<guid>{{ group_id }}</guid>
 			</ABGroupAddResult>
 		</ABGroupAddResponse>
 	</soap:Body>

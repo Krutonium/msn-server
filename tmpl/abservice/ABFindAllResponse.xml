@@ -11,6 +11,29 @@
 	<soap:Body>
 		<ABFindAllResponse xmlns="http://www.msn.com/webservices/AddressBook">
 			<ABFindAllResult>
+				<groups>
+					{% for group in detail.groups.values() %}
+						<Group>
+							<groupId>{{ group.id }}</groupId>
+							<groupInfo>
+								<annotations>
+									<Annotation>
+										<Name>MSN.IM.Display</Name>
+										<Value>1</Value>
+									</Annotation>
+								</annotations>
+								<groupType>c8529ce2-6ead-434d-881f-341e17db3ff8</groupType>
+								<name>{{ group.name }}</name>
+								<IsNotMobileVisible>false</IsNotMobileVisible>
+								<IsPrivate>false</IsPrivate>
+								<IsFavorite>false</IsFavorite>
+							</groupInfo>
+							<propertiesChanged />
+							<fDeleted>false</fDeleted>
+							<lastChange>{{ now }}</lastChange>
+						</Group>
+					{% endfor %}
+				</groups>
 				<contacts>
 					{%- for contact in detail.contacts.values() -%}
 						{%- if contact.lists.__and__(Lst.FL) -%}
@@ -23,6 +46,11 @@
 									<IsPassportNameHidden>false</IsPassportNameHidden>
 									<displayName>{{ contact.status.name }}</displayName>
 									<puid>0</puid>
+									<groupIds>
+										{% for group_id in contact.groups %}
+											<guid>{{ group_id }}</guid>
+										{% endfor %}
+									</groupIds>
 									<CID>{{ contact.head.email }}</CID>
 									<IsNotMobileVisible>false</IsNotMobileVisible>
 									<isMobileIMEnabled>false</isMobileIMEnabled>
