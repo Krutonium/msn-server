@@ -21,6 +21,17 @@ class ContactsService:
 		self.nb.sync_contact_statuses()
 		return ctc, ctc_head
 	
+	def edit_contact(self, contact_uuid, *, is_messenger_user = None, is_favorite = None):
+		user = self.user
+		ctc = user.detail.contacts.get(contact_uuid)
+		if ctc is None:
+			raise MSNPException(Err.PrincipalNotOnList)
+		if is_messenger_user is not None:
+			ctc.is_messenger_user = is_messenger_user
+		if is_favorite is not None:
+			ctc.is_favorite = is_favorite
+		self.nb.mark_modified(self.user)
+	
 	def remove_contact(self, contact_uuid, lst):
 		user = self.user
 		ctc = user.detail.contacts.get(contact_uuid)

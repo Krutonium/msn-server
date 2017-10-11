@@ -85,7 +85,11 @@ class UserService:
 				ctc_head = self.get(c['uuid'])
 				if ctc_head is None: continue
 				status = UserStatus(c['name'], c['message'])
-				ctc = Contact(ctc_head, set(c['groups']), c['lists'], status)
+				ctc = Contact(
+					ctc_head, set(c['groups']), c['lists'], status,
+					is_messenger_user = c.get('is_messenger_user'),
+					is_favorite = c.get('is_favorite'),
+				)
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
 	
@@ -100,5 +104,7 @@ class UserService:
 				dbuser.contacts = [{
 					'uuid': c.head.uuid, 'name': c.status.name, 'message': c.status.message,
 					'lists': c.lists, 'groups': list(c.groups),
+					'is_messenger_user': c.is_messenger_user,
+					'is_favorite': c.is_favorite,
 				} for c in detail.contacts.values()]
 				sess.add(dbuser)

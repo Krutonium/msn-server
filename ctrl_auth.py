@@ -137,7 +137,10 @@ async def handle_abservice(req):
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactUpdate':
-			# TODO: This is called when deleting a user without checking "Also remove from my Hotmail contacts"
+			contact_uuid = _find_element(action, 'contactId')
+			is_messenger_user = _find_element(action, 'isMessengerUser')
+			# TODO: isFavorite is probably passed here in later WLM
+			nc._contacts.edit_contact(contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -450,7 +453,11 @@ def render(req, tmpl_name, ctxt = None, status = 200):
 	user_service = req.app['user_service']
 	tmpl.globals['get_date_created'] = user_service.get_date_created
 	tmpl.globals['get_cid'] = user_service.get_cid
+	tmpl.globals['bool_to_str'] = _bool_to_str
 	content = tmpl.render(**(ctxt or {}))
 	return web.Response(status = status, content_type = content_type, text = content)
+
+def _bool_to_str(b):
+	return 'true' if b else 'false'
 
 PP = 'Passport1.4 '

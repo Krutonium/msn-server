@@ -54,8 +54,8 @@
 									<CID>{{ contact.head.email }}</CID>
 									<IsNotMobileVisible>false</IsNotMobileVisible>
 									<isMobileIMEnabled>false</isMobileIMEnabled>
-									<isMessengerUser>true</isMessengerUser>
-									<isFavorite>false</isFavorite>
+									<isMessengerUser>{{ bool_to_str(contact.is_messenger_user) }}</isMessengerUser>
+									<isFavorite>{{ bool_to_str(contact.is_favorite) }}</isFavorite>
 									<isSmtp>false</isSmtp>
 									<hasSpace>false</hasSpace>
 									<spotWatchState>NoDevice</spotWatchState>
