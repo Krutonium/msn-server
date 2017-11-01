@@ -8,6 +8,7 @@ import os
 import time
 from aiohttp import web
 from random import random
+from PIL import Image
 
 import settings
 import models
@@ -406,15 +407,30 @@ async def handle_create_document(req, action, user, cid, token, timestamp):
 			u1 = user.uuid[0:1],
 			u2 = user.uuid[0:2],
 		)
+
 		if not os.path.exists(path):
 			os.makedirs(path)
-		fp = open('{path}/{uuid}.{mime}'.format(
+
+		image_path = '{path}/{uuid}.{mime}'.format(
 			path = path,
 			uuid = user.uuid,
 			mime = mime
-		), 'wb')
+		)
+
+		fp = open(image_path, 'wb')
 		fp.write(data)
 		fp.close()
+
+		image = Image.open(image_path)
+		thumb = image.resize((21, 21))
+
+		thumb_path = '{path}/{uuid}_thumb.{mime}'.format(
+			path=path,
+			uuid=user.uuid,
+			mime=mime
+		)
+
+		thumb.save(thumb_path)
 
 	return render(req, 'storageservice/CreateDocumentResponse.xml', {
 		'user': user,
