@@ -24,16 +24,16 @@
 				<DateModified>{{ now }}</DateModified>
 				<ExpressionProfile>
 					<ResourceID>{{ cid }}!118</ResourceID>
-					<Version>1</Version>
+					<Version>205</Version>
 					<DateModified>{{ now }}</DateModified>
 					<Photo>
 						<ResourceID>{{ cid }}!205</ResourceID>
 						<DocumentStreams>
 							<DocumentStream>
 								<DocumentStreamName>UserTileStatic</DocumentStreamName>
-								<MimeType>image/jpeg</MimeType>
-								<DataSize>2606</DataSize>
-								<PreAuthURL>http://blufiles.storage.msn.com/y1mvakP6WVAromP4x6dYzXHzZvhq-4FWnK7NVddQ0MLQc4DKjcbZ3fdxeGV0keSMYyEpRGD3uTYeeasJQF7tiZ_DQ</PreAuthURL>
+								<MimeType>{{ mime }}</MimeType>
+								<DataSize>{{ size_static }}</DataSize>
+								<PreAuthURL>https://{{ host }}/storage/usertile/{{ user.uuid }}/static</PreAuthURL>
 								<WriteMode>Overwrite</WriteMode>
 								<StreamDataStatus>None</StreamDataStatus>
 								<StreamStatus>None</StreamStatus>
@@ -45,8 +45,8 @@
 							</DocumentStream>
 							<DocumentStream>
 								<DocumentStreamName>UserTileSmall</DocumentStreamName>
-								<DataSize>0</DataSize>
-								<PreAuthURL>http://sn2files.storage.msn.com/y1m70pJ_KTNks7N0WwUB2bhhqwZ7U956KKA3ltiJTcjwLqxR9ZkkiAJOFmQjPHmocIQPVjl5JuN88N39Rz4BHrf1Q</PreAuthURL>
+								<DataSize>{{ size_small }}</DataSize>
+								<PreAuthURL>https://{{ host }}/storage/usertile/{{ user.uuid }}/small</PreAuthURL>
 								<WriteMode>Overwrite</WriteMode>
 								<StreamDataStatus>None</StreamDataStatus>
 								<StreamStatus>None</StreamStatus>
@@ -62,7 +62,7 @@
 					<PersonalStatusLastModified>{{ now }}</PersonalStatusLastModified>
 					<DisplayName>{{ user.status.name }}</DisplayName>
 					<DisplayNameLastModified>{{ now }}</DisplayNameLastModified>
-					<StaticUserTilePublicURL>http://blufiles.storage.msn.com/y1psXBJo8BlcQck4Z3S08opJTlEPH01GpCOxE18U6fsKYxXvlwgsfZPzg8dACazgEJKD2jY8pCL4Pc</StaticUserTilePublicURL>
+					<StaticUserTilePublicURL>https://{{ host }}/storage/usertile/{{ user.uuid }}/static</StaticUserTilePublicURL>
 				</ExpressionProfile>
 			</GetProfileResult>
 		</GetProfileResponse>

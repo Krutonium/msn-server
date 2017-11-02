@@ -19,7 +19,7 @@
 	</soap:Header>
 	<soap:Body>
 		<CreateDocumentResponse xmlns="http://www.msn.com/webservices/storage/w10">
-			<CreateDocumentResult>{{ cid }}!255</CreateDocumentResult>
+			<CreateDocumentResult>{{ cid }}!205</CreateDocumentResult>
 		</CreateDocumentResponse>
 	</soap:Body>
 </soap:Envelope>
