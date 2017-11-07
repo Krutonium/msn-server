@@ -44,8 +44,9 @@ def create_app(nb, user_service):
 	app.router.add_post('/abservice/SharingService.asmx', handle_abservice)
 	app.router.add_post('/abservice/abservice.asmx', handle_abservice)
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
-	app.router.add_get('/storage/usertile/*', handle_usertile)
-	
+	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
+	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small=True))
+
 	# Misc
 	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
@@ -392,6 +393,14 @@ async def handle_rst(req):
 		'timez': datetime.utcnow().isoformat()[0:19] + 'Z',
 	}, status = 403)
 
+def _get_storage_path(uuid):
+	path = 'storage/dp/{u1}/{u2}'.format(
+		u1=uuid[0:1],
+		u2=uuid[0:2],
+	)
+
+	return path
+
 async def handle_create_document(req, action, user, cid, token, timestamp):
 	# get image data
 	name = _find_element(action, 'Name')
@@ -403,10 +412,7 @@ async def handle_create_document(req, action, user, cid, token, timestamp):
 		data = base64.b64decode(data)
 
 		# store display picture as file
-		path = 'storage/dp/{u1}/{u2}'.format(
-			u1 = user.uuid[0:1],
-			u2 = user.uuid[0:2],
-		)
+		path = _get_storage_path(user.uuid)
 
 		if not os.path.exists(path):
 			os.makedirs(path)
@@ -475,5 +481,22 @@ def render(req, tmpl_name, ctxt = None, status = 200):
 
 def _bool_to_str(b):
 	return 'true' if b else 'false'
+
+async def handle_usertile(req, small=False):
+	uuid = req.match_info['uuid']
+	storage_path = _get_storage_path(uuid)
+
+	try:
+		ext = os.listdir(storage_path)[0].split('.')[-1]
+
+		if small:
+			image_path = os.path.join(storage_path, "{uuid}_thumb.{ext}".format(**locals()))
+		else:
+			image_path = os.path.join(storage_path, "{uuid}.{ext}".format(**locals()))
+
+		with open(image_path, 'rb') as file:
+			return web.Response(status=200, content_type="image/{ext}".format(**locals()), body=file.read())
+	except FileNotFoundError:
+		raise web.HTTPNotFound
 
 PP = 'Passport1.4 '
