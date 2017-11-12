@@ -4,3 +4,4 @@ sqlalchemy
 cryptography
 pytest
 jinja2
+pillow
