@@ -10,16 +10,15 @@
 - run `python cmd/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords)
 - to create users, run `python cmd/user.py -h` for instructions
 - for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
-- for WLM, use a 8.1.0178 **clean** install, and in your `HOSTS` add:
+- for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
 	```
 	127.0.0.1 messenger.hotmail.com
 	127.0.0.1 gateway.messenger.hotmail.com
 	127.0.0.1 byrdr.omega.contacts.msn.com
 	127.0.0.1 config.messenger.msn.com
-	127.0.0.1 nexus.passport.com
-	127.0.0.1 loginnet.passport.com
-	127.0.0.1 login.live.com
 	127.0.0.1 tkrdr.storage.msn.com
+	127.0.0.1 ows.messenger.msn.com
+	127.0.0.1 rsi.hotmail.com
 	```
 - run `python dev`
 
