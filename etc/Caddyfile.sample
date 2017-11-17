@@ -1,6 +1,11 @@
 # This file should be the first loaded by Caddy, so m1.escargot
 # gets used "default" certificate for non-SNI requests (WinXP).
-m1.escargot.log1p.xyz, m00000001.escargot.log1p.xyz {
+m1.escargot.log1p.xyz,
+ebyrdromegactcsmsn.log1p.xyz,
+etkrdrstmsn.log1p.xyz,
+eowsmsgrmsn.log1p.xyz,
+ersih.log1p.xyz,
+m00000001.escargot.log1p.xyz {
 	tls <your email here> {
 		# Set tls1.0 and a bunch of old ciphers for XP support
 		protocols tls1.0 tls1.2
