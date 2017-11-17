@@ -6,3 +6,4 @@ etc/Caddyfile
 dev/cert
 tmp
 hosts.lnk
+storage
