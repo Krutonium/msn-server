@@ -318,8 +318,11 @@ class NBConn:
 			# TODO: Need to handle this when implementing persistence-less chat (HTTP gateway/XMPP)
 			(ip, port) = ('', '')
 		
+		self.writer.write('SBS', 0, 'null')
+		self.writer.write('PRP', 'MFN', self.user.status.name)
+		
 		# build MSG Hotmail payload
-		msg = '''MIME-Version: 1.0
+		msg1 = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsprofile; charset=UTF-8
 LoginTime: {time}
 MemberIdHigh: {high}
@@ -350,10 +353,24 @@ MPOPEnabled: 0
 			ip = ip,
 			port = port
 		)
+		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg1.replace('\n', '\r\n').encode('ascii'))
+		
+		msg2 = '''MIME-Version: 1.0
+Content-Type: text/x-msmsgsinitialmdatanotification; charset=UTF-8
+Mail-Data: <MD><E><I>0</I><IU>0</IU><O>0</O><OU>0</OU></E><Q><QTM>409600</QTM><QNM>204800</QNM></Q></MD>
+Inbox-URL: /cgi-bin/HoTMaiL
+Folders-URL: /cgi-bin/folders
+Post-URL: http://www.hotmail.com
 
-		self.writer.write('SBS', 0, 'null')
-		self.writer.write('PRP', 'MFN', self.user.status.name)
-		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg.replace('\n', '\r\n').encode('ascii'))
+'''.format(
+			time = time.time(),
+			high = high,
+			low = low,
+			token = self.token,
+			ip = ip,
+			port = port
+		)
+		self.writer.write('MSG', 'Hotmail', 'Hotmail', msg2.replace('\n', '\r\n').encode('ascii'))
 	
 	# State = Live
 	
