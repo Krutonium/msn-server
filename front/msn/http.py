@@ -7,23 +7,28 @@ import base64
 import os
 import time
 from aiohttp import web
-from random import random
 from PIL import Image
 
 import settings
-import models
-from util.msnp import MSNPException
+from core import models
 
 LOGIN_PATH = '/login'
+TMPL_DIR = 'front/msn/tmpl'
 
-def create_app(nb, user_service):
+def create_app(ns):
 	app = web.Application()
-	app['nb'] = nb
-	app['user_service'] = user_service
-	app['jinja_env'] = jinja2.Environment(
-		loader = jinja2.FileSystemLoader('tmpl'),
+	app['ns'] = ns
+	
+	jinja_env = jinja2.Environment(
+		loader = jinja2.FileSystemLoader(TMPL_DIR),
 		autoescape = jinja2.select_autoescape(default = True),
 	)
+	jinja_env.globals.update({
+		'date_format': _date_format,
+		'cid_format': _cid_format,
+		'bool_to_str': _bool_to_str,
+	})
+	app['jinja_env'] = jinja_env
 	
 	# MSN >= 5
 	app.router.add_get('/nexus-mock', handle_nexus)
@@ -68,24 +73,48 @@ async def on_response_prepare(req, res):
 	#else:
 	#	print("body {}")
 
+async def handle_msnp_http_gateway(req):
+	# TODO
+	ns = req.app['ns']
+	
+	# 1. Get or create PollingSession
+	sess = _get_existing_session(req)
+	if not sess:
+		sess = PollingSession(MSNP_NS_SessState())
+		ns.on_connection_made(sess)
+	
+	# 2. Handle data
+	# MSNPReader takes MSNP messages and converts them into `IncomingEvent`s
+	for incoming_event in sess.reader.data_received(await req.read()):
+		ns.on_incoming_event(incoming_event, sess)
+	
+	# 3. Send events
+	writer = MSNPWriter()
+	for outgoing_event in sess.pull_events():
+		writer.write(outgoing_event)
+	body = writer.flush()
+	
+	return web.Response(headers = {
+		
+	}, body = body)
+
 async def handle_debug(req):
 	return render(req, 'debug.html')
 
 async def handle_abservice(req):
-	#import pdb; pdb.set_trace()
-	header, action, nc, token = await _preprocess_soap(req)
-	if nc is None:
+	header, action, ns_sess, token = await _preprocess_soap(req)
+	if ns_sess is None:
 		return web.Response(status = 403, text = '')
 	action_str = _get_tag_localname(action)
 	if _find_element(action, 'deltasOnly'):
 		return render(req, 'abservice/Fault.fullsync.xml', { 'faultactor': action_str })
 	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
-	user = nc.user
+	user = ns_sess.user
 	detail = user.detail
 	cachekey = secrets.token_urlsafe(172)
 	
 	#_print_xml(action)
-	user_service = req.app['user_service']
+	ns = req.app['ns']
 	
 	try:
 		if action_str == 'FindMembership':
@@ -190,21 +219,20 @@ async def handle_abservice(req):
 		if action_str in { 'UpdateDynamicItem' }:
 			# TODO
 			return _unknown_soap(req, header, action, expected = True)
-	except MSNPException:
+	except:
 		return render(req, 'Fault.generic.xml')
 	
 	return _unknown_soap(req, header, action)
 
 async def handle_storageservice(req):
-	header, action, nc, token = await _preprocess_soap(req)
+	header, action, ns_sess, token = await _preprocess_soap(req)
 	action_str = _get_tag_localname(action)
 	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
 	timestamp = time.time()
-	user = nc.user
+	user = ns_sess.user
 	cachekey = secrets.token_urlsafe(172)
 	
-	user_service = req.app['user_service']
-	cid = user_service.get_cid(user.email)
+	cid = _cid_format(user.uuid)
 	
 	if action_str == 'GetProfile':
 		return render(req, 'storageservice/GetProfileResponse.xml', {
@@ -270,15 +298,15 @@ async def _preprocess_soap(req):
 	root = parse_xml(body)
 	
 	token = _find_element(root, 'TicketToken')
-	if (token[0:2] == 't='):
+	if token[0:2] == 't=':
 		token = token[2:22]
-
-	nc = req.app['nb'].get_nbconn(token)
+	
+	ns_sess = req.app['ns'].util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
 	
-	return header, action, nc, token
+	return header, action, ns_sess, token
 
 def _get_tag_localname(elm):
 	return lxml.etree.QName(elm.tag).localname
@@ -296,9 +324,9 @@ async def handle_msgrconfig(req):
 	return web.Response(status = 200, content_type = 'text/xml', text = msgr_config)
 
 def _get_msgr_config():
-	with open('tmpl/MsgrConfigEnvelope.xml') as fh:
+	with open(TMPL_DIR + '/MsgrConfigEnvelope.xml') as fh:
 		envelope = fh.read()
-	with open('tmpl/MsgrConfig.xml') as fh:
+	with open(TMPL_DIR + '/MsgrConfig.xml') as fh:
 		config = fh.read()
 	return envelope.format(MsgrConfig = config)
 
@@ -340,38 +368,35 @@ async def handle_rst(req):
 		return web.Response(status = 400)
 	
 	token = _login(req, email, pwd)
+	now = datetime.utcnow()
+	timez = now.isoformat()[0:19] + 'Z'
 	
 	if token is not None:
-		timez = datetime.utcnow().isoformat()[0:19] + 'Z'
-		tomorrowz = (datetime.utcnow() + timedelta(days=1)).isoformat()[0:19] + 'Z'
+		tomorrowz = (now + timedelta(days = 1)).isoformat()[0:19] + 'Z'
 		
 		# load PUID and CID, assume them to be the same for our purposes
-		user_service = req.app['user_service']
-		cid = user_service.get_cid(email)
+		cid = _cid_format(req.app['ns'].util_get_uuid_from_email(email))
 		
 		peername = req.transport.get_extra_info('peername')
-		host = '127.0.0.1'
-		if peername is not None:
-			host, _ = peername
+		if peername:
+			host = peername[0]
+		else:
+			host = '127.0.0.1'
 		
 		# get list of requested domains
 		domains = root.findall('.//{*}Address')
 		domains.pop(0) # ignore Passport token request
 		
-		tokenxml = ''
 		tmpl = req.app['jinja_env'].get_template('RST/RST.token.xml')
-		
 		# collect tokens for requested domains
-		for i in range(len(domains)):
-
-			tokenxml += tmpl.render(
-				domain = domains[i],
-				timez = timez,
-				tomorrowz = tomorrowz,
-				i = i + 1,
-				pptoken1 = token,
-			)
-
+		tokenxmls = [tmpl.render(
+			i = i + 1,
+			domain = domain,
+			timez = timez,
+			tomorrowz = tomorrowz,
+			pptoken1 = token,
+		) for i, domain in enumerate(domains)]
+		
 		tmpl = req.app['jinja_env'].get_template('RST/RST.xml')
 		return web.Response(
 			status = 200,
@@ -382,15 +407,16 @@ async def handle_rst(req):
 				tomorrowz = tomorrowz,
 				cid = cid,
 				email = email,
-				firstname = 'John', # we don't have those on file, do we
-				lastname = 'Doe',
+				firstname = "John",
+				lastname = "Doe",
 				ip = host,
 				pptoken1 = token,
-			).replace('{ tokenxml }', tokenxml)
+				tokenxml = tokenxmls.join(''),
+			),
 		)
 	
 	return render(req, 'RST/RST.error.xml', {
-		'timez': datetime.utcnow().isoformat()[0:19] + 'Z',
+		'timez': timez,
 	}, status = 403)
 
 def _get_storage_path(uuid):
@@ -459,7 +485,7 @@ def _extract_pp_credentials(auth_str):
 	return email, pwd
 
 def _login(req, email, pwd):
-	return req.app['nb'].pre_login(email, pwd)
+	return req.app['ns'].login_twn_start(email, pwd)
 
 async def handle_other(req):
 	if settings.DEBUG:
@@ -472,12 +498,24 @@ def render(req, tmpl_name, ctxt = None, status = 200):
 	else:
 		content_type = 'text/html'
 	tmpl = req.app['jinja_env'].get_template(tmpl_name)
-	user_service = req.app['user_service']
-	tmpl.globals['get_date_created'] = user_service.get_date_created
-	tmpl.globals['get_cid'] = user_service.get_cid
-	tmpl.globals['bool_to_str'] = _bool_to_str
 	content = tmpl.render(**(ctxt or {}))
 	return web.Response(status = status, content_type = content_type, text = content)
+
+def _date_format(d):
+	if d is None: return d
+	return d.isoformat()[0:19] + 'Z'
+
+def _cid_format(uuid, *, decimal = False):
+	cid = (uuid[0:8] + uuid[28:36]).lower()
+	
+	if not decimal:
+		return cid
+	
+	# convert to decimal string
+	cid = int(cid, 16)
+	if cid > 0x7FFFFFFF:
+		cid -= 0x100000000
+	return str(cid)
 
 def _bool_to_str(b):
 	return 'true' if b else 'false'

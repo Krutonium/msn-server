@@ -76,7 +76,7 @@
                 <wst:BinarySecret>tgoPVK67sU36fQKlGLMgWgTXp7oiaQgE</wst:BinarySecret>
             </wst:RequestedProofToken>
         </wst:RequestSecurityTokenResponse>
-{ tokenxml }
+{{ tokenxml }}
     </wst:RequestSecurityTokenResponseCollection>
 </S:Body>
 </S:Envelope>

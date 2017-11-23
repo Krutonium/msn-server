@@ -1,13 +1,14 @@
 from enum import Enum, IntFlag
 
 class User:
-	def __init__(self, uuid, email, verified, status):
+	def __init__(self, uuid, email, verified, status, date_created):
 		self.uuid = uuid
 		self.email = email
 		self.verified = verified
 		# `status`: true status of user
 		self.status = status
 		self.detail = None
+		self.date_created = date_created
 
 class Contact:
 	def __init__(self, user, groups, lists, status, *, is_messenger_user = None, is_favorite = None):

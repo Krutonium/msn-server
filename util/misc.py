@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 from settings import DEBUG
 
@@ -10,7 +11,6 @@ class AIOHTTPRunner:
 		self.handler = None
 	
 	def setup(self):
-		import asyncio
 		from aiohttp.log import access_logger
 		loop = asyncio.get_event_loop()
 		self.handler = self.app.make_handler(loop = loop, access_log = access_logger)
@@ -46,3 +46,24 @@ class Logger:
 			name += '{}'.format(port)
 		name += ' ' + self.prefix
 		return name
+
+def run_loop(loop):
+	task = loop.create_task(_windows_ctrl_c_workaround())
+	try:
+		loop.run_forever()
+	except KeyboardInterrupt:
+		# To prevent "Task exception was never retrieved"
+		if task.done():
+			task.exception()
+		raise
+	finally:
+		for task in asyncio.Task.all_tasks():
+			task.cancel()
+			try: loop.run_until_complete(task)
+			except asyncio.CancelledError: pass
+		loop.close()
+
+async def _windows_ctrl_c_workaround():
+	# https://bugs.python.org/issue23057
+	while True:
+		await asyncio.sleep(0.1)

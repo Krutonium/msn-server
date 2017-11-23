@@ -3,7 +3,7 @@ from datetime import datetime
 from db import Session, User as DBUser
 from util.hash import hasher, hasher_md5
 
-from models import User, Contact, UserStatus, UserDetail, Group
+from .models import User, Contact, UserStatus, UserDetail, Group
 
 class UserService:
 	def __init__(self):
@@ -37,29 +37,11 @@ class UserService:
 				'date_login': datetime.utcnow(),
 			})
 	
-	def get_date_created(self, email):
-		with Session() as sess:
-			tmp = sess.query(DBUser.date_created).filter(DBUser.email == email).one_or_none()
-			return tmp and (str(tmp[0])[0:19].replace(' ', 'T') + 'Z')
-	
 	def get_uuid(self, email):
 		with Session() as sess:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
 			return tmp and tmp[0]
 	
-	def get_cid(self, email, *, decimal = False):
-		uuid = self.get_uuid(email)
-		cid = (uuid[0:8] + uuid[28:36]).lower()
-		
-		if not decimal:
-			return cid
-		
-		# convert to decimal string
-		cid = int(cid, 16)
-		if cid > 0x7FFFFFFF:
-			cid -= 0x100000000
-		return str(cid)
-
 	def get(self, uuid):
 		if uuid is None: return None
 		if uuid not in self._cache_by_uuid:
@@ -71,7 +53,7 @@ class UserService:
 			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
 			if dbuser is None: return None
 			status = UserStatus(dbuser.name, dbuser.message)
-			return User(dbuser.uuid, dbuser.email, dbuser.verified, status)
+			return User(dbuser.uuid, dbuser.email, dbuser.verified, status, dbuser.date_created)
 	
 	def get_detail(self, uuid):
 		with Session() as sess:
