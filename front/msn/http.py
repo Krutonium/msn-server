@@ -1,34 +1,30 @@
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
-import jinja2
 import secrets
 import base64
 import os
 import time
 from aiohttp import web
-from PIL import Image
 
 import settings
 from core import models
+import util.misc
 
 LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
+PP = 'Passport1.4 '
 
-def create_app(ns):
+def create_app(ns, sb):
 	app = web.Application()
 	app['ns'] = ns
-	
-	jinja_env = jinja2.Environment(
-		loader = jinja2.FileSystemLoader(TMPL_DIR),
-		autoescape = jinja2.select_autoescape(default = True),
-	)
-	jinja_env.globals.update({
+	app['sb'] = sb
+	app['jinja_env'] = util.misc.create_jinja_env(TMPL_DIR, {
 		'date_format': _date_format,
 		'cid_format': _cid_format,
 		'bool_to_str': _bool_to_str,
 	})
-	app['jinja_env'] = jinja_env
+	app['http_gateway_sessions'] = {}
 	
 	# MSN >= 5
 	app.router.add_get('/nexus-mock', handle_nexus)
@@ -50,9 +46,10 @@ def create_app(ns):
 	app.router.add_post('/abservice/abservice.asmx', handle_abservice)
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
 	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
-	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small=True))
+	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
 
 	# Misc
+	app.router.add_post('/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	
@@ -61,41 +58,63 @@ def create_app(ns):
 	return app
 
 async def on_response_prepare(req, res):
-	if not settings.DEBUG:
+	if not settings.DEBUG_HTTP_REQUEST:
 		return
 	print("# Request: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
-	#print(req.headers)
-	#body = await req.read()
-	#if body:
-	#	print("body {")
-	#	print(body)
-	#	print("}")
-	#else:
-	#	print("body {}")
+	if not settings.DEBUG_HTTP_REQUEST_FULL:
+		return
+	print(req.headers)
+	body = await req.read()
+	if body:
+		print("body {")
+		print(body)
+		print("}")
+	else:
+		print("body {}")
 
-async def handle_msnp_http_gateway(req):
-	# TODO
-	ns = req.app['ns']
+async def handle_http_gateway(req):
+	from util.misc import Logger
+	from core.session import PollingSession
+	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState, MSNPReader, MSNPWriter
 	
-	# 1. Get or create PollingSession
-	sess = _get_existing_session(req)
-	if not sess:
-		sess = PollingSession(MSNP_NS_SessState())
-		ns.on_connection_made(sess)
+	query = req.query
+	session_id = query.get('SessionID')
+	sessions = req.app['http_gateway_sessions']
 	
-	# 2. Handle data
-	# MSNPReader takes MSNP messages and converts them into `IncomingEvent`s
-	for incoming_event in sess.reader.data_received(await req.read()):
-		ns.on_incoming_event(incoming_event, sess)
+	if not session_id:
+		# Create new PollingSession
+		server_type = query.get('Server')
+		server_ip = query.get('IP')
+		ns = req['ns']
+		sb = req['sb']
+		
+		logger = Logger('GW-{}'.format(server_type))
+		reader = MSNPReader(logger)
+		if server_type == 'NS':
+			sess_state = MSNP_NS_SessState(reader, ns)
+		else:
+			sess_state = MSNP_SB_SessState(reader, ns, sb)
+		
+		session_id = util.misc.gen_uuid()
+		sessions[session_id] = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
+	sess = sessions.get(session_id)
+	if not sess or sess.closed:
+		return web.Response(status = 404, text = '')
 	
-	# 3. Send events
-	writer = MSNPWriter()
-	for outgoing_event in sess.pull_events():
-		writer.write(outgoing_event)
-	body = writer.flush()
+	sess.logger.log_connect()
+	sess.set_latest_peername(req.transport)
+	
+	# Read incoming messages
+	sess.data_received(await req.read())
+	
+	# Write outgoing messages
+	body = sess.flush()
+	
+	sess.logger.log_disconnect()
 	
 	return web.Response(headers = {
-		
+		'X-MSN-Messenger': 'SessionID={}; GW-IP='.format(session_id, sess.hostname),
+		'Content-Type': 'application/x-msn-messenger',
 	}, body = body)
 
 async def handle_debug(req):
@@ -129,17 +148,17 @@ async def handle_abservice(req):
 		if action_str == 'AddMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
-			contact_uuid = user_service.get_uuid(email)
-			nc._contacts.add_contact(contact_uuid, lst, email)
+			contact_uuid = ns.util_get_uuid_from_email(email)
+			ns.me_contact_add(ns_sess, contact_uuid, lst, email)
 			return render(req, 'sharing/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
 			if email:
-				contact_uuid = user_service.get_uuid(email)
+				contact_uuid = ns.util_get_uuid_from_email(email)
 			else:
 				contact_uuid = str(_find_element(action, 'MembershipId')).split('/')[1]
-			nc._contacts.remove_contact(contact_uuid, lst)
+			ns.me_contact_remove(ns_sess, contact_uuid, lst)
 			return render(req, 'sharing/DeleteMemberResponse.xml')
 		
 		if action_str == 'ABFindAll':
@@ -154,15 +173,15 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
-			contact_uuid = user_service.get_uuid(email)
-			nc._contacts.add_contact(contact_uuid, models.Lst.FL, email)
+			contact_uuid = ns.util_get_uuid_from_email(email)
+			ns.me_contact_add(ns_sess, contact_uuid, models.Lst.FL, email)
 			return render(req, 'abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
-			nc._contacts.remove_contact(contact_uuid, models.Lst.FL)
+			ns.me_contact_remove(ns_sess, contact_uuid, models.Lst.FL)
 			return render(req, 'abservice/ABContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -171,14 +190,14 @@ async def handle_abservice(req):
 			contact_uuid = _find_element(action, 'contactId')
 			is_messenger_user = _find_element(action, 'isMessengerUser')
 			# TODO: isFavorite is probably passed here in later WLM
-			nc._contacts.edit_contact(contact_uuid, is_messenger_user = is_messenger_user)
+			ns.me_contact_edit(ns_sess, contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
-			group = nc._contacts.add_group(name)
+			group = ns.me_group_add(ns_sess, name)
 			return render(req, 'abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -187,14 +206,14 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupUpdate':
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
-			nc._contacts.edit_group(group_id, name)
+			ns.me_group_edit(ns_sess, group_id, name)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupDelete':
 			group_id = str(_find_element(action, 'guid'))
-			nc._contacts.remove_group(group_id)
+			ns.me_group_remove(ns_sess, group_id)
 			return render(req, 'abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -202,7 +221,7 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupContactAdd':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			nc._contacts.add_group_contact(group_id, contact_uuid)
+			ns.me_group_contact_add(ns_sess, group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -211,7 +230,7 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupContactDelete':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			nc._contacts.remove_group_contact(group_id, contact_uuid)
+			ns.me_group_contact_remove(ns_sess, group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -420,14 +439,11 @@ async def handle_rst(req):
 	}, status = 403)
 
 def _get_storage_path(uuid):
-	path = 'storage/dp/{u1}/{u2}'.format(
-		u1=uuid[0:1],
-		u2=uuid[0:2],
-	)
-
-	return path
+	return 'storage/dp/{}/{}'.format(uuid[0:1], uuid[0:2])
 
 async def handle_create_document(req, action, user, cid, token, timestamp):
+	from PIL import Image
+	
 	# get image data
 	name = _find_element(action, 'Name')
 	streamtype = _find_element(action, 'DocumentStreamType')
@@ -536,5 +552,3 @@ async def handle_usertile(req, small=False):
 			return web.Response(status=200, content_type="image/{ext}".format(**locals()), body=file.read())
 	except FileNotFoundError:
 		raise web.HTTPNotFound
-
-PP = 'Passport1.4 '

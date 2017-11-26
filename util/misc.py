@@ -67,3 +67,13 @@ async def _windows_ctrl_c_workaround():
 	# https://bugs.python.org/issue23057
 	while True:
 		await asyncio.sleep(0.1)
+
+def create_jinja_env(tmpl_dir, globals = None):
+	import jinja2
+	jinja_env = jinja2.Environment(
+		loader = jinja2.FileSystemLoader(tmpl_dir),
+		autoescape = jinja2.select_autoescape(default = True),
+	)
+	if globals:
+		jinja_env.globals.update(globals)
+	return jinja_env

@@ -4,7 +4,8 @@ def main():
 		return
 	
 	import asyncio
-	from core.unorganized import NotificationServer
+	from core.notification import NotificationServer
+	from core.switchboard import Switchboard
 	from core.user import UserService
 	from core.auth import AuthService
 	from util.misc import run_loop
@@ -15,7 +16,8 @@ def main():
 	
 	loop = asyncio.get_event_loop()
 	ns = NotificationServer(loop, user_service, auth_service)
-	front.msn.register(loop, ns)
+	sb = Switchboard(user_service, auth_service)
+	front.msn.register(loop, ns, sb)
 	run_loop(loop)
 
 if __name__ == '__main__':

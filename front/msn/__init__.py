@@ -1,1 +1,1 @@
-from .unorganized import register
+from .entry import register
