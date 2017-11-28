@@ -9,7 +9,7 @@ apply = _handlers.apply
 def _m_usr(sess, trid, email, token):
 	#>>> USR trid email@example.com token
 	state = sess.state
-	data = state.sb.login_xfr(sess, email, token)
+	data = state.backend.login_xfr(sess, email, token)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
 		return
@@ -24,7 +24,7 @@ def _m_usr(sess, trid, email, token):
 def _m_ans(sess, trid, email, token, sessid):
 	#>>> ANS trid email@example.com token sessionid
 	state = sess.state
-	data = state.sb.login_cal(sess, email, token, sessid)
+	data = state.backend.login_cal(sess, email, token, sessid)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
 		return
@@ -53,7 +53,7 @@ def _m_cal(sess, trid, callee_email):
 	user = sess.user
 	chat = state.chat
 	try:
-		state.ns.notify_call(user.uuid, callee_email, chat.id)
+		state.backend.notify_call(user.uuid, callee_email, chat.id)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 	else:

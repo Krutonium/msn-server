@@ -25,27 +25,16 @@ class AIOHTTPRunner:
 class Logger:
 	def __init__(self, prefix):
 		self.prefix = prefix
-		self.transport = None
 	
 	def info(self, *args):
 		if DEBUG:
-			print(self._name(), *args)
+			print(self.prefix, *args)
 	
-	def log_connect(self, transport):
-		self.transport = transport
+	def log_connect(self):
 		self.info("con")
 	
 	def log_disconnect(self):
 		self.info("dis")
-		self.transport = None
-	
-	def _name(self):
-		name = ''
-		if self.transport:
-			(_, port) = self.transport.get_extra_info('peername')
-			name += '{}'.format(port)
-		name += ' ' + self.prefix
-		return name
 
 def run_loop(loop):
 	task = loop.create_task(_windows_ctrl_c_workaround())

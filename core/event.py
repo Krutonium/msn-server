@@ -8,8 +8,7 @@ class AddedToListEvent:
 		self.user = user
 
 class InvitedToChatEvent:
-	def __init__(self, sb_address, chatid, token, caller):
-		self.sb_address = sb_address
+	def __init__(self, chatid, token, caller):
 		self.chatid = chatid
 		self.token = token
 		self.caller = caller

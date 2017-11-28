@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 class MSNPHandlers:
 	def __init__(self):
 		self._map = { 'OUT': _m_out }
@@ -13,14 +15,10 @@ class MSNPHandlers:
 		self._map[msg] = f
 
 def _m_out(sess):
-	sess.send_reply(['OUT'])
+	sess.send_reply('OUT')
 	sess.close()
 
-class MSNPOutgoingEvent:
-	def __init__(self, m):
-		self.m = m
-
-def _build_msnp_presence_notif(trid, ctc, dialect):
+def build_msnp_presence_notif(trid, ctc, dialect):
 	status = ctc.status
 	is_offlineish = status.is_offlineish()
 	if is_offlineish and trid is not None:
@@ -42,7 +40,7 @@ def _build_msnp_presence_notif(trid, ctc, dialect):
 	if dialect >= 8:
 		rst.append(head.detail.capabilities)
 	if dialect >= 9:
-		rst.append(_encode_msnobj(head.detail.msnobj or '<msnobj/>'))
+		rst.append(encode_msnobj(head.detail.msnobj or '<msnobj/>'))
 	
 	yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
 	
@@ -50,6 +48,10 @@ def _build_msnp_presence_notif(trid, ctc, dialect):
 		yield ('UBX', head.email, networkid, '<Data><PSM>{}</PSM><CurrentMedia>{}</CurrentMedia></Data>'.format(
 			status.message or '', status.media or ''
 		).encode('utf-8'))
+
+def encode_msnobj(msnobj):
+	if msnobj is None: return None
+	return quote(msnobj, safe = '')
 
 class Err:
 	InvalidParameter = 201
@@ -67,5 +69,5 @@ class Err:
 	
 	@classmethod
 	def GetCodeForException(cls, exc):
-		# TODO
+		# TODO: GetCodeForException
 		raise NotImplementedError

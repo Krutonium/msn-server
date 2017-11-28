@@ -4,13 +4,12 @@ class Session:
 	def __init__(self, state):
 		self.closed = False
 		self.user = None
-		self.token = None
 		self.state = state
 	
 	def data_received(self, data: bytes) -> None:
 		state = self.state
 		for incoming_event in state.reader.data_received(data):
-			state.apply_incoming_event(incoming_event, sess)
+			state.apply_incoming_event(incoming_event, self)
 	
 	def send_event(self, outgoing_event):
 		raise NotImplementedError('Session.send_event')
@@ -19,7 +18,11 @@ class Session:
 		self.send_event(event.ReplyEvent(data))
 	
 	def close(self):
-		raise NotImplementedError('Session.close')
+		if self.closed: return
+		try:
+			self.state.on_connection_lost(self)
+		finally:
+			self.closed = True
 
 class PersistentSession(Session):
 	def __init__(self, state, writer, transport):
@@ -35,10 +38,8 @@ class PersistentSession(Session):
 		return self.transport.get_extra_info('peername')
 	
 	def close(self):
-		if self.closed:
-			return
 		self.transport.close()
-		self.closed = True
+		super().close()
 
 class PollingSession(Session):
 	def __init__(self, state, logger, writer, hostname):
@@ -49,26 +50,25 @@ class PollingSession(Session):
 		self.peername = None
 		self.queue = [] # type: List[OutgoingEvent]
 	
-	def set_latest_peername(self, transport):
-		self.peername = transport.get_extra_info('peername')
-	
 	def send_event(self, outgoing_event):
 		self.queue.append(outgoing_event)
 	
 	def get_peername(self):
 		return self.peername
 	
-	def flush(self):
+	def on_connect(self, transport):
+		# TODO: Need to store some sort of "last connected time"
+		self.peername = transport.get_extra_info('peername')
+		self.logger.log_connect()
+	
+	def on_disconnect(self):
 		writer = self.writer
 		for outgoing_event in self.queue:
 			writer.write(outgoing_event)
 		self.queue = []
-		return writer.flush()
-	
-	def close(self):
-		if self.closed:
-			return
-		self.closed = True
+		data = writer.flush()
+		self.logger.log_disconnect()
+		return data
 
 class SessionState:
 	def __init__(self, reader):

@@ -2,9 +2,10 @@ import asyncio
 from collections import defaultdict
 from enum import IntFlag
 
+from util.misc import gen_uuid
+
 from .models import User, Group, Lst, Contact, UserStatus
-from .event import PresenceNotificationEvent, AddedToListEvent, InvitedToChatEvent, ChatParticipantLeft, ChatParticipantJoined, ChatMessage
-from . import error
+from . import error, event
 
 class Ack(IntFlag):
 	Zero = 0
@@ -12,16 +13,10 @@ class Ack(IntFlag):
 	ACK = 2
 	Full = 3
 
-class ServiceAddress:
-	def __init__(self, host, port):
-		self.host = host
-		self.port = port
-
-class NotificationServer:
+class Backend:
 	def __init__(self, loop, user_service, auth_service):
 		self._user_service = user_service
 		self._auth_service = auth_service
-		self._sbservices = [ServiceAddress('m1.escargot.log1p.xyz', 1864)]
 		
 		self._ncs = _NSSessCollection()
 		# Dict[User.uuid, User]
@@ -29,9 +24,12 @@ class NotificationServer:
 		# Dict[User, UserDetail]
 		self._unsynced_db = {}
 		
+		# Dict[chatid, Chat]
+		self._chats = {}
+		
 		loop.create_task(self._sync_db())
 	
-	def on_connection_lost(self, sess):
+	def on_leave(self, sess):
 		user = sess.user
 		if user is None: return
 		self._ncs.remove_nc(sess)
@@ -49,7 +47,7 @@ class NotificationServer:
 	
 	def login_md5_verify(self, sess, email, md5_hash):
 		uuid = self._user_service.login_md5(email, md5_hash)
-		return self._login_common(sess, uuid, email, token)
+		return self._login_common(sess, uuid, email)
 	
 	def login_twn_start(self, email, password):
 		uuid = self._user_service.login(email, password)
@@ -58,14 +56,13 @@ class NotificationServer:
 	
 	def login_twn_verify(self, sess, email, token):
 		uuid = self._auth_service.pop_token('nb/login', token)
-		return self._login_common(sess, uuid, email, token)
+		return self._login_common(sess, uuid, email)
 	
-	def _login_common(self, sess, uuid, email, token):
+	def _login_common(self, sess, uuid, email):
 		if uuid is None: return None
 		self._user_service.update_date_login(uuid)
 		user = self._load_user_record(uuid)
 		sess.user = user
-		sess.token = token
 		self._ncs.add_nc(sess)
 		user.detail = self._load_detail(user)
 		return user
@@ -91,7 +88,7 @@ class NotificationServer:
 			if user_other.detail is None: continue
 			ctc = user_other.detail.contacts.get(user.uuid)
 			if ctc is None: continue
-			sess_other.send_event(PresenceNotificationEvent(ctc))
+			sess_other.send_event(event.PresenceNotificationEvent(ctc))
 	
 	def _sync_contact_statuses(self):
 		# Recompute all `Contact.status`'s
@@ -108,9 +105,7 @@ class NotificationServer:
 		self._unsynced_db[user] = ud
 	
 	def sb_token_create(self, sess, *, extra_data = None):
-		token = self._auth_service.create_token('sb/xfr', { 'uuid': sess.user.uuid, 'extra_data': extra_data })
-		sb_address = self._sbservices[0]
-		return (token, sb_address)
+		return self._auth_service.create_token('sb/xfr', { 'uuid': sess.user.uuid, 'extra_data': extra_data })
 	
 	def me_update(self, sess, fields):
 		user = sess.user
@@ -215,7 +210,7 @@ class NotificationServer:
 		# `user_added` was added to `user_adder`'s RL
 		for sess_added in self._ncs.get_ncs_by_user(user_added):
 			if sess_added == sess: continue
-			sess_added.send_event(AddedToListEvent(Lst.RL, user_adder))
+			sess_added.send_event(event.AddedToListEvent(Lst.RL, user_adder))
 	
 	def me_contact_edit(self, sess, contact_uuid, *, is_messenger_user = None, is_favorite = None):
 		user = sess.user
@@ -268,8 +263,40 @@ class NotificationServer:
 			del contacts[ctc_head.uuid]
 		self._mark_modified(user, detail = detail)
 	
+	def login_xfr(self, sess, email, token):
+		user, extra_data = self._load_user('sb/xfr', token)
+		if user is None: return None
+		if user.email != email: return None
+		sess.user = user
+		chat = Chat()
+		self._chats[chat.id] = chat
+		chat.add_session(sess)
+		return chat, extra_data
+	
+	def auth_cal(self, uuid):
+		return self._auth_service.create_token('sb/cal', uuid)
+	
+	def login_cal(self, sess, email, token, chatid):
+		user, extra_data = self._load_user('sb/cal', token)
+		if user is None: return None
+		if user.email != email: return None
+		sess.user = user
+		chat = self._chats.get(chatid)
+		if chat is None: return None
+		for sc, _ in chat.get_roster(self):
+			sc.send_event(event.ChatParticipantJoined(user))
+		chat.add_session(sess)
+		return chat, extra_data
+		
+	def _load_user(self, purpose, token):
+		data = self._auth_service.pop_token(purpose, token)
+		return self._user_service.get(data['uuid']), data['extra_data']
+	
 	def util_get_uuid_from_email(self, email):
 		return self._user_service.get_uuid(email)
+	
+	def util_set_sess_token(self, sess, token):
+		self._ncs.set_nc_by_token(sess, token)
 	
 	def util_get_sess_by_token(self, token):
 		return self._ncs.get_nc_by_token(token)
@@ -286,10 +313,9 @@ class NotificationServer:
 		ctc_ncs = self._ncs.get_ncs_by_user(ctc.head)
 		if not ctc_ncs: raise error.ContactNotOnline()
 		
-		sb_address = self._sbservices[0]
 		for ctc_nc in ctc_ncs:
 			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': ctc_nc.state.get_sb_extra_data() })
-			ctc_nc.send_event(InvitedToChatEvent(sb_address, chatid, token, caller))
+			ctc_nc.send_event(event.InvitedToChatEvent(chatid, token, caller))
 	
 	async def _sync_db(self):
 		while True:
@@ -313,33 +339,63 @@ class NotificationServer:
 class _NSSessCollection:
 	def __init__(self):
 		# Dict[User, Set[Session]]
-		self._ncs_by_user = defaultdict(set)
-		# Dict[Session.token, Session]
-		self._nc_by_token = {}
+		self._sessions_by_user = defaultdict(set)
+		# Dict[str, Session]
+		self._sess_by_token = {}
 	
 	def get_ncs_by_user(self, user):
-		if user not in self._ncs_by_user:
+		if user not in self._sessions_by_user:
 			return ()
-		return self._ncs_by_user[user]
+		return self._sessions_by_user[user]
 	
 	def get_ncs(self):
-		for ncs in self._ncs_by_user.values():
+		for ncs in self._sessions_by_user.values():
 			yield from ncs
 	
-	def get_nc_by_token(self, token):
-		return self._nc_by_token.get(token)
+	def set_nc_by_token(self, sess, token: str):
+		self._sess_by_token[token] = sess
 	
-	def add_nc(self, nc):
-		assert nc.user
-		self._ncs_by_user[nc.user].add(nc)
-		if nc.token:
-			self._nc_by_token[nc.token] = nc
+	def get_nc_by_token(self, token: str):
+		return self._sess_by_token.get(token)
 	
-	def remove_nc(self, nc):
-		assert nc.user
-		self._ncs_by_user[nc.user].discard(nc)
-		if nc.token:
-			del self._nc_by_token[nc.token]
+	def add_nc(self, sess):
+		assert sess.user
+		self._sessions_by_user[sess.user].add(sess)
+	
+	def remove_nc(self, sess):
+		# TODO: This also needs to remove it from _sess_by_token
+		assert sess.user
+		self._sessions_by_user[sess.user].discard(sess)
+
+class Chat:
+	def __init__(self):
+		self.id = gen_uuid()
+		# Dict[Session, User]
+		self._users_by_sess = {}
+	
+	def add_session(self, sess):
+		self._users_by_sess[sess] = sess.user
+	
+	def send_message_to_everyone(self, sess_sender, data):
+		su_sender = self._users_by_sess[sess_sender]
+		for sess in self._users_by_sess.keys():
+			if sess == sess_sender: continue
+			sess.send_event(event.ChatMessage(su_sender, data))
+	
+	def get_roster(self, sess):
+		roster = []
+		for sess1, su1 in self._users_by_sess.items():
+			if sess1 == sess: continue
+			roster.append((sess1, su1))
+		return roster
+	
+	def on_leave(self, sess):
+		su = self._users_by_sess.pop(sess, None)
+		if su is None: return
+		# Notify others that `sess` has left
+		for sess1, su1 in self._users_by_sess.items():
+			if sess1 == sess: continue
+			sess1.send_event(event.ChatParticipantLeft(su))
 
 def _gen_group_id(detail):
 	id = 1

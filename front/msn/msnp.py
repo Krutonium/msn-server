@@ -1,12 +1,12 @@
 import io
 from typing import List
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 from core.session import Session, SessionState
 from core import event
 
 from . import msg_ns, msg_sb
-from .misc import _build_msnp_presence_notif
+from .misc import build_msnp_presence_notif
 
 class MSNPWriter:
 	def __init__(self, logger, sess_state: SessionState):
@@ -19,7 +19,7 @@ class MSNPWriter:
 			self._write(outgoing_event.data)
 			return
 		if isinstance(outgoing_event, event.PresenceNotificationEvent):
-			for m in _build_msnp_presence_notif(None, outgoing_event.contact, self._sess_state.dialect):
+			for m in build_msnp_presence_notif(None, outgoing_event.contact, self._sess_state.dialect):
 				self._write(m)
 			return
 		if isinstance(outgoing_event, event.AddedToListEvent):
@@ -35,7 +35,6 @@ class MSNPWriter:
 			self._write(m)
 			return
 		if isinstance(outgoing_event, event.InvitedToChatEvent):
-			sb_address = outgoing_event.sb_address
 			chatid = outgoing_event.chatid
 			token = outgoing_event.token
 			caller = outgoing_event.caller
@@ -45,7 +44,7 @@ class MSNPWriter:
 				extra = ('U', 'messenger.hotmail.com')
 			if dialect >= 14:
 				extra += (1,)
-			self._write(['RNG', chatid, '{}:{}'.format(sb_address.host, sb_address.port), 'CKI', token, caller.email, caller.status.name, *extra])
+			self._write(['RNG', chatid, 'm1.escargot.log1p.xyz:1864', 'CKI', token, caller.email, caller.status.name, *extra])
 			return
 		if isinstance(outgoing_event, event.ChatParticipantLeft):
 			user = outgoing_event.user
@@ -66,9 +65,6 @@ class MSNPWriter:
 			return
 		
 		raise Exception("Unknown outgoing_event", outgoing_event)
-	
-	def write_reply(self, reply):
-		self._write(reply)
 	
 	def _write(self, m):
 		_msnp_encode(m, self._buf, self._logger)
@@ -100,7 +96,7 @@ class MSNPReader:
 	
 	def _read_msnp(self):
 		try:
-			m, e = _msnp_try_decode(self._data, self._i)
+			m, body, e = _msnp_try_decode(self._data, self._i)
 		except AssertionError:
 			return None
 		except Exception:
@@ -111,6 +107,8 @@ class MSNPReader:
 		self._i = 0
 		_truncated_log(self.logger, '>>>', m)
 		m = [unquote(x) for x in m]
+		if body:
+			m.append(body)
 		return m
 	
 	def _read_raw(self, n):
@@ -129,12 +127,17 @@ def _msnp_try_decode(d, i) -> (List[str], int):
 	m = d[i:e].decode('utf-8').strip()
 	assert len(m) > 1
 	m = m.split()
-	if m[0] in PAYLOAD_COMMANDS:
-		n = int(m[-1])
+	body = None
+	if m[0] in _PAYLOAD_COMMANDS:
+		n = int(m.pop())
 		assert e+n <= len(d)
-		m[-1] = d[e:e+n]
+		body = d[e:e+n]
 		e += n
-	return m, e
+	return m, body, e
+
+_PAYLOAD_COMMANDS = {
+	'UUX', 'MSG', 'ADL', 'FQY', 'RML', 'UUN'
+}
 
 def _msnp_encode(m: List[object], buf, logger) -> None:
 	m = list(m)
@@ -150,49 +153,41 @@ def _msnp_encode(m: List[object], buf, logger) -> None:
 	if data is not None:
 		w(data)
 
-def _truncated_log(logger, pre, m):
-	if m[0] in ('UUX', 'MSG'):
-		logger.info(pre, *m[:-1], len(m[-1]))
-	elif m[0] == 'ADL':
-		logger.info(pre, *m[:-1], '<truncated>')
-	elif m[0] in ('CHG', 'ILN', 'NLN') and 'msnobj' in m[-1]:
-		logger.info(pre, *m[:-1], '<truncated>')
-	else:
-		logger.info(pre, *m)
-
-PAYLOAD_COMMANDS = {
-	'UUX', 'MSG', 'ADL', 'FQY', 'RML', 'UUN'
-}
-
 class MSNP_NS_SessState(SessionState):
-	def __init__(self, reader, ns):
+	def __init__(self, reader, backend):
 		super().__init__(reader)
-		self.ns = ns
+		self.backend = backend
 		self.dialect = None
 		self.usr_email = None
-		self.token = None
 		self.syn_ser = None
 		self.iln_sent = False
 	
 	def get_sb_extra_data(self):
 		return { 'dialect': self.dialect }
 	
-	def apply_incoming_event(incoming_event, sess) -> None:
+	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_ns.apply(incoming_event, sess)
 	
 	def on_connection_lost(self, sess: Session) -> None:
-		self.ns.on_connection_lost(sess)
+		self.backend.on_leave(sess)
 
 class MSNP_SB_SessState(SessionState):
-	def __init__(self, reader, ns, sb):
+	def __init__(self, reader, backend):
 		super().__init__(reader)
-		self.ns = ns
-		self.sb = sb
+		self.backend = backend
 		self.dialect = None
 		self.chat = None
 	
-	def apply_incoming_event(incoming_event, sess) -> None:
+	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_sb.apply(incoming_event, sess)
 	
 	def on_connection_lost(self, sess: Session) -> None:
-		self.sb.on_connection_lost(sess)
+		self.chat.on_leave(sess)
+
+def _truncated_log(logger, pre, m):
+	if m[0] in ('UUX', 'MSG', 'ADL'):
+		logger.info(pre, *m[:-1], len(m[-1]))
+	elif m[0] in ('CHG', 'ILN', 'NLN') and 'msnobj' in m[-1]:
+		logger.info(pre, *m[:-1], '<truncated>')
+	else:
+		logger.info(pre, *m)

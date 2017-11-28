@@ -3,7 +3,7 @@ from lxml.objectify import fromstring as parse_xml
 
 from core.models import Substatus, Lst
 
-from .misc import _build_msnp_presence_notif, MSNPHandlers
+from .misc import build_msnp_presence_notif, MSNPHandlers, encode_msnobj
 
 _handlers = MSNPHandlers()
 apply = _handlers.apply
@@ -44,38 +44,41 @@ def _m_inf(sess, trid):
 
 @_handlers
 def _m_usr(sess, trid, authtype, stage, *args):
+	state = sess.state
+	backend = state.backend
+	
 	if authtype == 'MD5':
-		if sess.state.dialect >= 8:
+		if state.dialect >= 8:
 			sess.send_reply(Err.CommandDisabled, trid)
 			return
 		if stage == 'I':
 			email = args[0]
-			salt = sess.state.ns.login_md5_get_salt(email)
+			salt = backend.login_md5_get_salt(email)
 			if salt is None:
 				# Account is not enabled for login via MD5
 				# TODO: Can we pass an informative message to user?
 				sess.send_reply(Err.AuthFail, trid)
 				return
-			sess.state.usr_email = email
+			state.usr_email = email
 			sess.send_reply('USR', trid, authtype, 'S', salt)
 			return
 		if stage == 'S':
-			token = args[0]
-			sess.state.ns.login_md5_verify(sess, sess.state.usr_email, token)
-			_util_usr_final(sess, trid)
+			md5_hash = args[0]
+			backend.login_md5_verify(sess, state.usr_email, md5_hash)
+			_util_usr_final(sess, trid, None)
 			return
 	
 	if authtype in ('TWN', 'SSO'):
 		if stage == 'I':
 			#>>> USR trid TWN/SSO I email@example.com
-			sess.state.usr_email = args[0]
+			state.usr_email = args[0]
 			if authtype == 'TWN':
-				#token = ('ct={},rver=5.5.4177.0,wp=FS_40SEC_0_COMPACT,lc=1033,id=507,ru=http:%2F%2Fmessenger.msn.com,tw=0,kpp=1,kv=4,ver=2.1.6000.1,rn=1lgjBfIL,tpf=b0735e3a873dfb5e75054465196398e0'.format(int(time())),)
+				#extra = ('ct={},rver=5.5.4177.0,wp=FS_40SEC_0_COMPACT,lc=1033,id=507,ru=http:%2F%2Fmessenger.msn.com,tw=0,kpp=1,kv=4,ver=2.1.6000.1,rn=1lgjBfIL,tpf=b0735e3a873dfb5e75054465196398e0'.format(int(time())),)
 				# This seems to work too:
-				token = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
+				extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
 			else:
-				token = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
-			sess.send_reply('USR', trid, authtype, 'S', *token)
+				extra = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
+			sess.send_reply('USR', trid, authtype, 'S', *extra)
 			return
 		if stage == 'S':
 			#>>> USR trid TWN S auth_token
@@ -83,19 +86,22 @@ def _m_usr(sess, trid, authtype, stage, *args):
 			token = args[0]
 			if token[0:2] == 't=':
 				token = token[2:22]
-			sess.state.ns.login_twn_verify(sess, sess.state.usr_email, token)
-			_util_usr_final(sess, trid)
+			backend.login_twn_verify(sess, state.usr_email, token)
+			_util_usr_final(sess, trid, token)
 			return
 	
 	sess.send_reply(Err.AuthFail, trid)
 
-def _util_usr_final(sess, trid):
+def _util_usr_final(sess, trid, token):
 	user = sess.user
 	dialect = sess.state.dialect
 	
 	if user is None:
 		sess.send_reply(Err.AuthFail, trid)
 		return
+	
+	if token:
+		sess.state.backend.util_set_sess_token(sess, token)
 	
 	if dialect < 10:
 		args = (user.status.name,)
@@ -120,7 +126,7 @@ def _util_usr_final(sess, trid):
 	
 	msg1 = PAYLOAD_MSG_1.format(
 		time = now, high = high, low = low,
-		token = sess.state.token, ip = ip, port = port,
+		token = token, ip = ip, port = port,
 	)
 	sess.send_reply('MSG', 'Hotmail', 'Hotmail', msg1.replace('\n', '\r\n').encode('ascii'))
 	
@@ -202,7 +208,7 @@ def _m_png(sess):
 @_handlers
 def _m_uux(sess, trid, data):
 	elm = parse_xml(data.decode('utf-8'))
-	sess.state.ns.me_update(sess, {
+	sess.state.backend.me_update(sess, {
 		'message': str(elm.find('PSM')),
 		'media': str(elm.find('CurrentMedia')),
 	})
@@ -216,7 +222,7 @@ def _m_url(sess, trid, *ignored):
 def _m_adg(sess, trid, name, ignored = None):
 	#>>> ADG 276 New Group
 	try:
-		group = sess.ns.me_group_add(sess, name)
+		group = sess.backend.me_group_add(sess, name)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
@@ -233,7 +239,7 @@ def _m_rmg(sess, trid, group_id):
 			break
 	
 	try:
-		sess.state.ns.me_group_remove(sess, group_id)
+		sess.state.backend.me_group_remove(sess, group_id)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
@@ -244,7 +250,7 @@ def _m_rmg(sess, trid, group_id):
 def _m_reg(sess, trid, group_id, name, ignored = None):
 	#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
 	try:
-		sess.state.ns.me_group_edit(sess, group_id, name)
+		sess.state.backend.me_group_edit(sess, group_id, name)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
@@ -259,7 +265,7 @@ def _m_adc(sess, trid, lst_name, arg1, arg2 = None):
 		#>>> ADC 249 BL N=bob1@hotmail.com
 		#>>> ADC 278 AL N=foo@hotmail.com
 		#>>> ADC 277 FL N=foo@hotmail.com F=foo@hotmail.com
-		contact_uuid = sess.state.ns.util_get_uuid_from_email(arg1[2:])
+		contact_uuid = sess.state.backend.util_get_uuid_from_email(arg1[2:])
 		group_id = None
 		name = (arg2[2:] if arg2 else None)
 	else:
@@ -274,16 +280,16 @@ def _m_adc(sess, trid, lst_name, arg1, arg2 = None):
 @_handlers
 def _m_add(sess, trid, lst_name, email, name = None, group_id = None):
 	#>>> ADD 122 FL email name group
-	contact_uuid = sess.state.ns.util_get_uuid_from_email(email)
+	contact_uuid = sess.state.backend.util_get_uuid_from_email(email)
 	_add_common(sess, trid, lst_name, contact_uuid, name, group_id)
 
 def _add_common(sess, trid, lst_name, contact_uuid, name = None, group_id = None):
 	lst = getattr(Lst, lst_name)
 	
 	try:
-		ctc, ctc_head = sess.state.ns.me_contact_add(sess, contact_uuid, lst, name)
+		ctc, ctc_head = sess.state.backend.me_contact_add(sess, contact_uuid, lst, name)
 		if group_id:
-			sess.state.ns.me_group_contact_add(sess, group_id, contact_uuid)
+			sess.state.backend.me_group_contact_add(sess, group_id, contact_uuid)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
@@ -309,17 +315,17 @@ def _m_rem(sess, trid, lst_name, usr, group_id = None):
 		#>>> REM 279 FL 00000000-0000-0000-0002-000000000001
 		#>>> REM 247 FL 00000000-0000-0000-0002-000000000002 00000000-0000-0000-0001-000000000002
 		if sess.state.dialect < 10:
-			contact_uuid = sess.state.ns.util_get_uuid_from_email(usr)
+			contact_uuid = sess.state.backend.util_get_uuid_from_email(usr)
 		else:
 			contact_uuid = usr
 	else:
 		#>>> REM 248 AL bob1@hotmail.com
-		contact_uuid = sess.state.ns.util_get_uuid_from_email(usr)
+		contact_uuid = sess.state.backend.util_get_uuid_from_email(usr)
 	try:
 		if group_id:
-			sess.state.ns.me_group_contact_remove(sess, group_id, contact_uuid)
+			sess.state.backend.me_group_contact_remove(sess, group_id, contact_uuid)
 		else:
-			sess.state.ns.me_contact_remove(sess, contact_uuid, lst)
+			sess.state.backend.me_contact_remove(sess, contact_uuid, lst)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
@@ -332,29 +338,28 @@ def _m_gtc(sess, trid, value):
 		return
 	# "Alert me when other people add me ..." Y/N
 	#>>> GTC 152 N
-	sess.state.ns.me_update(sess, { 'gtc': value })
+	sess.state.backend.me_update(sess, { 'gtc': value })
 	sess.send_reply('GTC', trid, _ser(sess.state), value)
 
 @_handlers
 def _m_blp(sess, trid, value):
 	# Check "Only people on my Allow List ..." AL/BL
 	#>>> BLP 143 BL
-	sess.state.ns.me_update(sess, { 'blp': value })
+	sess.state.backend.me_update(sess, { 'blp': value })
 	sess.send_reply('BLP', trid, _ser(sess.state), value)
 
 @_handlers
 def _m_chg(sess, trid, sts_name, capabilities = None, msnobj = None):
 	#>>> CHG 120 BSY 1073791020 <msnobj .../>
 	capabilities = capabilities or 0
-	sess.state.ns.me_update(sess, {
+	sess.state.backend.me_update(sess, {
 		'substatus': getattr(Substatus, sts_name),
 		'capabilities': capabilities,
 		'msnobj': msnobj,
 	})
-	sess.send_reply('CHG', trid, sts_name, capabilities, _encode_msnobj(msnobj))
+	sess.send_reply('CHG', trid, sts_name, capabilities, encode_msnobj(msnobj))
 	
 	# Send ILNs
-	sess = sess
 	state = sess.state
 	if state.iln_sent:
 		return
@@ -362,17 +367,16 @@ def _m_chg(sess, trid, sts_name, capabilities = None, msnobj = None):
 	user = sess.user
 	dialect = state.dialect
 	for ctc in user.detail.contacts.values():
-		for m in _build_msnp_presence_notif(trid, ctc, dialect):
+		for m in build_msnp_presence_notif(trid, ctc, dialect):
 			sess.send_reply(*m)
 
 @_handlers
 def _m_rea(sess, trid, email, name):
-	sess = sess
 	if sess.state.dialect >= 10:
 		sess.send_reply(Err.CommandDisabled, trid)
 		return
 	if email == sess.user.email:
-		sess.state.ns.me_update(sess, { 'name': name })
+		sess.state.backend.me_update(sess, { 'name': name })
 	sess.send_reply('REA', trid, _ser(sess.state), email, name)
 
 @_handlers
@@ -384,7 +388,7 @@ def _m_snd(sess, trid, email):
 def _m_prp(sess, trid, key, value):
 	#>>> PRP 115 MFN ~~woot~~
 	if key == 'MFN':
-		sess.state.ns.me_update(sess, { 'name': value })
+		sess.state.backend.me_update(sess, { 'name': value })
 	# TODO: Save other settings?
 	sess.send_reply('PRP', trid, key, value)
 
@@ -400,13 +404,13 @@ def _m_xfr(sess, trid, dest):
 		sess.send_reply(Err.InvalidParameter, trid)
 		return
 	dialect = sess.state.dialect
-	token, sb_address = sess.state.ns.sb_token_create(sess, extra_data = { 'dialect': dialect })
+	token = sess.state.backend.sb_token_create(sess, extra_data = { 'dialect': dialect })
 	extra = ()
 	if dialect >= 13:
 		extra = ('U', 'messenger.msn.com')
 	if dialect >= 14:
 		extra += (1,)
-	sess.send_reply('XFR', trid, dest, '{}:{}'.format(sb_address.host, sb_address.port), 'CKI', token, *extra)
+	sess.send_reply('XFR', trid, dest, 'm1.escargot.log1p.xyz:1864', 'CKI', token, *extra)
 
 # These four commands appear to be useless:
 @_handlers
@@ -477,7 +481,3 @@ def _uuid_to_high_low(u):
 	high = u.time_low % (1<<32)
 	low = u.node % (1<<32)
 	return (high, low)
-
-def _encode_msnobj(msnobj):
-	if msnobj is None: return None
-	return quote(msnobj, safe = '')

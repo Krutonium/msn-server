@@ -15,15 +15,15 @@ LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
 PP = 'Passport1.4 '
 
-def create_app(ns, sb):
+def create_app(backend):
 	app = web.Application()
-	app['ns'] = ns
-	app['sb'] = sb
+	app['backend'] = backend
 	app['jinja_env'] = util.misc.create_jinja_env(TMPL_DIR, {
 		'date_format': _date_format,
 		'cid_format': _cid_format,
 		'bool_to_str': _bool_to_str,
 	})
+	# TODO: Need to call `.close` on these sessions after they haven't been touched in >= T seconds
 	app['http_gateway_sessions'] = {}
 	
 	# MSN >= 5
@@ -85,15 +85,14 @@ async def handle_http_gateway(req):
 		# Create new PollingSession
 		server_type = query.get('Server')
 		server_ip = query.get('IP')
-		ns = req['ns']
-		sb = req['sb']
+		backend = req.app['backend']
 		
 		logger = Logger('GW-{}'.format(server_type))
 		reader = MSNPReader(logger)
 		if server_type == 'NS':
-			sess_state = MSNP_NS_SessState(reader, ns)
+			sess_state = MSNP_NS_SessState(reader, backend)
 		else:
-			sess_state = MSNP_SB_SessState(reader, ns, sb)
+			sess_state = MSNP_SB_SessState(reader, backend)
 		
 		session_id = util.misc.gen_uuid()
 		sessions[session_id] = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
@@ -101,16 +100,13 @@ async def handle_http_gateway(req):
 	if not sess or sess.closed:
 		return web.Response(status = 404, text = '')
 	
-	sess.logger.log_connect()
-	sess.set_latest_peername(req.transport)
+	sess.on_connect(req.transport)
 	
 	# Read incoming messages
 	sess.data_received(await req.read())
 	
 	# Write outgoing messages
-	body = sess.flush()
-	
-	sess.logger.log_disconnect()
+	body = sess.on_disconnect()
 	
 	return web.Response(headers = {
 		'X-MSN-Messenger': 'SessionID={}; GW-IP='.format(session_id, sess.hostname),
@@ -133,7 +129,7 @@ async def handle_abservice(req):
 	cachekey = secrets.token_urlsafe(172)
 	
 	#_print_xml(action)
-	ns = req.app['ns']
+	backend = req.app['backend']
 	
 	try:
 		if action_str == 'FindMembership':
@@ -148,17 +144,17 @@ async def handle_abservice(req):
 		if action_str == 'AddMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
-			contact_uuid = ns.util_get_uuid_from_email(email)
-			ns.me_contact_add(ns_sess, contact_uuid, lst, email)
+			contact_uuid = backend.util_get_uuid_from_email(email)
+			backend.me_contact_add(ns_sess, contact_uuid, lst, email)
 			return render(req, 'sharing/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
 			if email:
-				contact_uuid = ns.util_get_uuid_from_email(email)
+				contact_uuid = backend.util_get_uuid_from_email(email)
 			else:
 				contact_uuid = str(_find_element(action, 'MembershipId')).split('/')[1]
-			ns.me_contact_remove(ns_sess, contact_uuid, lst)
+			backend.me_contact_remove(ns_sess, contact_uuid, lst)
 			return render(req, 'sharing/DeleteMemberResponse.xml')
 		
 		if action_str == 'ABFindAll':
@@ -173,15 +169,15 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
-			contact_uuid = ns.util_get_uuid_from_email(email)
-			ns.me_contact_add(ns_sess, contact_uuid, models.Lst.FL, email)
+			contact_uuid = backend.util_get_uuid_from_email(email)
+			backend.me_contact_add(ns_sess, contact_uuid, models.Lst.FL, email)
 			return render(req, 'abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
-			ns.me_contact_remove(ns_sess, contact_uuid, models.Lst.FL)
+			backend.me_contact_remove(ns_sess, contact_uuid, models.Lst.FL)
 			return render(req, 'abservice/ABContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -190,14 +186,14 @@ async def handle_abservice(req):
 			contact_uuid = _find_element(action, 'contactId')
 			is_messenger_user = _find_element(action, 'isMessengerUser')
 			# TODO: isFavorite is probably passed here in later WLM
-			ns.me_contact_edit(ns_sess, contact_uuid, is_messenger_user = is_messenger_user)
+			backend.me_contact_edit(ns_sess, contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
-			group = ns.me_group_add(ns_sess, name)
+			group = backend.me_group_add(ns_sess, name)
 			return render(req, 'abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -206,14 +202,14 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupUpdate':
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
-			ns.me_group_edit(ns_sess, group_id, name)
+			backend.me_group_edit(ns_sess, group_id, name)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupDelete':
 			group_id = str(_find_element(action, 'guid'))
-			ns.me_group_remove(ns_sess, group_id)
+			backend.me_group_remove(ns_sess, group_id)
 			return render(req, 'abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -221,7 +217,7 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupContactAdd':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			ns.me_group_contact_add(ns_sess, group_id, contact_uuid)
+			backend.me_group_contact_add(ns_sess, group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -230,13 +226,13 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupContactDelete':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			ns.me_group_contact_remove(ns_sess, group_id, contact_uuid)
+			backend.me_group_contact_remove(ns_sess, group_id, contact_uuid)
 			return render(req, 'abservice/ABGroupContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str in { 'UpdateDynamicItem' }:
-			# TODO
+			# TODO: UpdateDynamicItem
 			return _unknown_soap(req, header, action, expected = True)
 	except:
 		return render(req, 'Fault.generic.xml')
@@ -264,7 +260,7 @@ async def handle_storageservice(req):
 			'host': settings.STORAGE_HOST
 		})
 	if action_str == 'FindDocuments':
-		# TODO
+		# TODO: FindDocuments
 		return render(req, 'storageservice/FindDocumentsResponse.xml', {
 			'cachekey': cachekey,
 			'cid': cid,
@@ -272,14 +268,14 @@ async def handle_storageservice(req):
 			'user': user,
 		})
 	if action_str == 'UpdateProfile':
-		# TODO
+		# TODO: UpdateProfile
 		return render(req, 'storageservice/UpdateProfileResponse.xml', {
 			'cachekey': cachekey,
 			'cid': cid,
 			'pptoken1': token,
 		})
 	if action_str == 'DeleteRelationships':
-		# TODO
+		# TODO: DeleteRelationships
 		return render(req, 'storageservice/DeleteRelationshipsResponse.xml', {
 			'cachekey': cachekey,
 			'cid': cid,
@@ -288,14 +284,14 @@ async def handle_storageservice(req):
 	if action_str == 'CreateDocument':
 		return await handle_create_document(req, action, user, cid, token, timestamp)
 	if action_str == 'CreateRelationships':
-		# TODO
+		# TODO: CreateRelationships
 		return render(req, 'storageservice/CreateRelationshipsResponse.xml', {
 			'cachekey': cachekey,
 			'cid': cid,
 			'pptoken1': token,
 		})
 	if action_str in { 'ShareItem' }:
-		# TODO
+		# TODO: ShareItem
 		return _unknown_soap(req, header, action, expected = True)
 	return _unknown_soap(req, header, action)
 
@@ -320,12 +316,12 @@ async def _preprocess_soap(req):
 	if token[0:2] == 't=':
 		token = token[2:22]
 	
-	ns_sess = req.app['ns'].util_get_sess_by_token(token)
+	backend_sess = req.app['backend'].util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
 	
-	return header, action, ns_sess, token
+	return header, action, backend_sess, token
 
 def _get_tag_localname(elm):
 	return lxml.etree.QName(elm.tag).localname
@@ -394,7 +390,7 @@ async def handle_rst(req):
 		tomorrowz = (now + timedelta(days = 1)).isoformat()[0:19] + 'Z'
 		
 		# load PUID and CID, assume them to be the same for our purposes
-		cid = _cid_format(req.app['ns'].util_get_uuid_from_email(email))
+		cid = _cid_format(req.app['backend'].util_get_uuid_from_email(email))
 		
 		peername = req.transport.get_extra_info('peername')
 		if peername:
@@ -501,7 +497,7 @@ def _extract_pp_credentials(auth_str):
 	return email, pwd
 
 def _login(req, email, pwd):
-	return req.app['ns'].login_twn_start(email, pwd)
+	return req.app['backend'].login_twn_start(email, pwd)
 
 async def handle_other(req):
 	if settings.DEBUG:
