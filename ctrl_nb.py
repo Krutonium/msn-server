@@ -319,6 +319,9 @@ class NBConn:
 			(ip, port) = ('', '')
 		
 		self.writer.write('SBS', 0, 'null')
+		if 18 <= self.dialect < 21:
+			# MSNP21 doesn't use this; unsure if 19/20 use it
+			self.writer.write('UBX', '1:' + self.user.email, '0')
 		self.writer.write('PRP', 'MFN', self.user.status.name)
 		
 		# build MSG Hotmail payload
@@ -357,11 +360,11 @@ MPOPEnabled: 0
 		
 		msg2 = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsinitialmdatanotification; charset=UTF-8
+
 Mail-Data: <MD><E><I>0</I><IU>0</IU><O>0</O><OU>0</OU></E><Q><QTM>409600</QTM><QNM>204800</QNM></Q></MD>
 Inbox-URL: /cgi-bin/HoTMaiL
 Folders-URL: /cgi-bin/folders
 Post-URL: http://www.hotmail.com
-
 '''.format(
 			time = time.time(),
 			high = high,
