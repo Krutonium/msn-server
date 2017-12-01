@@ -122,6 +122,9 @@ def _util_usr_final(sess, trid, token):
 	now = time.time()
 	
 	sess.send_reply('SBS', 0, 'null')
+	if 18 <= dialect < 21:
+		# MSNP21 doesn't use this; unsure if 19/20 use it
+		sess.send_reply('UBX', '1:' + user.email, 0)
 	sess.send_reply('PRP', 'MFN', user.status.name)
 	
 	msg1 = PAYLOAD_MSG_1.format(
@@ -461,11 +464,11 @@ MPOPEnabled: 0
 
 PAYLOAD_MSG_2 = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsinitialmdatanotification; charset=UTF-8
+
 Mail-Data: <MD><E><I>0</I><IU>0</IU><O>0</O><OU>0</OU></E><Q><QTM>409600</QTM><QNM>204800</QNM></Q></MD>
 Inbox-URL: /cgi-bin/HoTMaiL
 Folders-URL: /cgi-bin/folders
 Post-URL: http://www.hotmail.com
-
 '''
 
 SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
