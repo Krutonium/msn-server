@@ -1,3 +1,4 @@
+import time
 from . import event
 
 class Session:
@@ -49,6 +50,8 @@ class PollingSession(Session):
 		self.hostname = hostname
 		self.peername = None
 		self.queue = [] # type: List[OutgoingEvent]
+		self.time_last_connect = 0
+		self.timeout = 30
 	
 	def send_event(self, outgoing_event):
 		self.queue.append(outgoing_event)
@@ -57,7 +60,7 @@ class PollingSession(Session):
 		return self.peername
 	
 	def on_connect(self, transport):
-		# TODO: Need to store some sort of "last connected time"
+		self.time_last_connect = time.time()
 		self.peername = transport.get_extra_info('peername')
 		self.logger.log_connect()
 	

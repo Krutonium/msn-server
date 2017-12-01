@@ -62,10 +62,6 @@ class UserDetail:
 		self.settings = settings
 		self.groups = {}
 		self.contacts = {}
-		
-		# TODO: These are per-session, not per-user; exist only when client is connected
-		self.capabilities = 0
-		self.msnobj = None
 
 class Group:
 	def __init__(self, id, name):

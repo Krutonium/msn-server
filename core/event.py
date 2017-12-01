@@ -29,3 +29,6 @@ class ChatMessage:
 class ReplyEvent:
 	def __init__(self, data):
 		self.data = data
+
+class CloseEvent:
+	pass

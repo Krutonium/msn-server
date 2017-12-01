@@ -23,8 +23,6 @@ def create_app(backend):
 		'cid_format': _cid_format,
 		'bool_to_str': _bool_to_str,
 	})
-	# TODO: Need to call `.close` on these sessions after they haven't been touched in >= T seconds
-	app['http_gateway_sessions'] = {}
 	
 	# MSN >= 5
 	app.router.add_get('/nexus-mock', handle_nexus)
@@ -79,13 +77,12 @@ async def handle_http_gateway(req):
 	
 	query = req.query
 	session_id = query.get('SessionID')
-	sessions = req.app['http_gateway_sessions']
+	backend = req.app['backend']
 	
 	if not session_id:
 		# Create new PollingSession
 		server_type = query.get('Server')
 		server_ip = query.get('IP')
-		backend = req.app['backend']
 		
 		logger = Logger('GW-{}'.format(server_type))
 		reader = MSNPReader(logger)
@@ -95,8 +92,10 @@ async def handle_http_gateway(req):
 			sess_state = MSNP_SB_SessState(reader, backend)
 		
 		session_id = util.misc.gen_uuid()
-		sessions[session_id] = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
-	sess = sessions.get(session_id)
+		
+		sess = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
+		backend.util_set_sess_token(sess, ('msn-gw', session_id))
+	sess = backend.util_get_get_by_token(sess, ('msn-gw', session_id))
 	if not sess or sess.closed:
 		return web.Response(status = 404, text = '')
 	

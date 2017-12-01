@@ -3,7 +3,7 @@ from lxml.objectify import fromstring as parse_xml
 
 from core.models import Substatus, Lst
 
-from .misc import build_msnp_presence_notif, MSNPHandlers, encode_msnobj
+from .misc import build_msnp_presence_notif, MSNPHandlers, encode_msnobj, Err
 
 _handlers = MSNPHandlers()
 apply = _handlers.apply
@@ -354,9 +354,9 @@ def _m_chg(sess, trid, sts_name, capabilities = None, msnobj = None):
 	capabilities = capabilities or 0
 	sess.state.backend.me_update(sess, {
 		'substatus': getattr(Substatus, sts_name),
-		'capabilities': capabilities,
-		'msnobj': msnobj,
 	})
+	sess.state.capabilities = capabilities
+	sess.state.msnobj = msnobj
 	sess.send_reply('CHG', trid, sts_name, capabilities, encode_msnobj(msnobj))
 	
 	# Send ILNs
@@ -367,7 +367,7 @@ def _m_chg(sess, trid, sts_name, capabilities = None, msnobj = None):
 	user = sess.user
 	dialect = state.dialect
 	for ctc in user.detail.contacts.values():
-		for m in build_msnp_presence_notif(trid, ctc, dialect):
+		for m in build_msnp_presence_notif(trid, ctc, dialect, sess.state.backend):
 			sess.send_reply(*m)
 
 @_handlers

@@ -1,8 +1,8 @@
-import asyncio
+import asyncio, time
 from collections import defaultdict
 from enum import IntFlag
 
-from util.misc import gen_uuid
+from util.misc import gen_uuid, EMPTY_SET
 
 from .models import User, Group, Lst, Contact, UserStatus
 from . import error, event
@@ -18,7 +18,7 @@ class Backend:
 		self._user_service = user_service
 		self._auth_service = auth_service
 		
-		self._ncs = _NSSessCollection()
+		self._sc = _SessionCollection()
 		# Dict[User.uuid, User]
 		self._user_by_uuid = {}
 		# Dict[User, UserDetail]
@@ -28,12 +28,13 @@ class Backend:
 		self._chats = {}
 		
 		loop.create_task(self._sync_db())
+		loop.create_task(self._clean_sessions())
 	
 	def on_leave(self, sess):
 		user = sess.user
 		if user is None: return
-		self._ncs.remove_nc(sess)
-		if self._ncs.get_ncs_by_user(user):
+		self._sc.remove_session(sess)
+		if self._sc.get_sessions_by_user(user):
 			# There are still other people logged in as this user,
 			# so don't send offline notifications.
 			return
@@ -63,7 +64,7 @@ class Backend:
 		self._user_service.update_date_login(uuid)
 		user = self._load_user_record(uuid)
 		sess.user = user
-		self._ncs.add_nc(sess)
+		self._sc.add_session(sess)
 		user.detail = self._load_detail(user)
 		return user
 	
@@ -82,7 +83,9 @@ class Backend:
 		# Notify relevant `Session`s of status, name, message, media
 		user = sess.user
 		if user is None: return
-		for sess_other in self._ncs.get_ncs():
+		# TODO: This does a lot of work, iterating through _every_ session.
+		# If RL is set up properly, could iterate through `user.detail.contacts`.
+		for sess_other in self._sc.iter_sessions():
 			if sess_other == sess: continue
 			user_other = sess_other.user
 			if user_other.detail is None: continue
@@ -122,10 +125,6 @@ class Backend:
 			user.detail.settings['blp'] = fields['blp']
 		if 'substatus' in fields:
 			user.status.substatus = fields['substatus']
-		if 'capabilities' in fields:
-			user.detail.capabilities = fields['capabilities']
-		if 'msnobj' in fields:
-			user.detail.msnobj = fields['msnobj']
 		
 		self._mark_modified(user)
 		self._sync_contact_statuses()
@@ -208,7 +207,7 @@ class Backend:
 	def _notify_reverse_add(self, sess, user_added):
 		user_adder = sess.user
 		# `user_added` was added to `user_adder`'s RL
-		for sess_added in self._ncs.get_ncs_by_user(user_added):
+		for sess_added in self._sc.get_sessions_by_user(user_added):
 			if sess_added == sess: continue
 			sess_added.send_event(event.AddedToListEvent(Lst.RL, user_adder))
 	
@@ -296,10 +295,13 @@ class Backend:
 		return self._user_service.get_uuid(email)
 	
 	def util_set_sess_token(self, sess, token):
-		self._ncs.set_nc_by_token(sess, token)
+		self._sc.set_nc_by_token(sess, token)
 	
 	def util_get_sess_by_token(self, token):
-		return self._ncs.get_nc_by_token(token)
+		return self._sc.get_nc_by_token(token)
+	
+	def util_get_sessions_by_user(self, user):
+		return self._sc.get_sessions_by_user(user)
 	
 	def notify_call(self, caller_uuid, callee_email, chatid):
 		caller = self._user_by_uuid.get(caller_uuid)
@@ -310,12 +312,12 @@ class Backend:
 		ctc = caller.detail.contacts.get(callee_uuid)
 		if ctc is None: raise error.ContactDoesNotExist()
 		if ctc.status.is_offlineish(): raise error.ContactNotOnline()
-		ctc_ncs = self._ncs.get_ncs_by_user(ctc.head)
-		if not ctc_ncs: raise error.ContactNotOnline()
+		ctc_sessions = self._sc.get_sessions_by_user(ctc.head)
+		if not ctc_sessions: raise error.ContactNotOnline()
 		
-		for ctc_nc in ctc_ncs:
-			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': ctc_nc.state.get_sb_extra_data() })
-			ctc_nc.send_event(event.InvitedToChatEvent(chatid, token, caller))
+		for ctc_sess in ctc_sessions:
+			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': ctc_sess.state.get_sb_extra_data() })
+			ctc_sess.send_event(event.InvitedToChatEvent(chatid, token, caller))
 	
 	async def _sync_db(self):
 		while True:
@@ -335,37 +337,70 @@ class Backend:
 		except Exception:
 			import traceback
 			traceback.print_exc()
+	
+	async def _clean_sessions(self):
+		from .session import PollingSession
+		while True:
+			await asyncio.sleep(10)
+			now = time.time()
+			closed = []
+			
+			try:
+				for sess in self._sc.iter_sessions():
+					if sess.closed:
+						closed.append(sess)
+						continue
+					if isinstance(sess, PollingSession):
+						if now >= sess.time_last_connect + sess.timeout:
+							sess.close()
+							closed.append(sess)
+			except Exception:
+				import traceback
+				traceback.print_exc()
+			
+			for sess in closed:
+				self._sc.remove_session(sess)
 
-class _NSSessCollection:
+class _SessionCollection:
 	def __init__(self):
+		# Set[Session]
+		self._sessions = set()
 		# Dict[User, Set[Session]]
 		self._sessions_by_user = defaultdict(set)
 		# Dict[str, Session]
 		self._sess_by_token = {}
+		# Dict[Session, Set[str]]
+		self._tokens_by_sess = defaultdict(set)
 	
-	def get_ncs_by_user(self, user):
+	def get_sessions_by_user(self, user):
 		if user not in self._sessions_by_user:
-			return ()
+			return EMPTY_SET
 		return self._sessions_by_user[user]
 	
-	def get_ncs(self):
-		for ncs in self._sessions_by_user.values():
-			yield from ncs
+	def iter_sessions(self):
+		yield from self._sessions
 	
 	def set_nc_by_token(self, sess, token: str):
 		self._sess_by_token[token] = sess
+		self._tokens_by_sess[sess].add(sess)
+		self._sessions.add(sess)
 	
 	def get_nc_by_token(self, token: str):
 		return self._sess_by_token.get(token)
 	
-	def add_nc(self, sess):
-		assert sess.user
-		self._sessions_by_user[sess.user].add(sess)
+	def add_session(self, sess):
+		if sess.user:
+			self._sessions_by_user[sess.user].add(sess)
+		self._sessions.add(sess)
 	
-	def remove_nc(self, sess):
-		# TODO: This also needs to remove it from _sess_by_token
-		assert sess.user
-		self._sessions_by_user[sess.user].discard(sess)
+	def remove_session(self, sess):
+		if sess in self._tokens_by_sess:
+			tokens = self._tokens_by_sess.pop(sess)
+			for token in tokens:
+				self._sess_by_token.pop(token, None)
+		self._sessions.discard(sess)
+		if sess.user in self._sessions_by_user:
+			self._sessions_by_user[sess.user].discard(sess)
 
 class Chat:
 	def __init__(self):

@@ -2,8 +2,14 @@ import asyncio
 from uuid import uuid4
 from settings import DEBUG
 
+EMPTY_SET = frozenset()
+
 def gen_uuid():
 	return str(uuid4())
+
+def first_in_iterable(iterable):
+	for x in iterable: return x
+	return None
 
 class AIOHTTPRunner:
 	def __init__(self, app):

@@ -1,4 +1,7 @@
 from urllib.parse import quote
+from util.misc import first_in_iterable
+
+from core import error
 
 class MSNPHandlers:
 	def __init__(self):
@@ -18,7 +21,7 @@ def _m_out(sess):
 	sess.send_reply('OUT')
 	sess.close()
 
-def build_msnp_presence_notif(trid, ctc, dialect):
+def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	status = ctc.status
 	is_offlineish = status.is_offlineish()
 	if is_offlineish and trid is not None:
@@ -37,10 +40,11 @@ def build_msnp_presence_notif(trid, ctc, dialect):
 	if trid: frst = ('ILN', trid)
 	else: frst = ('NLN',)
 	rst = []
+	ctc_sess = first_in_iterable(backend.util_get_sessions_by_user(head))
 	if dialect >= 8:
-		rst.append(head.detail.capabilities)
+		rst.append(ctc_sess.state.capabilities)
 	if dialect >= 9:
-		rst.append(encode_msnobj(head.detail.msnobj or '<msnobj/>'))
+		rst.append(encode_msnobj(ctc_sess.state.msnobj or '<msnobj/>'))
 	
 	yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
 	
@@ -56,6 +60,7 @@ def encode_msnobj(msnobj):
 class Err:
 	InvalidParameter = 201
 	InvalidPrincipal = 205
+	InvalidUser = 207
 	PrincipalOnList = 215
 	PrincipalNotOnList = 216
 	PrincipalNotOnline = 217
@@ -69,5 +74,21 @@ class Err:
 	
 	@classmethod
 	def GetCodeForException(cls, exc):
-		# TODO: GetCodeForException
-		raise NotImplementedError
+		if isinstance(exc, error.GroupNameTooLong):
+			return cls.GroupNameTooLong
+		if isinstance(exc, error.GroupDoesNotExist):
+			return cls.GroupInvalid
+		if isinstance(exc, error.CannotRemoveSpecialGroup):
+			return cls.GroupZeroUnremovable
+		if isinstance(exc, error.ContactDoesNotExist):
+			return cls.InvalidPrincipal
+		if isinstance(exc, error.ContactAlreadyOnList):
+			return cls.PrincipalOnList
+		if isinstance(exc, error.ContactNotOnList):
+			return cls.PrincipalNotOnList
+		if isinstance(exc, error.UserDoesNotExist):
+			return cls.InvalidUser
+		if isinstance(exc, error.ContactNotOnline):
+			return cls.PrincipalNotOnline
+		return cls.InternalServerError
+

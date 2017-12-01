@@ -19,7 +19,7 @@ class MSNPWriter:
 			self._write(outgoing_event.data)
 			return
 		if isinstance(outgoing_event, event.PresenceNotificationEvent):
-			for m in build_msnp_presence_notif(None, outgoing_event.contact, self._sess_state.dialect):
+			for m in build_msnp_presence_notif(None, outgoing_event.contact, self._sess_state.dialect, self._sess_state.backend):
 				self._write(m)
 			return
 		if isinstance(outgoing_event, event.AddedToListEvent):
@@ -55,13 +55,16 @@ class MSNPWriter:
 			extra = ()
 			dialect = self._sess_state.dialect
 			if dialect >= 13:
-				extra = (user.detail.capabilities,)
+				extra = (self._sess_state.capabilities,)
 			self._write(['JOI', user.email, user.status.name, *extra])
 			return
 		if isinstance(outgoing_event, event.ChatMessage):
 			user = outgoing_event.user_sender
 			data = outgoing_event.data
 			self._write(['MSG', user.email, user.status.name, data])
+			return
+		if isinstance(outgoing_event, event.CloseEvent):
+			self._write(['OUT'])
 			return
 		
 		raise Exception("Unknown outgoing_event", outgoing_event)
@@ -161,9 +164,11 @@ class MSNP_NS_SessState(SessionState):
 		self.usr_email = None
 		self.syn_ser = None
 		self.iln_sent = False
+		self.capabilities = 0
+		self.msnobj = None
 	
 	def get_sb_extra_data(self):
-		return { 'dialect': self.dialect }
+		return { 'dialect': self.dialect, 'capabilities': self.capabilities }
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_ns.apply(incoming_event, sess)
@@ -177,6 +182,7 @@ class MSNP_SB_SessState(SessionState):
 		self.backend = backend
 		self.dialect = None
 		self.chat = None
+		self.capabilities = 0
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_sb.apply(incoming_event, sess)
