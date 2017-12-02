@@ -275,7 +275,8 @@ class NBConn:
 					# This seems to work too:
 					token = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
 				else:
-					token = ('MBI_KEY_OLD', 'Unused_USR_I_SSO')
+					# The second value is used by WLM >= 9. Currently unknown what it does.
+					token = ('MBI_KEY_OLD', '8CLhG/xfgYZ7TyRQ/jIAWyDmd/w4R4GF2yKLS6tYrnjzi4cFag/Nr+hxsfg5zlCf')
 				self.writer.write('USR', trid, authtype, 'S', *token)
 				return
 			if stage == 'S':
