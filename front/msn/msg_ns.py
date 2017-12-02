@@ -77,7 +77,7 @@ def _m_usr(sess, trid, authtype, stage, *args):
 				# This seems to work too:
 				extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
 			else:
-				# The second value is used by WLM >= 9. Currently unknown what it does.
+				# https://web.archive.org/web/20100819015007/http://msnpiki.msnfanatic.com/index.php/MSNP15:SSO
 				extra = ('MBI_KEY_OLD', '8CLhG/xfgYZ7TyRQ/jIAWyDmd/w4R4GF2yKLS6tYrnjzi4cFag/Nr+hxsfg5zlCf')
 			sess.send_reply('USR', trid, authtype, 'S', *extra)
 			return
