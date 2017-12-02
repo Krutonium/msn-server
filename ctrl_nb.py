@@ -321,11 +321,11 @@ class NBConn:
 		
 		if( self.dialect == 21 )
 		{
-		    self.writer.write('CHL', 0, '1663122458434562624782678054')
+            self.writer.write('CHL', 0, '1663122458434562624782678054')
   
             msg0 = '''Routing: 1.0
 To: 1:{email_address};epid={endpoint_ID}
-From: 1:{email_address
+From: 1:{email_address}
 
 Reliability: 1.0
 
