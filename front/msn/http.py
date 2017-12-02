@@ -434,7 +434,7 @@ async def handle_rst(req):
 				lastname = "Doe",
 				ip = host,
 				pptoken1 = token,
-				tokenxml = tokenxmls.join(''),
+				tokenxml = ''.join(tokenxmls),
 			),
 		)
 	
