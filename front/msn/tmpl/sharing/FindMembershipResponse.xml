@@ -26,13 +26,13 @@
 													<State>Accepted</State>
 													<Deleted>false</Deleted>
 													<LastChanged>{{ now }}</LastChanged>
-													<JoinedDate>{{ get_date_created(contact.head.email) }}</JoinedDate>
+													<JoinedDate>{{ date_format(contact.head.date_created) }}</JoinedDate>
 													<ExpirationDate>0001-01-01T00:00:00</ExpirationDate>
 													<Changes />
 													<PassportName>{{ contact.head.email }}</PassportName>
 													<IsPassportNameHidden>false</IsPassportNameHidden>
-													<PassportId>{{ get_cid(contact.head.email) }}</PassportId>
-													<CID>{{ get_cid(contact.head.email, decimal = True) }}</CID>
+													<PassportId>{{ cid_format(contact.head.uuid) }}</PassportId>
+													<CID>{{ cid_format(contact.head.uuid, decimal = True) }}</CID>
 													<PassportChanges />
 													<LookedupByCID>false</LookedupByCID>
 												</Member>
