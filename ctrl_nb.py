@@ -245,6 +245,11 @@ class NBConn:
 			self.writer.write(Err.CommandDisabled, trid)
 	
 	def _a_usr(self, trid, authtype, stage, *args):
+	    # Used in MSNP18 (at least, for now) to validate Circle tickets found in ABFindAll or ABFindContactsPaged response
+	    if authtype == 'SHA':
+            self.writer.write('USR', trid, self.usr_email, 0, 0);
+            return;
+
 		if authtype == 'MD5':
 			if self.dialect >= 8:
 				self.writer.write(Err.CommandDisabled, trid)
