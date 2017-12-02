@@ -1,28 +1,30 @@
 import asyncio
-from functools import partial
 
 from core.session import PersistentSession
-from util.misc import AIOHTTPRunner, Logger
+from util.misc import Logger
 
-from .msnp import MSNPReader, MSNPWriter, MSNP_NS_SessState, MSNP_SB_SessState
+from .msnp import MSNPReader, MSNPWriter
 
-def register(loop, backend):
-	import settings
+def register(loop, backend, *, http_port = None, devmode = False):
+	from functools import partial
+	from util.misc import AIOHTTPRunner, ProtocolRunner
 	from .http import create_app
+	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState
 	
-	coros = [
-		loop.create_server(AIOHTTPRunner(create_app(backend)).setup(), '0.0.0.0', 80),
-		loop.create_server(partial(ListenerMSNP, 'NS', backend, MSNP_NS_SessState), '0.0.0.0', 1863),
-		loop.create_server(partial(ListenerMSNP, 'SB', backend, MSNP_SB_SessState), '0.0.0.0', 1864),
-	]
+	assert http_port, "Please specify `http_port`."
 	
-	if settings.DEBUG:
+	if devmode:
+		http_host = '0.0.0.0'
+	else:
+		http_host = '127.0.0.1'
+	
+	#backend.add_runner(ProtocolRunner('0.0.0.0', 1863, ListenerMSNP, args = ['NS', backend, MSNP_NS_SessState]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 1864, ListenerMSNP, args = ['SB', backend, MSNP_SB_SessState]))
+	backend.add_runner(AIOHTTPRunner(http_host, http_port, create_app(backend)))
+	if devmode:
 		from dev import autossl
-		coros.append(loop.create_server(AIOHTTPRunner(create_app(backend)).setup(), '0.0.0.0', 443, ssl = autossl.create_context()))
-	
-	servers = loop.run_until_complete(asyncio.gather(*coros))
-	for server in servers:
-		print("Serving on {}".format(server.sockets[0].getsockname()))
+		ssl_context = autossl.create_context()
+		backend.add_runner(AIOHTTPRunner(http_host, 443, create_app(backend), ssl = ssl_context))
 
 class ListenerMSNP(asyncio.Protocol):
 	def __init__(self, logger_prefix, backend, sess_state_factory):
@@ -36,7 +38,7 @@ class ListenerMSNP(asyncio.Protocol):
 	
 	def connection_made(self, transport):
 		self.transport = transport
-		self.logger = Logger(self.logger_prefix)
+		self.logger = Logger(self.logger_prefix, transport)
 		sess_state = self.sess_state_factory(MSNPReader(self.logger), self.backend)
 		self.sess = PersistentSession(sess_state, MSNPWriter(self.logger, sess_state), transport)
 		self.logger.log_connect()

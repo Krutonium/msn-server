@@ -83,19 +83,18 @@ async def handle_http_gateway(req):
 		# Create new PollingSession
 		server_type = query.get('Server')
 		server_ip = query.get('IP')
+		session_id = util.misc.gen_uuid()
 		
-		logger = Logger('GW-{}'.format(server_type))
+		logger = Logger('GW-{}'.format(server_type), session_id)
 		reader = MSNPReader(logger)
 		if server_type == 'NS':
 			sess_state = MSNP_NS_SessState(reader, backend)
 		else:
 			sess_state = MSNP_SB_SessState(reader, backend)
 		
-		session_id = util.misc.gen_uuid()
-		
 		sess = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
 		backend.util_set_sess_token(sess, ('msn-gw', session_id))
-	sess = backend.util_get_get_by_token(sess, ('msn-gw', session_id))
+	sess = backend.util_get_sess_by_token(('msn-gw', session_id))
 	if not sess or sess.closed:
 		return web.Response(status = 404, text = '')
 	

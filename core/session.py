@@ -78,7 +78,7 @@ class SessionState:
 		self.reader = reader
 	
 	def apply_incoming_event(self, incoming_event, sess: Session) -> None:
-		raise NotImplementedError
+		raise NotImplementedError('SessionState.apply_incoming_event')
 	
 	def on_connection_lost(self, sess: Session) -> None:
-		raise NotImplementedError
+		raise NotImplementedError('SessionState.on_connection_lost')

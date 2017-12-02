@@ -2,8 +2,10 @@ import asyncio, time
 from collections import defaultdict
 from enum import IntFlag
 
-from util.misc import gen_uuid, EMPTY_SET
+from util.misc import gen_uuid, EMPTY_SET, run_loop
 
+from .user import UserService
+from .auth import AuthService
 from .models import User, Group, Lst, Contact, UserStatus
 from . import error, event
 
@@ -14,9 +16,10 @@ class Ack(IntFlag):
 	Full = 3
 
 class Backend:
-	def __init__(self, loop, user_service, auth_service):
-		self._user_service = user_service
-		self._auth_service = auth_service
+	def __init__(self, loop, *, user_service = None, auth_service = None):
+		self._loop = loop
+		self._user_service = user_service or UserService()
+		self._auth_service = auth_service or AuthService()
 		
 		self._sc = _SessionCollection()
 		# Dict[User.uuid, User]
@@ -27,8 +30,16 @@ class Backend:
 		# Dict[chatid, Chat]
 		self._chats = {}
 		
+		self._runners = []
+		
 		loop.create_task(self._sync_db())
 		loop.create_task(self._clean_sessions())
+	
+	def add_runner(self, runner):
+		self._runners.append(runner)
+	
+	def run_forever(self):
+		run_loop(self._loop, self._runners)
 	
 	def on_leave(self, sess):
 		user = sess.user

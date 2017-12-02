@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from uuid import uuid4
 from settings import DEBUG
 
@@ -11,26 +12,48 @@ def first_in_iterable(iterable):
 	for x in iterable: return x
 	return None
 
-class AIOHTTPRunner:
-	def __init__(self, app):
+class Runner:
+	def __init__(self, host, port, *, ssl = None):
+		self.host = host
+		self.port = port
+		self.ssl_context = ssl
+	
+	def setup(self, loop):
+		raise NotImplementedError('Runner.setup')
+	
+	def teardown(self, loop):
+		pass
+
+class ProtocolRunner(Runner):
+	def __init__(self, host, port, protocol, *, args = None, ssl = None):
+		super().__init__(host, port, ssl = ssl)
+		if args:
+			protocol = functools.partial(protocol, *args)
+		self._protocol = protocol
+	
+	def setup(self, loop):
+		return self._protocol
+
+class AIOHTTPRunner(Runner):
+	def __init__(self, host, port, app, *, ssl = None):
+		super().__init__(host, port, ssl = ssl)
 		self.app = app
 		self.handler = None
 	
-	def setup(self):
+	def setup(self, loop):
 		from aiohttp.log import access_logger
-		loop = asyncio.get_event_loop()
 		self.handler = self.app.make_handler(loop = loop, access_log = access_logger)
 		loop.run_until_complete(self.app.startup())
 		return self.handler
 	
-	def teardown(self, loop, shutdown_timeout = 60):
+	def teardown(self, loop):
 		loop.run_until_complete(self.app.shutdown())
-		loop.run_until_complete(self.handler.shutdown(shutdown_timeout))
+		loop.run_until_complete(self.handler.shutdown(60))
 		loop.run_until_complete(self.app.cleanup())
 
 class Logger:
-	def __init__(self, prefix):
-		self.prefix = prefix
+	def __init__(self, prefix, obj):
+		self.prefix = '{}/{:04x}'.format(prefix, hash(obj) % 0xFFFF)
 	
 	def info(self, *args):
 		if DEBUG:
@@ -42,8 +65,17 @@ class Logger:
 	def log_disconnect(self):
 		self.info("dis")
 
-def run_loop(loop):
+def run_loop(loop, runners):
+	for runner in runners:
+		print("Serving on {}:{}".format(runner.host, runner.port))
+	
 	task = loop.create_task(_windows_ctrl_c_workaround())
+	
+	servers = loop.run_until_complete(asyncio.gather(*(
+		loop.create_server(runner.setup(loop), runner.host, runner.port, ssl = runner.ssl_context)
+		for runner in runners
+	)))
+	
 	try:
 		loop.run_forever()
 	except KeyboardInterrupt:
@@ -52,13 +84,19 @@ def run_loop(loop):
 			task.exception()
 		raise
 	finally:
-		for task in asyncio.Task.all_tasks():
-			task.cancel()
-			try: loop.run_until_complete(task)
-			except asyncio.CancelledError: pass
+		for server in servers:
+			server.close()
+		loop.run_until_complete(asyncio.gather(*(
+			server.wait_closed() for server in servers
+		)))
+		for runner in runners:
+			runner.teardown(loop)
 		loop.close()
 
 async def _windows_ctrl_c_workaround():
+	import os
+	if os.name != 'nt': return
+	
 	# https://bugs.python.org/issue23057
 	while True:
 		await asyncio.sleep(0.1)
