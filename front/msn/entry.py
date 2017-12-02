@@ -18,7 +18,7 @@ def register(loop, backend, *, http_port = None, devmode = False):
 	else:
 		http_host = '127.0.0.1'
 	
-	#backend.add_runner(ProtocolRunner('0.0.0.0', 1863, ListenerMSNP, args = ['NS', backend, MSNP_NS_SessState]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 1863, ListenerMSNP, args = ['NS', backend, MSNP_NS_SessState]))
 	backend.add_runner(ProtocolRunner('0.0.0.0', 1864, ListenerMSNP, args = ['SB', backend, MSNP_SB_SessState]))
 	backend.add_runner(AIOHTTPRunner(http_host, http_port, create_app(backend)))
 	if devmode:
