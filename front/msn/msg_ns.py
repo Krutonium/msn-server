@@ -47,6 +47,12 @@ def _m_usr(sess, trid, authtype, stage, *args):
 	state = sess.state
 	backend = state.backend
 	
+	if authtype == 'SHA':
+		# Used in MSNP18 (at least, for now) to validate Circle tickets
+		# found in ABFindAll or ABFindContactsPaged response
+		sess.send_reply('USR', trid, 'OK', state.usr_email, 0, 0)
+		return
+	
 	if authtype == 'MD5':
 		if state.dialect >= 8:
 			sess.send_reply(Err.CommandDisabled, trid)
