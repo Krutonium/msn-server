@@ -319,11 +319,39 @@ class NBConn:
 			# TODO: Need to handle this when implementing persistence-less chat (HTTP gateway/XMPP)
 			(ip, port) = ('', '')
 		
-		self.writer.write('SBS', 0, 'null')
-		if 18 <= self.dialect < 21:
-			# MSNP21 doesn't use this; unsure if 19/20 use it
-			self.writer.write('UBX', '1:' + self.user.email, '0')
-		self.writer.write('PRP', 'MFN', self.user.status.name)
+		if( self.dialect == 21 )
+		{
+		    self.writer.write('CHL', 0, '1663122458434562624782678054')
+  
+            msg0 = '''Routing: 1.0
+To: 1:{email_address};epid={endpoint_ID}
+From: 1:{email_address
+
+Reliability: 1.0
+
+Notification: 1.0
+NotifNum: 0
+Uri: /user
+NotifType: Partial
+Content-Type: application/user+xml
+Content-Length: 53
+
+<user><s n="PF" ts="{timestamp}"></s></user>'''.format(
+                email_address = self.user.email,
+                endpoint_ID = '{00000000-0000-0000-0000-000000000000}',
+                timestamp = '2016-04-28T02:41:50Z' // @valtron: Can you generate this but keep exactly the same format
+            )
+            // @valtron: Expected result: NFY PUT 315 followed by msg0
+            self.writer.write('NFY', 'PUT', msg0.replace('\n', '\r\n').encode('ascii'))
+		}
+		else
+		{
+    		self.writer.write('SBS', 0, 'null')
+    		if 18 <= self.dialect < 21:
+    			# MSNP21 doesn't use this; unsure if 19/20 use it
+    			self.writer.write('UBX', '1:' + self.user.email, '0')
+    		self.writer.write('PRP', 'MFN', self.user.status.name)
+    	}
 		
 		# build MSG Hotmail payload
 		msg1 = '''MIME-Version: 1.0
