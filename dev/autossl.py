@@ -9,19 +9,9 @@ from cryptography.hazmat.primitives import hashes
 CERT_DIR = Path('dev/cert')
 CERT_ROOT_CA = 'DO_NOT_TRUST_DevEscargotRoot'
 
-def perform_checks():
-	import sys
-	
-	if not autovivify_root_ca():
-		print('*', file = sys.stderr)
-		print('*', "New root CA '{}/{}' created.".format(CERT_DIR, CERT_ROOT_CA), file = sys.stderr)
-		print('*', "Please remove the old one (if exists) and install this one.", file = sys.stderr)
-		print('*', file = sys.stderr)
-		return False
-	
-	return True
-
 def create_context():
+	perform_checks()
+	
 	import ssl
 	ssl_context = ssl.create_default_context(purpose = ssl.Purpose.CLIENT_AUTH)
 	
@@ -36,6 +26,17 @@ def create_context():
 	
 	ssl_context.set_servername_callback(servername_callback)
 	return ssl_context
+
+def perform_checks():
+	if autovivify_root_ca():
+		return
+	
+	import sys
+	print('*', file = sys.stderr)
+	print('*', "New root CA '{}/{}' created.".format(CERT_DIR, CERT_ROOT_CA), file = sys.stderr)
+	print('*', "Please remove the old one (if exists) and install this one.", file = sys.stderr)
+	print('*', file = sys.stderr)
+	sys.exit(-1)
 
 def autovivify_certificate(domain):
 	p_crt = CERT_DIR / '{}.crt'.format(domain)
