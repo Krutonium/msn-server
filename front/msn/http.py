@@ -165,6 +165,16 @@ async def handle_abservice(req):
 				'list': list,
 				'now': now_str,
 			})
+		if action_str == 'ABFindContactsPaged':
+			return render(req, 'abservice/ABFindContactsPagedResponse.xml', {
+				'cachekey': cachekey,
+				'host': settings.LOGIN_HOST,
+				'user': user,
+				'detail': detail,
+				'Lst': models.Lst,
+				'list': list,
+				'now': now_str,
+			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
 			contact_uuid = backend.util_get_uuid_from_email(email)
