@@ -83,7 +83,7 @@
 						&lt;/SignedTicket&gt;
 					</CircleTicket>
 				</CircleResult>
-				<AB>
+				<Ab>
 					<abId>00000000-0000-0000-0000-000000000000</abId>
 					<abInfo>
 						<ownerPuid>0</ownerPuid><OwnerCID>1903433052111977819</OwnerCID><ownerEmail>{{ user.email }}</ownerEmail>
@@ -97,7 +97,7 @@
 					<DynamicItemLastChanged>0001-01-01T00:00:00</DynamicItemLastChanged>
 					<createDate>{{ now }}</createDate>
 					<propertiesChanged />
-				</AB>
+				</Ab>
 			</ABFindContactsPagedResult>
 		</ABFindContactsPagedResponse>
 	</soap:Body>
