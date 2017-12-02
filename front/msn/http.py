@@ -12,6 +12,8 @@ import settings
 from core import models
 import util.misc
 
+import ctrl_sound
+
 LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
 PP = 'Passport1.4 '
@@ -48,6 +50,12 @@ def create_app(backend):
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
 	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
 	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
+
+	# Sound
+	app.router.add_get('/esnd/snd/builtin', ctrl_sound.builtin)
+	app.router.add_get('/esnd/snd/check', ctrl_sound.check)
+	app.router.add_post('/esnd/snd/put', ctrl_sound.put)
+	app.router.add_get('/esnd/snd/get', ctrl_sound.get)
 
 	# Misc
 	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)
