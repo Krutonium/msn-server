@@ -46,7 +46,10 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	if dialect >= 9:
 		rst.append(encode_msnobj(ctc_sess.state.msnobj or '<msnobj/>'))
 	
-	yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
+	if dialect >= 18:
+		yield (*frst, status.substatus.name, encode_email_networkid(head.email, networkid), status.name, *rst)
+	else:
+		yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
 	
 	if dialect < 11:
 		return
