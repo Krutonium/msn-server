@@ -70,7 +70,6 @@ class UserService:
 				ctc = Contact(
 					ctc_head, set(c['groups']), c['lists'], status,
 					is_messenger_user = c.get('is_messenger_user'),
-					is_favorite = c.get('is_favorite'),
 				)
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
@@ -82,11 +81,13 @@ class UserService:
 				dbuser.name = user.status.name
 				dbuser.message = user.status.message
 				dbuser.settings = detail.settings
-				dbuser.groups = [{ 'id': g.id, 'name': g.name } for g in detail.groups.values()]
+				dbuser.groups = [{
+					'id': g.id, 'name': g.name,
+					'is_favorite': g.is_favorite,
+				} for g in detail.groups.values()]
 				dbuser.contacts = [{
 					'uuid': c.head.uuid, 'name': c.status.name, 'message': c.status.message,
 					'lists': c.lists, 'groups': list(c.groups),
 					'is_messenger_user': c.is_messenger_user,
-					'is_favorite': c.is_favorite,
 				} for c in detail.contacts.values()]
 				sess.add(dbuser)

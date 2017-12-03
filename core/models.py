@@ -11,14 +11,13 @@ class User:
 		self.date_created = date_created
 
 class Contact:
-	def __init__(self, user, groups, lists, status, *, is_messenger_user = None, is_favorite = None):
+	def __init__(self, user, groups, lists, status, *, is_messenger_user = None):
 		self.head = user
 		self.groups = groups
 		self.lists = lists
 		# `status`: status as known by the contact
 		self.status = status
 		self.is_messenger_user = _default_if_none(is_messenger_user, True)
-		self.is_favorite = _default_if_none(is_favorite, False)
 	
 	def compute_visible_status(self, to_user):
 		# Set Contact.status based on BLP and Contact.lists
@@ -31,10 +30,6 @@ class Contact:
 		self.status.name = true_status.name
 		self.status.message = true_status.message
 		self.status.media = true_status.media
-
-def _default_if_none(x, default):
-	if x is None: return default
-	return x
 
 def _is_blocking(blocker, blockee):
 	detail = blocker.detail
@@ -64,9 +59,14 @@ class UserDetail:
 		self.contacts = {}
 
 class Group:
-	def __init__(self, id, name):
+	def __init__(self, id, name, *, is_favorite = None):
 		self.id = id
 		self.name = name
+		self.is_favorite = _default_if_none(is_favorite, False)
+
+def _default_if_none(x, default):
+	if x is None: return default
+	return x
 
 class Substatus(Enum):
 	FLN = object()

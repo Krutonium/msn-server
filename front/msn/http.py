@@ -23,6 +23,7 @@ def create_app(backend):
 		'date_format': _date_format,
 		'cid_format': _cid_format,
 		'bool_to_str': _bool_to_str,
+		'contact_is_favorite': _contact_is_favorite,
 	})
 	
 	# MSN >= 5
@@ -196,7 +197,6 @@ async def handle_abservice(req):
 		if action_str == 'ABContactUpdate':
 			contact_uuid = _find_element(action, 'contactId')
 			is_messenger_user = _find_element(action, 'isMessengerUser')
-			# TODO: isFavorite is probably passed here in later WLM
 			backend.me_contact_edit(ns_sess, contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
@@ -213,7 +213,8 @@ async def handle_abservice(req):
 		if action_str == 'ABGroupUpdate':
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
-			backend.me_group_edit(ns_sess, group_id, name)
+			is_favorite = _find_element(action, 'IsFavorite')
+			backend.me_group_edit(ns_sess, group_id, name, *, is_favorite = is_favorite)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -542,6 +543,11 @@ def _cid_format(uuid, *, decimal = False):
 
 def _bool_to_str(b):
 	return 'true' if b else 'false'
+
+def _contact_is_favorite(ctc):
+	for group in ctc.groups.values():
+		if group.is_favorite: return True
+	return False
 
 async def handle_usertile(req, small=False):
 	uuid = req.match_info['uuid']

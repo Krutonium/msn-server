@@ -162,14 +162,17 @@ class Backend:
 			ctc.groups.discard(group_id)
 		self._mark_modified(user)
 	
-	def me_group_edit(self, sess, group_id, new_name):
+	def me_group_edit(self, sess, group_id, new_name, *, is_favorite = None):
 		user = sess.user
 		g = user.detail.groups.get(group_id)
 		if g is None:
 			raise error.GroupDoesNotExist()
-		if len(name) > MAX_GROUP_NAME_LENGTH:
-			raise error.GroupNameTooLong()
-		g.name = name
+		if name is not None:
+			if len(name) > MAX_GROUP_NAME_LENGTH:
+				raise error.GroupNameTooLong()
+			g.name = name
+		if is_favorite is not None:
+			g.is_favorite = is_favorite
 		self._mark_modified(user)
 	
 	def me_group_contact_add(self, sess, group_id, contact_uuid):
@@ -222,15 +225,13 @@ class Backend:
 			if sess_added == sess: continue
 			sess_added.send_event(event.AddedToListEvent(Lst.RL, user_adder))
 	
-	def me_contact_edit(self, sess, contact_uuid, *, is_messenger_user = None, is_favorite = None):
+	def me_contact_edit(self, sess, contact_uuid, *, is_messenger_user = None):
 		user = sess.user
 		ctc = user.detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
 		if is_messenger_user is not None:
 			ctc.is_messenger_user = is_messenger_user
-		if is_favorite is not None:
-			ctc.is_favorite = is_favorite
 		self._mark_modified(user)
 	
 	def me_contact_remove(self, sess, contact_uuid, lst):

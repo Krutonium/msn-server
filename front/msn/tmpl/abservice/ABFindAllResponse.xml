@@ -26,7 +26,7 @@
 								<name>{{ group.name }}</name>
 								<IsNotMobileVisible>false</IsNotMobileVisible>
 								<IsPrivate>false</IsPrivate>
-								<IsFavorite>false</IsFavorite>
+								<IsFavorite>{{ bool_to_str(group.is_favorite) }}</IsFavorite>
 							</groupInfo>
 							<propertiesChanged />
 							<fDeleted>false</fDeleted>
@@ -55,7 +55,7 @@
 									<IsNotMobileVisible>false</IsNotMobileVisible>
 									<isMobileIMEnabled>false</isMobileIMEnabled>
 									<isMessengerUser>{{ bool_to_str(contact.is_messenger_user) }}</isMessengerUser>
-									<isFavorite>{{ bool_to_str(contact.is_favorite) }}</isFavorite>
+									<isFavorite>{{ contact_is_favorite(contact) }}</isFavorite>
 									<isSmtp>false</isSmtp>
 									<hasSpace>false</hasSpace>
 									<spotWatchState>NoDevice</spotWatchState>
