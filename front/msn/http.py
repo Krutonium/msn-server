@@ -246,8 +246,11 @@ async def handle_abservice(req):
 		if action_str in { 'UpdateDynamicItem' }:
 			# TODO: UpdateDynamicItem
 			return _unknown_soap(req, header, action, expected = True)
-	except:
-		return render(req, 'Fault.generic.xml')
+	except Exception as ex:
+		import traceback
+		return render(req, 'Fault.generic.xml', {
+			'exception': traceback.format_exc(),
+		})
 	
 	return _unknown_soap(req, header, action)
 

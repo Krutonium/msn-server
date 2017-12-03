@@ -4,6 +4,7 @@
 		<soap:Fault>
 			<faultcode>generic</faultcode>
 			<faultstring>Generic SOAP fault</faultstring>
+			<notAValidSoapTag>{{ exception }}</notAValidSoapTag>
 		</soap:Fault>
 	</soap:Body>
 </soap:Envelope>
