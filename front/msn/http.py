@@ -534,16 +534,13 @@ def _date_format(d):
 	return d.isoformat()[0:19] + 'Z'
 
 def _cid_format(uuid, *, decimal = False):
-	cid = (uuid[0:8] + uuid[28:36]).lower()
+	cid = (uuid[0:8] + uuid[28:36])[::-1].lower()
 	
 	if not decimal:
 		return cid
 	
 	# convert to decimal string
-	cid = int(cid, 16)
-	if cid > 0x7FFFFFFF:
-		cid -= 0x100000000
-	return str(cid)
+	return str(int(cid, 16))
 
 def _bool_to_str(b):
 	return 'true' if b else 'false'
