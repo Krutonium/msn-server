@@ -5,6 +5,7 @@ import secrets
 import base64
 import os
 import time
+from markupsafe import Markup
 from aiohttp import web
 
 import settings
@@ -434,7 +435,7 @@ async def handle_rst(req):
 				lastname = "Doe",
 				ip = host,
 				pptoken1 = token,
-				tokenxml = ''.join(tokenxmls),
+				tokenxml = Markup(''.join(tokenxmls)),
 			),
 		)
 	

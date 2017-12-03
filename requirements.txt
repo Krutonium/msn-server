@@ -5,3 +5,4 @@ cryptography
 pytest
 jinja2
 pillow
+MarkupSafe
