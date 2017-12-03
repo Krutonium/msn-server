@@ -141,11 +141,11 @@ class Backend:
 		self._sync_contact_statuses()
 		self._generic_notify(sess)
 	
-	def me_group_add(self, sess, name):
+	def me_group_add(self, sess, name, *, is_favorite = None):
 		if len(name) > MAX_GROUP_NAME_LENGTH:
 			raise error.GroupNameTooLong()
 		user = sess.user
-		group = Group(_gen_group_id(user.detail), name)
+		group = Group(_gen_group_id(user.detail), name, is_favorite = is_favorite)
 		user.detail.groups[group.id] = group
 		self._mark_modified(user)
 		return group

@@ -204,7 +204,8 @@ async def handle_abservice(req):
 			})
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
-			group = backend.me_group_add(ns_sess, name)
+			is_favorite = _find_element(action, 'IsFavorite')
+			group = backend.me_group_add(ns_sess, name, is_favorite = is_favorite)
 			return render(req, 'abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
