@@ -214,7 +214,7 @@ async def handle_abservice(req):
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
 			is_favorite = _find_element(action, 'IsFavorite')
-			backend.me_group_edit(ns_sess, group_id, name, *, is_favorite = is_favorite)
+			backend.me_group_edit(ns_sess, group_id, name, is_favorite = is_favorite)
 			return render(req, 'abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,

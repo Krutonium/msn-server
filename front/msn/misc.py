@@ -60,7 +60,7 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	
 	if dialect >= 18:
 		yield ('UBX', encode_email_networkid(head.email, networkid), ubx_payload)
-	else dialect >= 11:
+	elif dialect >= 11:
 		yield ('UBX', head.email, networkid, ubx_payload)
 
 def encode_email_networkid(email, networkid):
