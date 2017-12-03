@@ -1,7 +1,6 @@
 import asyncio
 import functools
 from uuid import uuid4
-from settings import DEBUG
 
 EMPTY_SET = frozenset()
 
@@ -53,10 +52,12 @@ class AIOHTTPRunner(Runner):
 
 class Logger:
 	def __init__(self, prefix, obj):
+		import settings
 		self.prefix = '{}/{:04x}'.format(prefix, hash(obj) % 0xFFFF)
+		self._log = settings.DEBUG and settings.DEBUG_MSNP
 	
 	def info(self, *args):
-		if DEBUG:
+		if self._log:
 			print(self.prefix, *args)
 	
 	def log_connect(self):
