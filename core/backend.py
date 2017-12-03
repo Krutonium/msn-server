@@ -275,7 +275,7 @@ class Backend:
 		self._mark_modified(user, detail = detail)
 	
 	def login_xfr(self, sess, email, token):
-		user, extra_data = self._load_user('sb/xfr', token)
+		(user, extra_data) = self._load_user('sb/xfr', token)
 		if user is None: return None
 		if user.email != email: return None
 		sess.user = user
@@ -288,7 +288,7 @@ class Backend:
 		return self._auth_service.create_token('sb/cal', uuid)
 	
 	def login_cal(self, sess, email, token, chatid):
-		user, extra_data = self._load_user('sb/cal', token)
+		(user, extra_data) = self._load_user('sb/cal', token)
 		if user is None: return None
 		if user.email != email: return None
 		sess.user = user
@@ -301,7 +301,8 @@ class Backend:
 		
 	def _load_user(self, purpose, token):
 		data = self._auth_service.pop_token(purpose, token)
-		return self._user_service.get(data['uuid']), data['extra_data']
+		if data is None: return (None, None)
+		return (self._user_service.get(data['uuid']), data['extra_data'])
 	
 	def util_get_uuid_from_email(self, email):
 		return self._user_service.get_uuid(email)
