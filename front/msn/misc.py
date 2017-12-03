@@ -105,3 +105,10 @@ class Err:
 			return cls.PrincipalNotOnline
 		return cls.InternalServerError
 
+class NetworkID:
+	WINDOWS_LIVE = 0x01
+	OFFICE_COMMUNICATOR = 0x02
+	TELEPHONE = 0x04
+	MNI = 0x08 # Mobile Network Interop, used by Vodafone
+	SMTP = 0x10 # Jaguire, Japanese mobile interop
+	YAHOO = 0x20
