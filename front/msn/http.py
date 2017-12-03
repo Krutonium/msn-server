@@ -57,6 +57,8 @@ def create_app(backend):
 	return app
 
 async def on_response_prepare(req, res):
+	if not settings.DEBUG:
+		return
 	if not settings.DEBUG_HTTP_REQUEST:
 		return
 	print("# Request: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
@@ -127,7 +129,7 @@ async def handle_abservice(req):
 	detail = user.detail
 	cachekey = secrets.token_urlsafe(172)
 	
-	#_print_xml(action)
+	#print(_xml_to_string(action))
 	backend = req.app['backend']
 	
 	try:
@@ -308,12 +310,12 @@ def _unknown_soap(req, header, action, *, expected = False):
 	action_str = _get_tag_localname(action)
 	if not expected and settings.DEBUG:
 		print("Unknown SOAP:", action_str)
-		_print_xml(header)
-		_print_xml(action)
+		print(_xml_to_string(header))
+		print(_xml_to_string(action))
 	return render(req, 'Fault.unsupported.xml', { 'faultactor': action_str })
 
-def _print_xml(xml):
-	print(lxml.etree.tostring(xml, pretty_print = True).decode('utf-8'))
+def _xml_to_string(xml):
+	return lxml.etree.tostring(xml, pretty_print = True).decode('utf-8')
 
 async def _preprocess_soap(req):
 	from lxml.objectify import fromstring as parse_xml
