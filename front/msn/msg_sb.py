@@ -6,9 +6,11 @@ apply = _handlers.apply
 # State = Auth
 
 @_handlers
-def _m_usr(sess, trid, email, token):
-	#>>> USR trid email@example.com token
+def _m_usr(sess, trid, arg, token):
+	#>>> USR trid email@example.com token (MSNP < 18)
+	#>>> USR trid email@example.com;{00000000-0000-0000-0000-000000000000} token (MSNP >= 18)
 	state = sess.state
+	(email, _) = _decode_email_pop(arg)
 	data = state.backend.login_xfr(sess, email, token)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
@@ -21,9 +23,11 @@ def _m_usr(sess, trid, email, token):
 	sess.send_reply('USR', trid, 'OK', user.email, user.status.name)
 
 @_handlers
-def _m_ans(sess, trid, email, token, sessid):
-	#>>> ANS trid email@example.com token sessionid
+def _m_ans(sess, trid, arg, token, sessid):
+	#>>> ANS trid email@example.com token sessionid (MSNP < 18)
+	#>>> ANS trid email@example.com;{00000000-0000-0000-0000-000000000000} token sessionid (MSNP >= 18)
 	state = sess.state
+	(email, _) = _decode_email_pop(arg)
 	data = state.backend.login_cal(sess, email, token, sessid)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
@@ -73,3 +77,12 @@ def _m_msg(sess, trid, ack, data):
 		sess.send_reply('NAK', trid)
 	elif ack != 'N': # AD
 		sess.send_reply('ACK', trid)
+
+def _decode_email_pop(s):
+	# Split `foo@email.com;{uuid}` into (email, pop_id)
+	parts = s.split(';', 1)
+	if len(parts) < 2:
+		pop = None
+	else:
+		pop = parts[1]
+	return (parts[0], pop)
