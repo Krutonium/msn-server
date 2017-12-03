@@ -55,7 +55,7 @@
 									<IsNotMobileVisible>false</IsNotMobileVisible>
 									<isMobileIMEnabled>false</isMobileIMEnabled>
 									<isMessengerUser>{{ bool_to_str(contact.is_messenger_user) }}</isMessengerUser>
-									<isFavorite>{{ contact_is_favorite(contact) }}</isFavorite>
+									<isFavorite>{{ contact_is_favorite(detail, contact) }}</isFavorite>
 									<isSmtp>false</isSmtp>
 									<hasSpace>false</hasSpace>
 									<spotWatchState>NoDevice</spotWatchState>

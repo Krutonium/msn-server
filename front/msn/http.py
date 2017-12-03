@@ -548,9 +548,11 @@ def _cid_format(uuid, *, decimal = False):
 def _bool_to_str(b):
 	return 'true' if b else 'false'
 
-def _contact_is_favorite(ctc):
-	for group in ctc.groups.values():
-		if group.is_favorite: return True
+def _contact_is_favorite(user_detail, ctc):
+	groups = user_detail.groups
+	for group_id in ctc.groups:
+		if group_id not in groups: continue
+		if groups[group_id].is_favorite: return True
 	return False
 
 async def handle_usertile(req, small=False):
