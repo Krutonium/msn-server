@@ -48,10 +48,20 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	
 	yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
 	
-	if dialect >= 11:
-		yield ('UBX', head.email, networkid, '<Data><PSM>{}</PSM><CurrentMedia>{}</CurrentMedia></Data>'.format(
-			status.message or '', status.media or ''
-		).encode('utf-8'))
+	if dialect < 11:
+		return
+	
+	ubx_payload = '<Data><PSM>{}</PSM><CurrentMedia>{}</CurrentMedia></Data>'.format(
+		status.message or '', status.media or ''
+	).encode('utf-8')
+	
+	if dialect >= 18:
+		yield ('UBX', encode_email_networkid(head.email, networkid), ubx_payload)
+	else dialect >= 11:
+		yield ('UBX', head.email, networkid, ubx_payload)
+
+def encode_email_networkid(email, networkid):
+	return '{}:{}'.format(networkid or 1, head.email)
 
 def encode_msnobj(msnobj):
 	if msnobj is None: return None
