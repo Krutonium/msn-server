@@ -64,7 +64,7 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 		yield ('UBX', head.email, networkid, ubx_payload)
 
 def encode_email_networkid(email, networkid):
-	return '{}:{}'.format(networkid or 1, head.email)
+	return '{}:{}'.format(networkid or 1, email)
 
 def encode_msnobj(msnobj):
 	if msnobj is None: return None
