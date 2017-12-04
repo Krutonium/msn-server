@@ -54,8 +54,9 @@ def create_app(backend):
 	# Sound
 	app.router.add_get('/esnd/snd/builtin', ctrl_sound.builtin)
 	app.router.add_get('/esnd/snd/check', ctrl_sound.check)
-	app.router.add_post('/esnd/snd/put', ctrl_sound.put)
 	app.router.add_get('/esnd/snd/get', ctrl_sound.get)
+	app.router.add_get('/esnd/snd/random', ctrl_sound.random)
+	app.router.add_post('/esnd/snd/put', ctrl_sound.put)
 
 	# Misc
 	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)

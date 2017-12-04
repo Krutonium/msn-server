@@ -4,17 +4,23 @@ Messenger Plus sound server implementation
 (GET) /esnd/snd/builtin?code={code} -> builtin
 (GET) /esnd/snd/check?hash={hash} -> check
 (GET) /esnd/snd/get?hash={hash} -> get
+(GET) /esnd/snd/random?[catId={category}]&[lngId={language}] -> random
 (POST) /esnd/snd/put[?uf=1] -> put
 """
 
 from aiohttp.web import Response
 from os import path, makedirs
+from collections import namedtuple
+from random import randrange
 
+from db import Sound, Session
 
 PATHS = {
     'builtins': path.join('storage', 'sound', 'builtins'),
     'users': path.join('storage', 'sound', 'users'),
 }
+
+Metadata = namedtuple('Metadata', ['title', 'hash', 'category', 'language', 'public'])
 
 
 def builtin(request):
@@ -60,7 +66,7 @@ async def put(request):
     Upload new sound file.
     Overwrite existing file if uf=1
 
-    (POST) /esnd/snd/put[?uf=1]
+    (POST) /esnd/snd/put?[uf=1]
 
     :type request: aiohttp.web.Request
     :return 1 for success 0 for failure
@@ -69,9 +75,10 @@ async def put(request):
     data = await request.post()
 
     with data['file'].file as f:
-        f.seek(-19, 2)  # hash offset
+        f.seek(-128, 2)     # metadata offset
+        metadata = _parse_metadata(f.read())
 
-        file_path = _get_file_path(f.read(12).decode('ascii'))
+        file_path = _get_file_path(metadata.hash)
 
         try:
             output = open(file_path, 'xb')
@@ -80,7 +87,7 @@ async def put(request):
 
             output = open(file_path, 'xb')
         except FileExistsError:
-            if 'uf' in request.rel_url.query and request.rel_url.query['uf'] == 1:
+            if request.rel_url.query.get('uf') == 1:
                 output = open(file_path, 'wb')
             else:
                 return Response(status=200, body='0')
@@ -89,6 +96,11 @@ async def put(request):
 
         with output as o:
             o.write(f.read())
+
+    assert path.exists(file_path)
+
+    with Session() as session:
+        session.merge(Sound(**metadata._asdict()))
 
     return Response(status=200, body='1')
 
@@ -112,6 +124,43 @@ def get(request):
         return Response(status=200, body='0')
 
 
+def random(request):
+    """
+    Get random sound from library
+
+    (GET) /esnd/snd/random?[catId={category}]&[lngId={language}]
+
+    :type request: aiohttp.web.Request
+    :return: file content or 0 if file is not found
+    :rtype: aiohttp.web.Response
+    """
+    category = request.rel_url.query.get('catId')
+    language = request.rel_url.query.get('lngId')
+
+    with Session() as session:
+        query = session.query(Sound).filter(Sound.public.is_(True))
+
+        if category:
+            query = query.filter(Sound.category == category)
+
+        if language:
+            query = query.filter(Sound.language == language)
+
+        try:
+            offset = randrange(0, query.count())
+        except ValueError:
+            return Response(status=200, body='0')
+
+        sound = query.offset(offset).limit(1).one()
+
+        file_path = _get_file_path(sound.hash)
+
+        assert path.exists(file_path)
+
+        with open(file_path, 'rb') as f:
+            return Response(status=200, content_type="audio/mpeg", body=f.read())
+
+
 def _get_file_path(file_hash):
     """
     Get file path by hash.
@@ -121,3 +170,27 @@ def _get_file_path(file_hash):
     :rtype: string
     """
     return path.join(PATHS['users'], *file_hash[:3], file_hash + '.mp3')
+
+
+def _parse_metadata(raw_data):
+    """
+    Parse raw metadata
+
+    00:32   - TAG{title}0x00 ... 0x00
+    93      - {category}
+    95      - {public} - 0x02 = true
+    109:120 - {hash}
+    127     - {language}
+
+    :param raw_data: 128 bytes
+    :rtype: Metadata
+    """
+    assert len(raw_data) == 128
+
+    return Metadata(
+        title=raw_data[3:33].decode('ascii').strip('\0'),
+        category=raw_data[93],
+        public=raw_data[95] == 2,
+        hash=raw_data[109:121].decode('ascii'),
+        language=raw_data[127]
+    )
