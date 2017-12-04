@@ -99,6 +99,7 @@ class Backend:
 		for sess_other in self._sc.iter_sessions():
 			if sess_other == sess: continue
 			user_other = sess_other.user
+			if user_other is None: continue
 			if user_other.detail is None: continue
 			ctc = user_other.detail.contacts.get(user.uuid)
 			if ctc is None: continue

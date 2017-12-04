@@ -2,8 +2,8 @@
 # used as the "default" certificate for non-SNI requests (WinXP).
 
 # MSN Gateway only works over HTTP
-http://gateway.m1.escargot.log1p.xyz/gateway/gateway.dll {
-	proxy / 127.0.0.1:8081 {
+http://*.log1p.xyz/gateway/gateway.dll {
+	proxy /gateway/gateway.dll 127.0.0.1:8081 {
 		transparent
 	}
 	root /var/www/msn-server
