@@ -100,7 +100,7 @@ async def handle_http_gateway(req):
 		backend.util_set_sess_token(sess, ('msn-gw', session_id))
 	sess = backend.util_get_sess_by_token(('msn-gw', session_id))
 	if not sess or sess.closed:
-		return web.Response(status = 404, text = '')
+		return web.Response(status = 400, text = '')
 	
 	sess.on_connect(req.transport)
 	
