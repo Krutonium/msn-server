@@ -6,3 +6,4 @@ pytest
 jinja2
 pillow
 MarkupSafe
+HLL

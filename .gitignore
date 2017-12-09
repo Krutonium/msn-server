@@ -1,6 +1,6 @@
 __pycache__
 .cache
-msn.sqlite
+*.sqlite
 settings_local.py
 etc/Caddyfile
 dev/cert

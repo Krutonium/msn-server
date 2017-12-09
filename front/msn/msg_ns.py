@@ -1,7 +1,9 @@
 from datetime import datetime
 from lxml.objectify import fromstring as parse_xml
 
+from core import session
 from core.models import Substatus, Lst
+from core.client import Client
 
 from .misc import build_msnp_presence_notif, MSNPHandlers, encode_msnobj, Err
 
@@ -33,6 +35,7 @@ def _m_ver(sess, trid, *args):
 @_handlers
 def _m_cvr(sess, trid, *args):
 	v = args[5]
+	sess.client = Client('msn', v, 'gw' if isinstance(sess, session.PollingSession) else 'direct')
 	sess.send_reply('CVR', trid, v, v, v, 'https://escargot.log1p.xyz', 'https://escargot.log1p.xyz')
 
 @_handlers

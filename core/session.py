@@ -5,6 +5,7 @@ class Session:
 	def __init__(self, state):
 		self.closed = False
 		self.user = None
+		self.client = None
 		self.state = state
 	
 	def data_received(self, data: bytes) -> None:

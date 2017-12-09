@@ -6,6 +6,7 @@ from util.misc import gen_uuid, EMPTY_SET, run_loop
 
 from .user import UserService
 from .auth import AuthService
+from .stats import Stats
 from .models import User, Group, Lst, Contact, UserStatus
 from . import error, event
 
@@ -20,6 +21,7 @@ class Backend:
 		self._loop = loop
 		self._user_service = user_service or UserService()
 		self._auth_service = auth_service or AuthService()
+		self._stats = Stats()
 		
 		self._sc = _SessionCollection()
 		# Dict[User.uuid, User]
@@ -34,6 +36,7 @@ class Backend:
 		
 		loop.create_task(self._sync_db())
 		loop.create_task(self._clean_sessions())
+		loop.create_task(self._sync_stats())
 	
 	def add_runner(self, runner):
 		self._runners.append(runner)
@@ -43,6 +46,7 @@ class Backend:
 	
 	def on_leave(self, sess):
 		user = sess.user
+		self._stats.on_logout()
 		if user is None: return
 		self._sc.remove_session(sess)
 		if self._sc.get_sessions_by_user(user):
@@ -75,6 +79,8 @@ class Backend:
 		self._user_service.update_date_login(uuid)
 		user = self._load_user_record(uuid)
 		sess.user = user
+		self._stats.on_login()
+		self._stats.on_user_active(user, sess.client)
 		self._sc.add_session(sess)
 		user.detail = self._load_detail(user)
 		return user
@@ -120,6 +126,9 @@ class Backend:
 		self._unsynced_db[user] = ud
 	
 	def sb_token_create(self, sess, *, extra_data = None):
+		if extra_data is None:
+			extra_data = {}
+		extra_data['client'] = sess.client
 		return self._auth_service.create_token('sb/xfr', { 'uuid': sess.user.uuid, 'extra_data': extra_data })
 	
 	def me_update(self, sess, fields):
@@ -280,19 +289,18 @@ class Backend:
 		if user is None: return None
 		if user.email != email: return None
 		sess.user = user
-		chat = Chat()
+		sess.client = extra_data['client']
+		chat = Chat(self._stats)
 		self._chats[chat.id] = chat
 		chat.add_session(sess)
 		return chat, extra_data
-	
-	def auth_cal(self, uuid):
-		return self._auth_service.create_token('sb/cal', uuid)
 	
 	def login_cal(self, sess, email, token, chatid):
 		(user, extra_data) = self._load_user('sb/cal', token)
 		if user is None: return None
 		if user.email != email: return None
 		sess.user = user
+		sess.client = extra_data['client']
 		chat = self._chats.get(chatid)
 		if chat is None: return None
 		for sc, _ in chat.get_roster(self):
@@ -330,7 +338,9 @@ class Backend:
 		if not ctc_sessions: raise error.ContactNotOnline()
 		
 		for ctc_sess in ctc_sessions:
-			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': ctc_sess.state.get_sb_extra_data() })
+			extra_data = ctc_sess.state.get_sb_extra_data() or {}
+			extra_data['client'] = ctc_sess.client
+			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': extra_data })
 			ctc_sess.send_event(event.InvitedToChatEvent(chatid, token, caller))
 	
 	async def _sync_db(self):
@@ -374,6 +384,15 @@ class Backend:
 			
 			for sess in closed:
 				self._sc.remove_session(sess)
+	
+	async def _sync_stats(self):
+		while True:
+			await asyncio.sleep(60)
+			try:
+				self._stats.flush()
+			except Exception:
+				import traceback
+				traceback.print_exc()
 
 class _SessionCollection:
 	def __init__(self):
@@ -417,19 +436,22 @@ class _SessionCollection:
 			self._sessions_by_user[sess.user].discard(sess)
 
 class Chat:
-	def __init__(self):
+	def __init__(self, stats):
 		self.id = gen_uuid()
 		# Dict[Session, User]
 		self._users_by_sess = {}
+		self._stats = stats
 	
 	def add_session(self, sess):
 		self._users_by_sess[sess] = sess.user
 	
 	def send_message_to_everyone(self, sess_sender, data):
+		self._stats.on_message_sent(sess_sender.user, sess_sender.client)
 		su_sender = self._users_by_sess[sess_sender]
 		for sess in self._users_by_sess.keys():
 			if sess == sess_sender: continue
 			sess.send_event(event.ChatMessage(su_sender, data))
+			self._stats.on_message_received(sess.user, sess.client)
 	
 	def get_roster(self, sess):
 		roster = []
