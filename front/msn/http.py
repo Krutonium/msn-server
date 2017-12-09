@@ -36,6 +36,7 @@ def create_app(backend):
 	app.router.add_post('/Config/MsgrConfig.asmx', handle_msgrconfig)
 	
 	# MSN >= 7.5
+	app.router.add_route('OPTIONS', '/NotRST.srf', handle_not_rst)
 	app.router.add_post('/NotRST.srf', handle_not_rst)
 	app.router.add_post('/RST.srf', handle_rst)
 	app.router.add_post('/RST2', handle_rst)
@@ -49,6 +50,7 @@ def create_app(backend):
 	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
 
 	# Misc
+	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_post('/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
@@ -75,6 +77,14 @@ async def on_response_prepare(req, res):
 		print("body {}")
 
 async def handle_http_gateway(req):
+	if req.method == 'OPTIONS':
+		return web.Response(status = 200, headers = {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'POST',
+			'Access-Control-Expose-Headers': 'X-MSN-Messenger',
+			'Access-Control-Max-Age': '86400',
+		})
+	
 	from util.misc import Logger
 	from core.session import PollingSession
 	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState, MSNPReader, MSNPWriter
@@ -113,6 +123,7 @@ async def handle_http_gateway(req):
 	return web.Response(headers = {
 		'X-MSN-Messenger': 'SessionID={}; GW-IP='.format(session_id, sess.hostname),
 		'Content-Type': 'application/x-msn-messenger',
+		'Access-Control-Allow-Origin': '*',
 	}, body = body)
 
 async def handle_debug(req):
@@ -378,10 +389,21 @@ async def handle_login(req):
 	})
 
 async def handle_not_rst(req):
+	if req.method == 'OPTIONS':
+		return web.Response(status = 200, headers = {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'POST',
+			'Access-Control-Allow-Headers': 'X-User, X-Password',
+			'Access-Control-Expose-Headers': 'X-Token',
+			'Access-Control-Max-Age': '86400',
+		})
+	
 	email = req.headers.get('X-User')
 	pwd = req.headers.get('X-Password')
 	token = _login(req, email, pwd)
-	headers = {}
+	headers = {
+		'Access-Control-Allow-Origin': '*',
+	}
 	if token is not None:
 		headers['X-Token'] = token
 	return web.Response(status = 200, headers = headers)
