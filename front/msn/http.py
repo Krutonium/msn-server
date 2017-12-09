@@ -81,6 +81,7 @@ async def handle_http_gateway(req):
 		return web.Response(status = 200, headers = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'POST',
+			'Access-Control-Allow-Headers': 'Content-Type',
 			'Access-Control-Expose-Headers': 'X-MSN-Messenger',
 			'Access-Control-Max-Age': '86400',
 		})
@@ -121,9 +122,11 @@ async def handle_http_gateway(req):
 	body = sess.on_disconnect()
 	
 	return web.Response(headers = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Methods': 'POST',
+		'Access-Control-Expose-Headers': 'X-MSN-Messenger',
 		'X-MSN-Messenger': 'SessionID={}; GW-IP={}'.format(session_id, sess.hostname),
 		'Content-Type': 'application/x-msn-messenger',
-		'Access-Control-Allow-Origin': '*',
 	}, body = body)
 
 async def handle_debug(req):
@@ -393,7 +396,7 @@ async def handle_not_rst(req):
 		return web.Response(status = 200, headers = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'POST',
-			'Access-Control-Allow-Headers': 'X-User, X-Password',
+			'Access-Control-Allow-Headers': 'X-User, X-Password, Content-Type',
 			'Access-Control-Expose-Headers': 'X-Token',
 			'Access-Control-Max-Age': '86400',
 		})
@@ -403,6 +406,8 @@ async def handle_not_rst(req):
 	token = _login(req, email, pwd)
 	headers = {
 		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Methods': 'POST',
+		'Access-Control-Expose-Headers': 'X-Token',
 	}
 	if token is not None:
 		headers['X-Token'] = token
