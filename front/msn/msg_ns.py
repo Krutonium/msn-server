@@ -30,6 +30,8 @@ def _m_ver(sess, trid, *args):
 		sess.send_reply('VER', trid, 0, *MSNP_DIALECTS)
 		return
 	sess.state.dialect = int(d[4:])
+	# For older clients that don't do a CVR
+	sess.client = Client('msn', d, 'gw' if isinstance(sess, session.PollingSession) else 'direct')
 	sess.send_reply('VER', trid, d)
 
 @_handlers
