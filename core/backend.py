@@ -447,6 +447,7 @@ class Chat:
 	
 	def send_message_to_everyone(self, sess_sender, data):
 		self._stats.on_message_sent(sess_sender.user, sess_sender.client)
+		self._stats.on_user_active(sess_sender.user, sess_sender.client)
 		su_sender = self._users_by_sess[sess_sender]
 		for sess in self._users_by_sess.keys():
 			if sess == sess_sender: continue

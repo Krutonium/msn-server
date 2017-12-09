@@ -63,11 +63,13 @@ class Stats:
 	
 	def flush(self):
 		hour = _current_hour()
+		now = datetime.utcnow()
 		
 		with Session() as sess:
 			current = sess.query(CurrentStats).filter(CurrentStats.key == 'logged_in').one_or_none()
 			if not current:
 				current = CurrentStats(key = 'logged_in')
+			current.date_updated = now
 			current.value = self.logged_in
 			sess.add(current)
 			sess.flush()
@@ -77,6 +79,7 @@ class Stats:
 				current = CurrentStats(key = 'current_hour', value = { 'hour': hour })
 			
 			cs_hour = current.value['hour']
+			current.date_updated = now
 			current.value = self._flush_to_hourly(sess, hour)
 			sess.add(current)
 			
@@ -159,14 +162,15 @@ class HourlyClientStats(Base):
 	
 	hour = sa.Column(sa.Integer, nullable = False, primary_key = True)
 	client_id = sa.Column(sa.Integer, nullable = False, primary_key = True)
-	users_active = sa.Column(sa.Integer, nullable = False)
-	messages_sent = sa.Column(sa.Integer, nullable = False)
-	messages_received = sa.Column(sa.Integer, nullable = False)
+	users_active = sa.Column(sa.Integer, nullable = False, server_default = '0')
+	messages_sent = sa.Column(sa.Integer, nullable = False, server_default = '0')
+	messages_received = sa.Column(sa.Integer, nullable = False, server_default = '0')
 
 class CurrentStats(Base):
 	__tablename__ = 't_stats_current'
 	
 	key = sa.Column(sa.String, nullable = False, primary_key = True)
+	date_updated = sa.Column(sa.DateTime, nullable = False)
 	value = sa.Column(JSONType, nullable = False)
 
 engine = sa.create_engine(settings.STATS_DB)
