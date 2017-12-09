@@ -121,7 +121,7 @@ async def handle_http_gateway(req):
 	body = sess.on_disconnect()
 	
 	return web.Response(headers = {
-		'X-MSN-Messenger': 'SessionID={}; GW-IP='.format(session_id, sess.hostname),
+		'X-MSN-Messenger': 'SessionID={}; GW-IP={}'.format(session_id, sess.hostname),
 		'Content-Type': 'application/x-msn-messenger',
 		'Access-Control-Allow-Origin': '*',
 	}, body = body)
