@@ -45,6 +45,8 @@ class Stats:
 		self._collect('messages_received', user, client)
 	
 	def _collect(self, stat, user, client):
+		assert user is not None
+		assert client is not None
 		if self.by_client is None:
 			self.by_client = {}
 		bc = self.by_client
