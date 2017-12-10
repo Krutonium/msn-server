@@ -46,8 +46,8 @@ class Backend:
 	
 	def on_leave(self, sess):
 		user = sess.user
-		self._stats.on_logout()
 		if user is None: return
+		self._stats.on_logout()
 		self._sc.remove_session(sess)
 		if self._sc.get_sessions_by_user(user):
 			# There are still other people logged in as this user,
