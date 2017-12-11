@@ -6,7 +6,6 @@ from util.misc import Logger
 from .msnp import MSNPReader, MSNPWriter
 
 def register(loop, backend, *, http_port = None, devmode = False):
-	from functools import partial
 	from util.misc import AIOHTTPRunner, ProtocolRunner
 	from .http import create_app
 	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState
