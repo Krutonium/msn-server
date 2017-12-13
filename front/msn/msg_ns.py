@@ -246,7 +246,7 @@ def _m_url(sess, trid, *ignored):
 def _m_adg(sess, trid, name, ignored = None):
 	#>>> ADG 276 New Group
 	try:
-		group = sess.backend.me_group_add(sess, name)
+		group = sess.state.backend.me_group_add(sess, name)
 	except Exception as ex:
 		sess.send_reply(Err.GetCodeForException(ex), trid)
 		return
