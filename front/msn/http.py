@@ -48,7 +48,15 @@ def create_app(backend):
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
 	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
 	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
-
+	
+	# Sound
+	from . import http_sound
+	app.router.add_get('/esnd/snd/builtin', http_sound.builtin)
+	app.router.add_get('/esnd/snd/check', http_sound.check)
+	app.router.add_get('/esnd/snd/get', http_sound.get)
+	app.router.add_get('/esnd/snd/random', http_sound.random)
+	app.router.add_post('/esnd/snd/put', http_sound.put)
+	
 	# Misc
 	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_post('/gateway/gateway.dll', handle_http_gateway)

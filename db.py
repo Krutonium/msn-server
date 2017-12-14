@@ -33,6 +33,16 @@ class User(Base):
 	groups = sa.Column(JSONType, nullable = False)
 	contacts = sa.Column(JSONType, nullable = False)
 
+class Sound(Base):
+	__tablename__ = 't_sound'
+	
+	hash = sa.Column(sa.String, nullable = False, primary_key = True)
+	title = sa.Column(sa.String, nullable = False)
+	category = sa.Column(sa.Integer, nullable = False)
+	language = sa.Column(sa.Integer, nullable = False)
+	is_public = sa.Column(sa.Boolean, nullable = False)
+
+
 engine = sa.create_engine(settings.DB)
 session_factory = sessionmaker(bind = engine)
 
