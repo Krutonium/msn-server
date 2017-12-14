@@ -182,7 +182,7 @@ def _parse_metadata(raw_data):
 	return Metadata(
 		title = raw_data[3:33].decode('utf-8').strip('\0'),
 		category = raw_data[93],
-		is_public = (raw_data[95] == 2),
+		is_public = (raw_data[95] in (0, 2)),
 		hash = raw_data[109:121].decode('utf-8'),
 		language = raw_data[127],
 	)
