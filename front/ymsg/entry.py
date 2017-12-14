@@ -28,31 +28,61 @@ class ListenerYMSG(asyncio.Protocol):
 	
 	def data_received(self, data):
 		self.logger.info('>>>', data)
-		raw_data = data
 		
-		assert data[:4] == b'YMSG'
-		assert len(data) >= 20
-		header = data[4:20]
-		data = data[20:]
-		(version, pkt_len, service, status, session_id) = struct.unpack('!B3xHHII', header)
-		
-		assert len(data) == pkt_len
+		(version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(data)
 		
 		if service == YMSGService.Verify:
-			msg = b'YMSG' + header
+			msg = _encode_ymsg(version, vendor_id, service, status, session_id)
 			self.logger.info('<<<', msg)
 			self.transport.write(msg)
 			return
-		
 		if service == YMSGService.Auth:
-			email = data[3:-2]
-			self.logger.info("email", email)
-		else:
-			self.logger.info("unknown", service)
+			session_id = 1239999999
+			email = kvs[1]
+			msg = _encode_ymsg(version, vendor_id, YMSGService.Auth, status, session_id, {
+				1: email,
+				#94: 'g|i/p^h&z-d+2%v%x&j|e+(m^k-i%h*(s+8%a/u/x*(b-4*i%h^g^j|m^n-r*f+p+j)))',
+				#94: 'g|i/p^h&z-d+2%v%x&j|e+m^k-i%h*s+8%a/u/x*b-4*i%h^g^j|m^n-r*f+p+',
+				94: '',
+				13: 0, # auth version, 0/1
+			})
+			self.logger.info('<<<', msg)
+			self.transport.write(msg)
+			return
+		if service == YMSGService.AuthResp:
+			print(kvs)
+			print("session_id", session_id)
 		
-		self.transport.write(b'YMSG')
-		self.transport.write(struct.pack('!B3xHHII', version, 0, YMSGService.LogOff, 0, 0))
+		self.logger.info("unknown", service)
+		self.transport.write(_encode_ymsg(version, vendor_id, YMSGService.LogOff, 0, 0))
 		self.transport.close()
+
+def _decode_ymsg(data):
+	assert data[:4] == PRE
+	assert len(data) >= 20
+	header = data[4:20]
+	payload = data[20:]
+	(version, vendor_id, pkt_len, service, status, session_id) = struct.unpack('!BxHHHII', header)
+	assert len(payload) == pkt_len
+	parts = payload.split(SEP)
+	kvs = {}
+	for i in range(1, len(parts), 2):
+		kvs[int(parts[i-1])] = parts[i].decode('utf-8')
+	return (version, vendor_id, service, status, session_id, kvs)
+
+def _encode_ymsg(version, vendor_id, service, status, session_id, kvs = None):
+	payload = []
+	if kvs:
+		for k, v in kvs.items():
+			payload.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
+	payload = b''.join(payload)
+	data = PRE
+	data += struct.pack('!BxHHHII', version, vendor_id, len(payload), service, status, session_id)
+	data += payload
+	return data
+
+PRE = b'YMSG'
+SEP = b'\xC0\x80'
 
 class YMSGService:
 	LogOn = 0x01

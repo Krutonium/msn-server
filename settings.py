@@ -7,6 +7,8 @@ DEBUG_MSNP = False
 DEBUG_HTTP_REQUEST = False
 DEBUG_HTTP_REQUEST_FULL = False
 
+ENABLE_FRONT_MSN = True
+ENABLE_FRONT_YMSG = False
 try:
 	from settings_local import *
 except ImportError as ex:
