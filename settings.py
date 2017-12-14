@@ -9,6 +9,8 @@ DEBUG_HTTP_REQUEST_FULL = False
 
 ENABLE_FRONT_MSN = True
 ENABLE_FRONT_YMSG = False
+ENABLE_FRONT_BOT = False
+
 try:
 	from settings_local import *
 except ImportError as ex:

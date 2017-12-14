@@ -74,6 +74,10 @@ class Backend:
 		uuid = self._auth_service.pop_token('nb/login', token)
 		return self._login_common(sess, uuid, email)
 	
+	def login_IKWIAD(self, sess, email):
+		uuid = self.util_get_uuid_from_email(email)
+		return self._login_common(sess, uuid, email)
+	
 	def _login_common(self, sess, uuid, email):
 		if uuid is None: return None
 		self._user_service.update_date_login(uuid)
