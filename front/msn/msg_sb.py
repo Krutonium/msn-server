@@ -36,7 +36,7 @@ def _m_ans(sess, trid, arg, token, sessid):
 	dialect = extra_data['dialect']
 	state.dialect = dialect
 	state.chat = chat
-	state.capabilities = extra_data['capabilities']
+	state.front_specific['msn_capabilities'] = extra_data['msn_capabilities']
 	roster = [
 		(sc, su) for (sc, su) in chat.get_roster(sess)
 		if su != sess.user
@@ -45,7 +45,7 @@ def _m_ans(sess, trid, arg, token, sessid):
 	for i, (sc, su) in enumerate(roster):
 		extra = ()
 		if dialect >= 13:
-			extra = (sc.state.capabilities,)
+			extra = (sc.state.front_specific.get('msn_capabilities') or 0,)
 		sess.send_reply('IRO', trid, i + 1, l, su.email, su.status.name, *extra)
 	sess.send_reply('ANS', trid, 'OK')
 

@@ -42,9 +42,9 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	rst = []
 	ctc_sess = first_in_iterable(backend.util_get_sessions_by_user(head))
 	if dialect >= 8:
-		rst.append(ctc_sess.state.capabilities)
+		rst.append(ctc_sess.state.front_specific.get('msn_capabilities') or 0)
 	if dialect >= 9:
-		rst.append(encode_msnobj(ctc_sess.state.msnobj or '<msnobj/>'))
+		rst.append(encode_msnobj(ctc_sess.state.front_specific.get('msn_msnobj') or '<msnobj/>'))
 	
 	if dialect >= 18:
 		yield (*frst, status.substatus.name, encode_email_networkid(head.email, networkid), status.name, *rst)

@@ -116,7 +116,7 @@ async def handle_http_gateway(req):
 	sess.on_connect(req.transport)
 	
 	# Read incoming messages
-	sess.data_received(await req.read())
+	sess.state.data_received(await req.read(), sess)
 	
 	# Write outgoing messages
 	body = sess.on_disconnect()

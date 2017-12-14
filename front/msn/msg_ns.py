@@ -379,8 +379,8 @@ def _m_chg(sess, trid, sts_name, capabilities = None, msnobj = None):
 	sess.state.backend.me_update(sess, {
 		'substatus': getattr(Substatus, sts_name),
 	})
-	sess.state.capabilities = capabilities
-	sess.state.msnobj = msnobj
+	sess.state.front_specific['msn_capabilities'] = capabilities
+	sess.state.front_specific['msn_msnobj'] = msnobj
 	sess.send_reply('CHG', trid, sts_name, capabilities, encode_msnobj(msnobj))
 	
 	# Send ILNs

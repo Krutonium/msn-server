@@ -55,7 +55,7 @@ class MSNPWriter:
 			extra = ()
 			dialect = self._sess_state.dialect
 			if dialect >= 13:
-				extra = (self._sess_state.capabilities,)
+				extra = (self._sess_state.front_specific.get('msn_capabilities') or 0,)
 			self._write(['JOI', user.email, user.status.name, *extra])
 			return
 		if isinstance(outgoing_event, event.ChatMessage):
@@ -156,19 +156,29 @@ def _msnp_encode(m: List[object], buf, logger) -> None:
 	if data is not None:
 		w(data)
 
-class MSNP_NS_SessState(SessionState):
+class MSNP_SessState(SessionState):
 	def __init__(self, reader, backend):
-		super().__init__(reader)
+		super().__init__()
+		self.reader = reader
 		self.backend = backend
 		self.dialect = None
+	
+	def data_received(self, data: bytes, sess: Session) -> None:
+		for incoming_event in self.reader.data_received(data):
+			self.apply_incoming_event(incoming_event, sess)
+	
+	def apply_incoming_event(self, incoming_event, sess: Session) -> None:
+		raise NotImplementedError('MSNP_SessState.apply_incoming_event')
+
+class MSNP_NS_SessState(MSNP_SessState):
+	def __init__(self, reader, backend):
+		super().__init__(reader, backend)
 		self.usr_email = None
 		self.syn_ser = None
 		self.iln_sent = False
-		self.capabilities = 0
-		self.msnobj = None
 	
 	def get_sb_extra_data(self):
-		return { 'dialect': self.dialect, 'capabilities': self.capabilities }
+		return { 'dialect': self.dialect, 'msn_capabilities': self.front_specific.get('msn_capabilities') or 0 }
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_ns.apply(incoming_event, sess)
@@ -176,13 +186,10 @@ class MSNP_NS_SessState(SessionState):
 	def on_connection_lost(self, sess: Session) -> None:
 		self.backend.on_leave(sess)
 
-class MSNP_SB_SessState(SessionState):
+class MSNP_SB_SessState(MSNP_SessState):
 	def __init__(self, reader, backend):
-		super().__init__(reader)
-		self.backend = backend
-		self.dialect = None
+		super().__init__(reader, backend)
 		self.chat = None
-		self.capabilities = 0
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_sb.apply(incoming_event, sess)

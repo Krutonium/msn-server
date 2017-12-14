@@ -50,4 +50,4 @@ class ListenerMSNP(asyncio.Protocol):
 		self.transport = None
 	
 	def data_received(self, data):
-		self.sess.data_received(data)
+		self.sess.state.data_received(data, self.sess)

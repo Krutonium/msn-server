@@ -8,11 +8,6 @@ class Session:
 		self.client = None
 		self.state = state
 	
-	def data_received(self, data: bytes) -> None:
-		state = self.state
-		for incoming_event in state.reader.data_received(data):
-			state.apply_incoming_event(incoming_event, self)
-	
 	def send_event(self, outgoing_event):
 		raise NotImplementedError('Session.send_event')
 	
@@ -75,11 +70,8 @@ class PollingSession(Session):
 		return data
 
 class SessionState:
-	def __init__(self, reader):
-		self.reader = reader
-	
-	def apply_incoming_event(self, incoming_event, sess: Session) -> None:
-		raise NotImplementedError('SessionState.apply_incoming_event')
+	def __init__(self):
+		self.front_specific = {}
 	
 	def on_connection_lost(self, sess: Session) -> None:
 		raise NotImplementedError('SessionState.on_connection_lost')
