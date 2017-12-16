@@ -190,6 +190,7 @@ class MSNP_SB_SessState(MSNP_SessState):
 	def __init__(self, reader, backend):
 		super().__init__(reader, backend)
 		self.chat = None
+		self.pop_id = None
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_sb.apply(incoming_event, sess)

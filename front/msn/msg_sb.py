@@ -10,7 +10,7 @@ def _m_usr(sess, trid, arg, token):
 	#>>> USR trid email@example.com token (MSNP < 18)
 	#>>> USR trid email@example.com;{00000000-0000-0000-0000-000000000000} token (MSNP >= 18)
 	state = sess.state
-	(email, _) = _decode_email_pop(arg)
+	(email, pop_id) = _decode_email_pop(arg)
 	data = state.backend.login_xfr(sess, email, token)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
@@ -20,6 +20,7 @@ def _m_usr(sess, trid, arg, token):
 	user = sess.user
 	state.dialect = dialect
 	state.chat = chat
+	state.pop_id = pop_id
 	sess.send_reply('USR', trid, 'OK', arg, user.status.name)
 
 @_handlers
@@ -86,7 +87,7 @@ def _decode_email_pop(s):
 	# Split `foo@email.com;{uuid}` into (email, pop_id)
 	parts = s.split(';', 1)
 	if len(parts) < 2:
-		pop = None
+		pop_id = None
 	else:
-		pop = parts[1]
-	return (parts[0], pop)
+		pop_id = parts[1]
+	return (parts[0], pop_id)
