@@ -42,7 +42,7 @@ def _m_ans(sess, trid, arg, token, sessid):
 		if su != sess.user
 	]
 	# This part will need a rewrite. Indeed, MSNP18 requires 2 IRO commands for the same user:
-	# When you start a chat with one contact, the server need to send:
+	# When you receive a chat from one contact, the server need to send:
 	# IRO trID 1 2 email@address.com status capabilities
 	# IRO trID 2 2 email@address.com;{xxxxxx-xxxx-xxxx-xxxxxxxxxx} status capabilities
 	l = len(roster)
