@@ -176,6 +176,7 @@ class MSNP_NS_SessState(MSNP_SessState):
 		self.usr_email = None
 		self.syn_ser = None
 		self.iln_sent = False
+		self.pop_id = None
 	
 	def get_sb_extra_data(self):
 		return { 'dialect': self.dialect, 'msn_capabilities': self.front_specific.get('msn_capabilities') or 0 }

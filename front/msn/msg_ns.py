@@ -232,10 +232,19 @@ def _m_png(sess):
 @_handlers
 def _m_uux(sess, trid, data):
 	elm = parse_xml(data.decode('utf-8'))
-	sess.state.backend.me_update(sess, {
-		'message': str(elm.find('PSM')),
-		'media': str(elm.find('CurrentMedia')),
-	})
+	
+	psm = elm.find('PSM')
+	cm = elm.find('CurrentMedia')
+	if psm or cm:
+		sess.state.backend.me_update(sess, {
+			'message': str(elm.find('PSM')),
+			'media': str(elm.find('CurrentMedia')),
+		})
+	
+	mg = elm.find('MachineGuid')
+	if mg:
+		sess.state.pop_id = str(mg)[1:-1]
+	
 	sess.send_reply('UUX', trid, 0)
 
 @_handlers
