@@ -336,15 +336,19 @@ class Backend:
 		callee_uuid = self._user_service.get_uuid(callee_email)
 		if callee_uuid is None: raise error.UserDoesNotExist()
 		ctc = caller.detail.contacts.get(callee_uuid)
-		if ctc is None: raise error.ContactDoesNotExist()
-		if ctc.status.is_offlineish(): raise error.ContactNotOnline()
-		ctc_sessions = self._sc.get_sessions_by_user(ctc.head)
+		if ctc is None:
+			if callee_uuid != caller_uuid: raise error.ContactDoesNotExist()
+			ctc_user = caller
+		else:
+			if ctc.status.is_offlineish(): raise error.ContactNotOnline()
+			ctc_user = ctc.head
+		ctc_sessions = self._sc.get_sessions_by_user(ctc_user)
 		if not ctc_sessions: raise error.ContactNotOnline()
 		
 		for ctc_sess in ctc_sessions:
 			extra_data = ctc_sess.state.get_sb_extra_data() or {}
 			extra_data['client'] = ctc_sess.client
-			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc.head.uuid, 'extra_data': extra_data })
+			token = self._auth_service.create_token('sb/cal', { 'uuid': ctc_user.uuid, 'extra_data': extra_data })
 			ctc_sess.send_event(event.InvitedToChatEvent(chatid, token, caller))
 	
 	async def _sync_db(self):
