@@ -20,7 +20,7 @@ def _m_usr(sess, trid, arg, token):
 	user = sess.user
 	state.dialect = dialect
 	state.chat = chat
-	sess.send_reply('USR', trid, 'OK', user.email, user.status.name)
+	sess.send_reply('USR', trid, 'OK', arg, user.status.name)
 
 @_handlers
 def _m_ans(sess, trid, arg, token, sessid):
@@ -41,6 +41,10 @@ def _m_ans(sess, trid, arg, token, sessid):
 		(sc, su) for (sc, su) in chat.get_roster(sess)
 		if su != sess.user
 	]
+	# This part will need a rewrite. Indeed, MSNP18 requires 2 IRO commands for the same user:
+	# When you start a chat with one contact, the server need to send:
+	# IRO trID 1 2 email@address.com status capabilities
+	# IRO trID 2 2 email@address.com;{xxxxxx-xxxx-xxxx-xxxxxxxxxx} status capabilities
 	l = len(roster)
 	for i, (sc, su) in enumerate(roster):
 		extra = ()
