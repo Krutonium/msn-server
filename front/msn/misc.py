@@ -106,7 +106,7 @@ class Err:
 			return cls.InvalidUser
 		if isinstance(exc, error.ContactNotOnline):
 			return cls.PrincipalNotOnline
-		return cls.InternalServerError
+		raise ValueError("Exception not convertible to MSNP error") from exc
 
 class NetworkID:
 	WINDOWS_LIVE = 0x01
