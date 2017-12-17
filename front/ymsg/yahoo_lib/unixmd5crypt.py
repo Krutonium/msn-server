@@ -1,3 +1,8 @@
+# NOTICE:
+# 
+# This script has been modified to work on Python 3 (e.g. hashlib, workarounds 
+# for ord() and byte strings). All credit is given where credit is due. :)
+
 #########################################################
 # md5crypt.py
 #
