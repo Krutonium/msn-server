@@ -442,7 +442,9 @@ def _m_xfr(sess, trid, dest):
 		sess.send_reply(Err.InvalidParameter, trid)
 		return
 	dialect = sess.state.dialect
-	token = sess.state.backend.sb_token_create(sess, extra_data = { 'dialect': dialect })
+	token = sess.state.backend.sb_token_create(sess, extra_data = {
+		'dialect': dialect, 'msn_capabilities': sess.state.front_specific.get('msn_capabilities') or 0,
+	})
 	extra = ()
 	if dialect >= 13:
 		extra = ('U', 'messenger.msn.com')

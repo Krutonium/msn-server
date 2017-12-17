@@ -17,11 +17,11 @@ def _m_usr(sess, trid, arg, token):
 		return
 	(chat, extra_data) = data
 	dialect = extra_data['dialect']
-	user = sess.user
 	state.dialect = dialect
 	state.chat = chat
+	state.front_specific['msn_capabilities'] = extra_data['msn_capabilities']
 	state.pop_id = pop_id
-	sess.send_reply('USR', trid, 'OK', arg, user.status.name)
+	sess.send_reply('USR', trid, 'OK', arg, sess.user.status.name)
 
 @_handlers
 def _m_ans(sess, trid, arg, token, sessid):
