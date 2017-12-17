@@ -3,6 +3,7 @@ import struct
 
 from core.session import PersistentSession
 from util.misc import Logger
+from .yahoo_lib.Y64 import Y64Encode
 
 def register(loop, backend):
 	from util.misc import ProtocolRunner
@@ -39,13 +40,13 @@ class ListenerYMSG(asyncio.Protocol):
 		if service == YMSGService.Auth:
 			session_id = 1239999999
 			email = kvs[1]
-			msg = _encode_ymsg(version, vendor_id, YMSGService.Auth, status, session_id, {
-				1: email,
-				#94: 'g|i/p^h&z-d+2%v%x&j|e+(m^k-i%h*(s+8%a/u/x*(b-4*i%h^g^j|m^n-r*f+p+j)))',
-				#94: 'g|i/p^h&z-d+2%v%x&j|e+m^k-i%h*s+8%a/u/x*b-4*i%h^g^j|m^n-r*f+p+',
-				94: '',
-				13: 0, # auth version, 0/1
-			})
+			auth_dict = {1:, email}
+			if version in (9, 10):
+			    auth_dict[94] = _generate_challenge_v1()
+			elif version in (11):
+			    auth_dict[94] = '' # Implement V2 challenge string generation later
+			    auth_dict[13] = 1
+			msg = _encode_ymsg(version, vendor_id, YMSGService.Auth, status, session_id, auth_dict)
 			self.logger.info('<<<', msg)
 			self.transport.write(msg)
 			return
@@ -54,7 +55,7 @@ class ListenerYMSG(asyncio.Protocol):
 			print("session_id", session_id)
 		
 		self.logger.info("unknown", service)
-		self.transport.write(_encode_ymsg(version, vendor_id, YMSGService.LogOff, 0, 0))
+		self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
 		self.transport.close()
 
 def _decode_ymsg(data):
@@ -70,19 +71,24 @@ def _decode_ymsg(data):
 		kvs[int(parts[i-1])] = parts[i].decode('utf-8')
 	return (version, vendor_id, service, status, session_id, kvs)
 
-def _encode_ymsg(version, vendor_id, service, status, session_id, kvs = None):
+def _encode_ymsg(service, status, session_id, kvs = None):
 	payload = []
 	if kvs:
 		for k, v in kvs.items():
 			payload.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
 	payload = b''.join(payload)
 	data = PRE
-	data += struct.pack('!BxHHHII', version, vendor_id, len(payload), service, status, session_id)
+	data += b'\x00\x00' # version number and vendor id are replaced with
+	                    # 0x0000
+	data += struct.pack('!HHII', len(payload), service, status, session_id)
 	data += payload
 	return data
 
 PRE = b'YMSG'
 SEP = b'\xC0\x80'
+
+def _generate_challenge_v1():
+    return Y64Encode(uuid4().bytes) #Yahoo64-encode the raw 16 bytes of a UUID
 
 class YMSGService:
 	LogOn = 0x01
