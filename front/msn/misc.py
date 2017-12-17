@@ -35,7 +35,7 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	
 	if is_offlineish:
 		if dialect >= 18:
-			yield ('FLN', '{}:{}'.format(networkid, head.email)),
+			yield ('FLN', '{}:{}'.format(networkid, head.email))
 		else:
 			yield ('FLN', head.email, networkid)
 		return
