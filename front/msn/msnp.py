@@ -58,7 +58,7 @@ class MSNPWriter:
 			if dialect >= 13:
 				extra = (self._sess_state.front_specific.get('msn_capabilities') or 0,)
 			if dialect >= 18 and sess.pop_id and sess.state is not self._sess_state:
-				self._write(['JOI', '{}:{}'.format(user.email, sess.pop_id), user.status.name, *extra])
+				self._write(['JOI', '{};{}'.format(user.email, sess.pop_id), user.status.name, *extra])
 			self._write(['JOI', user.email, user.status.name, *extra])
 			return
 		if isinstance(outgoing_event, event.ChatMessage):
