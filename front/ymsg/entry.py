@@ -41,7 +41,7 @@ class ListenerYMSG(asyncio.Protocol):
 		if service == YMSGService.Auth:
 			session_id = 1239999999
 			email = kvs[1]
-			auth_dict = {1:, email}
+			auth_dict = {1: email}
 			if version in (9, 10):
 			    auth_dict[94] = _generate_challenge_v1()
 			elif version in (11):
