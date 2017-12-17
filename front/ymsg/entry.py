@@ -79,8 +79,8 @@ def _encode_ymsg(service, status, session_id, kvs = None):
 			payload.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
 	payload = b''.join(payload)
 	data = PRE
-	data += b'\x00\x00' # version number and vendor id are replaced with
-	                    # 0x0000
+	data += b'\x00\x00\x00\x00' # version number and vendor id are replaced with
+	                            # 0x00000000
 	data += struct.pack('!HHII', len(payload), service, status, session_id)
 	data += payload
 	return data
