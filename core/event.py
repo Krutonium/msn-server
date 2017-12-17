@@ -30,5 +30,13 @@ class ReplyEvent:
 	def __init__(self, data):
 		self.data = data
 
+class POPBootEvent:
+	def __init__(self):
+		pass
+
+class POPNotifyEvent:
+	def __init__(self):
+		pass
+
 class CloseEvent:
 	pass

@@ -115,6 +115,11 @@ def _util_usr_final(sess, trid, token):
 	if token:
 		sess.state.backend.util_set_sess_token(sess, token)
 	
+	if dialect < 18:
+		sess.state.backend.me_pop_boot_others(sess)
+	else:
+		sess.state.backend.me_pop_notify_others(sess)
+	
 	if dialect < 10:
 		args = (user.status.name,)
 	else:

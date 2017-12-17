@@ -67,6 +67,12 @@ class MSNPWriter:
 			data = outgoing_event.data
 			self._write(['MSG', user.email, user.status.name, data])
 			return
+		if isinstance(outgoing_event, event.POPBootEvent):
+			self._write(['OUT', 'OTH'])
+			return
+		if isinstance(outgoing_event, event.POPNotifyEvent):
+			# TODO: What do?
+			return
 		if isinstance(outgoing_event, event.CloseEvent):
 			self._write(['OUT'])
 			return

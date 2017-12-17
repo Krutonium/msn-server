@@ -288,6 +288,16 @@ class Backend:
 			del contacts[ctc_head.uuid]
 		self._mark_modified(user, detail = detail)
 	
+	def me_pop_boot_others(self, sess):
+		for sess_other in self._sc.get_sessions_by_user(sess.user):
+			if sess is sess_other: continue
+			sess_other.send_event(event.POPBootEvent())
+	
+	def me_pop_notify_others(self, sess):
+		for sess_other in self._sc.get_sessions_by_user(sess.user):
+			if sess is sess_other: continue
+			sess_other.send_event(event.POPNotifyEvent())
+	
 	def login_xfr(self, sess, email, token):
 		(user, extra_data) = self._load_user('sb/xfr', token)
 		if user is None: return None
