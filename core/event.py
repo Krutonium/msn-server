@@ -14,8 +14,8 @@ class InvitedToChatEvent:
 		self.caller = caller
 
 class ChatParticipantJoined:
-	def __init__(self, user):
-		self.user = user
+	def __init__(self, sess):
+		self.sess = sess
 
 class ChatParticipantLeft:
 	def __init__(self, user):

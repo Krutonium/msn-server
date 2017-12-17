@@ -28,7 +28,7 @@ def _m_ans(sess, trid, arg, token, sessid):
 	#>>> ANS trid email@example.com token sessionid (MSNP < 18)
 	#>>> ANS trid email@example.com;{00000000-0000-0000-0000-000000000000} token sessionid (MSNP >= 18)
 	state = sess.state
-	(email, _) = _decode_email_pop(arg)
+	(email, pop_id) = _decode_email_pop(arg)
 	data = state.backend.login_cal(sess, email, token, sessid)
 	if data is None:
 		sess.send_reply(Err.AuthFail, trid)
@@ -38,6 +38,10 @@ def _m_ans(sess, trid, arg, token, sessid):
 	state.dialect = dialect
 	state.chat = chat
 	state.front_specific['msn_capabilities'] = extra_data['msn_capabilities']
+	state.pop_id = pop_id
+	
+	chat.send_participant_joined(sess)
+	
 	roster = [
 		(sc, su) for (sc, su) in chat.get_roster(sess)
 		if su != sess.user

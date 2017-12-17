@@ -317,11 +317,9 @@ class Backend:
 		sess.client = extra_data['client']
 		chat = self._chats.get(chatid)
 		if chat is None: return None
-		for sc, _ in chat.get_roster(self):
-			sc.send_event(event.ChatParticipantJoined(user))
 		chat.add_session(sess)
 		return chat, extra_data
-		
+	
 	def _load_user(self, purpose, token):
 		data = self._auth_service.pop_token(purpose, token)
 		if data is None: return (None, None)
@@ -478,6 +476,10 @@ class Chat:
 			if sess1 == sess: continue
 			roster.append((sess1, su1))
 		return roster
+	
+	def send_participant_joined(self, sess):
+		for sc, _ in self.get_roster(self):
+			sc.send_event(event.ChatParticipantJoined(sess))
 	
 	def on_leave(self, sess):
 		su = self._users_by_sess.pop(sess, None)

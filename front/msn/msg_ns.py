@@ -513,7 +513,7 @@ MSPAuth: t={token}Y6+H31sTUOFkqjNTDYqAAFLr5Ote7BMrMnUIzpg860jh084QMgs5djRQLLQP0T
 ClientIP: {ip}
 ClientPort: {port}
 ABCHMigrated: 1
-MPOPEnabled: 0
+MPOPEnabled: 1
 
 '''
 

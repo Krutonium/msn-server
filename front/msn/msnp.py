@@ -51,15 +51,14 @@ class MSNPWriter:
 			self._write(['BYE', user.email])
 			return
 		if isinstance(outgoing_event, event.ChatParticipantJoined):
-			user = outgoing_event.user
+			sess = outgoing_event.sess
+			user = sess.user
 			extra = ()
 			dialect = self._sess_state.dialect
 			if dialect >= 13:
 				extra = (self._sess_state.front_specific.get('msn_capabilities') or 0,)
-			# TODO: This needs to receive the chatsession of the user that joined
-			# If chatsession.pop_id and chatsession != this session:
-				# TODO: user.email:{pop_id}
-				#self._write(['JOI', user.email, user.status.name, *extra])
+			if dialect >= 18 and sess.pop_id and sess.state is not self._sess_state:
+				self._write(['JOI', '{}:{}'.format(user.email, sess.pop_id), user.status.name, *extra])
 			self._write(['JOI', user.email, user.status.name, *extra])
 			return
 		if isinstance(outgoing_event, event.ChatMessage):
