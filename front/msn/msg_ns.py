@@ -423,7 +423,7 @@ def _m_snd(sess, trid, email):
 	sess.send_reply('SND', trid, email)
 
 @_handlers
-def _m_prp(sess, trid, key, value):
+def _m_prp(sess, trid, key, value, *rest):
 	#>>> PRP 115 MFN ~~woot~~
 	if key == 'MFN':
 		sess.state.backend.me_update(sess, { 'name': value })
