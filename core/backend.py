@@ -181,10 +181,10 @@ class Backend:
 		g = user.detail.groups.get(group_id)
 		if g is None:
 			raise error.GroupDoesNotExist()
-		if name is not None:
-			if len(name) > MAX_GROUP_NAME_LENGTH:
+		if new_name is not None:
+			if len(new_name) > MAX_GROUP_NAME_LENGTH:
 				raise error.GroupNameTooLong()
-			g.name = name
+			g.new_name = new_name
 		if is_favorite is not None:
 			g.is_favorite = is_favorite
 		self._mark_modified(user)
