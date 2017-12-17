@@ -34,7 +34,7 @@ class ListenerYMSG(asyncio.Protocol):
 		(version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(data)
 		
 		if service == YMSGService.Verify:
-			msg = _encode_ymsg(version, vendor_id, service, status, session_id)
+			msg = _encode_ymsg(service, status, session_id)
 			self.logger.info('<<<', msg)
 			self.transport.write(msg)
 			return
@@ -47,7 +47,7 @@ class ListenerYMSG(asyncio.Protocol):
 			elif version in (11):
 			    auth_dict[94] = '' # Implement V2 challenge string generation later
 			    auth_dict[13] = 1
-			msg = _encode_ymsg(version, vendor_id, YMSGService.Auth, status, session_id, auth_dict)
+			msg = _encode_ymsg(YMSGService.Auth, status, session_id, auth_dict)
 			self.logger.info('<<<', msg)
 			self.transport.write(msg)
 			return
