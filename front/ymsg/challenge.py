@@ -45,10 +45,10 @@ def verify_challenge_v1(user_y, chal, resp_6, resp_96):
 	
 	pass_hashes = [pass_md5, Y64Encode(md5(pass_md5crypt.encode()).digest())]
 	
-	mode = ord(original_chal[15]) % 8
+	mode = ord(chal[15]) % 8
 	
 	# Note that the "checksum" is not a static character
-	CHECKSUM = original_chal[ord(original_chal[CHALLENGE_CONST_VARS.CHECKSUM_POS[mode]]) % 16]
+	CHECKSUM = chal[ord(chal[CHECKSUM_POS[mode]]) % 16]
 	
 	resp6_md5 = md5()
 	resp6_md5.update(CHECKSUM)
