@@ -1,8 +1,9 @@
+from typing import FrozenSet, Any
 import asyncio
 import functools
 from uuid import uuid4
 
-EMPTY_SET = frozenset()
+EMPTY_SET = frozenset() # type: FrozenSet[Any]
 
 def gen_uuid():
 	return str(uuid4())

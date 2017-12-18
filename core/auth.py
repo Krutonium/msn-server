@@ -1,3 +1,4 @@
+from typing import Dict, List
 import bisect
 from time import time as time_builtin
 from functools import total_ordering
@@ -8,10 +9,9 @@ class AuthService:
 		if time is None:
 			time = time_builtin
 		self._time = time
-		# List[TokenData], ordered by TokenData.expiry
-		self._ordered = []
-		# Dict[token, idx]
-		self._bytoken = {}
+		# Ordered by TokenData.expiry
+		self._ordered = [] # type: List[TokenData]
+		self._bytoken = {} # type: Dict[str, int]
 		self._idxbase = 0
 	
 	def create_token(self, purpose, data, *, lifetime = 30):

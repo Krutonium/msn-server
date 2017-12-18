@@ -1,3 +1,4 @@
+from typing import Dict
 from enum import Enum, IntFlag
 
 class User:
@@ -55,8 +56,8 @@ class UserStatus:
 class UserDetail:
 	def __init__(self, settings):
 		self.settings = settings
-		self.groups = {}
-		self.contacts = {}
+		self.groups = {} # type: Dict[str, Group]
+		self.contacts = {} # type: Dict[str, Contact]
 
 class Group:
 	def __init__(self, id, name, *, is_favorite = None):
@@ -86,6 +87,20 @@ class Lst(IntFlag):
 	RL = 0x08
 	PL = 0x10
 	
+	# TODO: This is ugly.
+	def __init__(self, id):
+		super().__init__(id)
+		if id == 0x01:
+			self.label = "Follow"
+		elif id == 0x02:
+			self.label = "Allow"
+		elif id == 0x04:
+			self.label = "Block"
+		elif id == 0x08:
+			self.label = "Reverse"
+		else:
+			self.label = "Pending"
+	
 	@classmethod
 	def Parse(cls, label):
 		if not hasattr(cls, '_MAP'):
@@ -94,11 +109,6 @@ class Lst(IntFlag):
 				map[lst.label.lower()] = lst
 			cls._MAP = map
 		return cls._MAP.get(label.lower())
-Lst.FL.label = "Follow"
-Lst.AL.label = "Allow"
-Lst.BL.label = "Block"
-Lst.RL.label = "Reverse"
-Lst.PL.label = "Pending"
 
 class Service:
 	def __init__(self, host, port):

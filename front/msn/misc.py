@@ -1,3 +1,4 @@
+from typing import Optional, Tuple, Any
 from urllib.parse import quote
 from util.misc import first_in_iterable
 
@@ -28,10 +29,9 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 		return
 	head = ctc.head
 	
+	networkid = None # type: Optional[int]
 	if dialect >= 14:
 		networkid = 1
-	else:
-		networkid = None
 	
 	if is_offlineish:
 		if dialect >= 18:
@@ -40,7 +40,7 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 			yield ('FLN', head.email, networkid)
 		return
 	
-	if trid: frst = ('ILN', trid)
+	if trid: frst = ('ILN', trid) # type: Tuple[Any, ...]
 	else: frst = ('NLN',)
 	rst = []
 	ctc_sess = first_in_iterable(backend.util_get_sessions_by_user(head))

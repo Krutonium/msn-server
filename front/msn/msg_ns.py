@@ -1,3 +1,4 @@
+from typing import Tuple, Any
 from datetime import datetime
 from lxml.objectify import fromstring as parse_xml
 
@@ -86,7 +87,7 @@ def _m_usr(sess, trid, authtype, stage, *args):
 			if authtype == 'TWN':
 				#extra = ('ct={},rver=5.5.4177.0,wp=FS_40SEC_0_COMPACT,lc=1033,id=507,ru=http:%2F%2Fmessenger.msn.com,tw=0,kpp=1,kv=4,ver=2.1.6000.1,rn=1lgjBfIL,tpf=b0735e3a873dfb5e75054465196398e0'.format(int(time())),)
 				# This seems to work too:
-				extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',)
+				extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',) # type: Tuple[Any, ...]
 			else:
 				# https://web.archive.org/web/20100819015007/http://msnpiki.msnfanatic.com/index.php/MSNP15:SSO
 				extra = ('MBI_KEY_OLD', '8CLhG/xfgYZ7TyRQ/jIAWyDmd/w4R4GF2yKLS6tYrnjzi4cFag/Nr+hxsfg5zlCf')
@@ -121,7 +122,7 @@ def _util_usr_final(sess, trid, token):
 		sess.state.backend.me_pop_notify_others(sess)
 	
 	if dialect < 10:
-		args = (user.status.name,)
+		args = (user.status.name,) # type: Tuple[Any, ...]
 	else:
 		args = ()
 	if dialect >= 8:
@@ -445,7 +446,7 @@ def _m_xfr(sess, trid, dest):
 	token = sess.state.backend.sb_token_create(sess, extra_data = {
 		'dialect': dialect, 'msn_capabilities': sess.state.front_specific.get('msn_capabilities') or 0,
 	})
-	extra = ()
+	extra = () # type: Tuple[Any, ...]
 	if dialect >= 13:
 		extra = ('U', 'messenger.msn.com')
 	if dialect >= 14:

@@ -1,5 +1,6 @@
 import time
 from . import event
+from typing import List, Dict, Any
 
 class Session:
 	def __init__(self, state):
@@ -45,7 +46,7 @@ class PollingSession(Session):
 		self.writer = writer
 		self.hostname = hostname
 		self.peername = None
-		self.queue = [] # type: List[OutgoingEvent]
+		self.queue = [] # type: List[event.OutgoingEvent]
 		self.time_last_connect = 0
 		self.timeout = 30
 	
@@ -71,7 +72,7 @@ class PollingSession(Session):
 
 class SessionState:
 	def __init__(self):
-		self.front_specific = {}
+		self.front_specific = {} # type: Dict[str, Any]
 	
 	def on_connection_lost(self, sess: Session) -> None:
 		raise NotImplementedError('SessionState.on_connection_lost')

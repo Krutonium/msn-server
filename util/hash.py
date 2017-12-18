@@ -3,9 +3,11 @@ import secrets
 import random
 import base64
 import binascii
+from typing import Dict
 
 class Hasher:
-	algorithm = None
+	# Can't leave it as None or mypy will complain
+	algorithm = 'unknown'
 	separator = '$'
 	
 	@classmethod
@@ -14,9 +16,9 @@ class Hasher:
 		if not salt:
 			salt = gen_salt()
 		assert cls.separator not in salt
-		(hash, *stuff) = cls._encode_impl(password, salt, *stuff)
+		(hash, *other_stuff) = cls._encode_impl(password, salt, *stuff)
 		hash = base64.b64encode(hash).decode('ascii').strip()
-		return cls.separator.join([cls.algorithm] + stuff + [salt, hash])
+		return cls.separator.join([cls.algorithm] + other_stuff + [salt, hash])
 	
 	@classmethod
 	def extract_salt(cls, encoded):
@@ -36,7 +38,7 @@ class Hasher:
 		encoded_2 = hasher.encode(password, salt, *stuff)
 		return secrets.compare_digest(encoded, encoded_2)
 	
-	_HASHERS = {}
+	_HASHERS = {} # type: Dict[str, type]
 
 class PBKDF2PasswordHasher(Hasher):
 	algorithm = 'pbkdf2_sha256'

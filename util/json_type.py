@@ -1,7 +1,8 @@
 from sqlalchemy import types
 import json
 
-class StringyJSON(types.TypeDecorator):
+
+class StringyJSON(types.TypeDecorator): # type: ignore
 	impl = types.TEXT
 	
 	def process_bind_param(self, value, dialect):

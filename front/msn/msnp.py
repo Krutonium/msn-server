@@ -1,7 +1,8 @@
 import io
-from typing import List
+from typing import List, Tuple, Any, Optional
 from urllib.parse import unquote
 
+from core.backend import Chat
 from core.session import Session, SessionState
 from core import event
 
@@ -9,7 +10,7 @@ from . import msg_ns, msg_sb
 from .misc import build_msnp_presence_notif
 
 class MSNPWriter:
-	def __init__(self, logger, sess_state: SessionState):
+	def __init__(self, logger, sess_state: SessionState) -> None:
 		self._logger = logger
 		self._buf = io.BytesIO()
 		self._sess_state = sess_state
@@ -38,7 +39,7 @@ class MSNPWriter:
 			chatid = outgoing_event.chatid
 			token = outgoing_event.token
 			caller = outgoing_event.caller
-			extra = ()
+			extra = () # type: Tuple[Any, ...]
 			dialect = self._sess_state.dialect
 			if dialect >= 13:
 				extra = ('U', 'messenger.hotmail.com')
@@ -130,7 +131,7 @@ class MSNPReader:
 		self._i += n
 		return self._data[i:e]
 
-def _msnp_try_decode(d, i) -> (List[str], int):
+def _msnp_try_decode(d, i) -> Tuple[List[Any], Optional[bytes], int]:
 	# Try to parse an MSNP message from buffer `d` starting at index `i`
 	# Returns (parsed message, end index)
 	e = d.find(b'\n', i)
@@ -157,10 +158,10 @@ def _msnp_encode(m: List[object], buf, logger) -> None:
 	if isinstance(m[-1], bytes):
 		data = m[-1]
 		m[-1] = len(data)
-	m = tuple(str(x).replace(' ', '%20') for x in m if x is not None)
-	_truncated_log(logger, '<<<', m)
+	mt = tuple(str(x).replace(' ', '%20') for x in m if x is not None)
+	_truncated_log(logger, '<<<', mt)
 	w = buf.write
-	w(' '.join(m).encode('utf-8'))
+	w(' '.join(mt).encode('utf-8'))
 	w(b'\r\n')
 	if data is not None:
 		w(data)
@@ -199,14 +200,15 @@ class MSNP_NS_SessState(MSNP_SessState):
 class MSNP_SB_SessState(MSNP_SessState):
 	def __init__(self, reader, backend):
 		super().__init__(reader, backend)
-		self.chat = None
+		self.chat = None # type: Optional[Chat]
 		self.pop_id = None
 	
 	def apply_incoming_event(self, incoming_event, sess) -> None:
 		msg_sb.apply(incoming_event, sess)
 	
 	def on_connection_lost(self, sess: Session) -> None:
-		self.chat.on_leave(sess)
+		if self.chat is not None:
+			self.chat.on_leave(sess)
 
 def _truncated_log(logger, pre, m):
 	if m[0] in ('UUX', 'MSG', 'ADL'):

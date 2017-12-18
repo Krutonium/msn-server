@@ -9,7 +9,7 @@ from util import hash
 from util.json_type import JSONType
 import settings
 
-class Base(declarative_base()):
+class Base(declarative_base()): # type: ignore
 	__abstract__ = True
 
 TYPE_ESCARGOT = 1
@@ -48,12 +48,12 @@ session_factory = sessionmaker(bind = engine)
 
 @contextmanager
 def Session():
-	if Session._depth > 0:
-		yield Session._global
+	if Session._depth > 0: # type: ignore
+		yield Session._global # type: ignore
 		return
 	session = session_factory()
-	Session._global = session
-	Session._depth += 1
+	Session._global = session # type: ignore
+	Session._depth += 1 # type: ignore
 	try:
 		yield session
 		session.commit()
@@ -62,7 +62,7 @@ def Session():
 		raise
 	finally:
 		session.close()
-		Session._global = None
-		Session._depth -= 1
-Session._global = None
-Session._depth = 0
+		Session._global = None # type: ignore
+		Session._depth -= 1 # type: ignore
+Session._global = None # type: ignore
+Session._depth = 0 # type: ignore

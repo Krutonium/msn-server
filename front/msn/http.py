@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
@@ -110,8 +111,9 @@ async def handle_http_gateway(req):
 		
 		logger = Logger('GW-{}'.format(server_type), session_id)
 		reader = MSNPReader(logger)
+		
 		if server_type == 'NS':
-			sess_state = MSNP_NS_SessState(reader, backend)
+			sess_state = MSNP_NS_SessState(reader, backend) # type: Any
 		else:
 			sess_state = MSNP_SB_SessState(reader, backend)
 		

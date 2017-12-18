@@ -1,3 +1,4 @@
+from typing import Dict, Any, Optional
 from datetime import datetime
 from contextlib import contextmanager
 import sqlalchemy as sa
@@ -12,10 +13,8 @@ import settings
 class Stats:
 	def __init__(self):
 		self.logged_in = 0
-		# Dict[DBClient.id, Dict[stat, stat value]]?
-		self.by_client = {}
-		# Dict[Client, DBClient.id]?
-		self._client_id_cache = None
+		self.by_client = {} # type: Dict[int, Dict[str, Any]]
+		self._client_id_cache = None # type: Optional[Dict[Client, int]]
 		
 		hour = _current_hour()
 		with Session() as sess:
@@ -90,9 +89,11 @@ class Stats:
 	
 	def _flush_to_hourly(self, sess, hour):
 		for client_id, stats in self.by_client.items():
-			hcs = sess.query(HourlyClientStats).filter(HourlyClientStats.hour == hour, HourlyClientStats.client_id == client_id).one_or_none()
-			if hcs is None:
+			hcs_opt = sess.query(HourlyClientStats).filter(HourlyClientStats.hour == hour, HourlyClientStats.client_id == client_id).one_or_none()
+			if hcs_opt is None:
 				hcs = HourlyClientStats(hour = hour, client_id = client_id)
+			else:
+				hcs = hcs_opt
 			hcs.messages_sent = stats.get('messages_sent') or 0
 			hcs.messages_received = stats.get('messages_received') or 0
 			if 'users_active' in stats:
@@ -150,7 +151,7 @@ def _current_hour():
 	ts = now.timestamp()
 	return ts // 3600
 
-class Base(declarative_base()):
+class Base(declarative_base()): # type: ignore
 	__abstract__ = True
 
 class DBClient(Base):
@@ -180,12 +181,12 @@ session_factory = sessionmaker(bind = engine)
 
 @contextmanager
 def Session():
-	if Session._depth > 0:
-		yield Session._global
+	if Session._depth > 0: # type: ignore
+		yield Session._global # type: ignore
 		return
 	session = session_factory()
-	Session._global = session
-	Session._depth += 1
+	Session._global = session # type: ignore
+	Session._depth += 1 # type: ignore
 	try:
 		yield session
 		session.commit()
@@ -194,7 +195,7 @@ def Session():
 		raise
 	finally:
 		session.close()
-		Session._global = None
-		Session._depth -= 1
-Session._global = None
-Session._depth = 0
+		Session._global = None # type: ignore
+		Session._depth -= 1 # type: ignore
+Session._global = None # type: ignore
+Session._depth = 0 # type: ignore

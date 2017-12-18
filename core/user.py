@@ -1,3 +1,4 @@
+from typing import Dict
 from datetime import datetime
 
 from db import Session, User as DBUser
@@ -7,8 +8,7 @@ from .models import User, Contact, UserStatus, UserDetail, Group
 
 class UserService:
 	def __init__(self):
-		# Dict[uuid, User]
-		self._cache_by_uuid = {}
+		self._cache_by_uuid = {} # type: Dict[str, User]
 	
 	def login(self, email, pwd):
 		with Session() as sess:

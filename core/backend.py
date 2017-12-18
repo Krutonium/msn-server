@@ -1,3 +1,4 @@
+from typing import Dict, List, Set, Any
 import asyncio, time
 from collections import defaultdict
 from enum import IntFlag
@@ -7,7 +8,8 @@ from util.misc import gen_uuid, EMPTY_SET, run_loop
 from .user import UserService
 from .auth import AuthService
 from .stats import Stats
-from .models import User, Group, Lst, Contact, UserStatus
+from .models import User, UserDetail, Group, Lst, Contact, UserStatus
+from .session import Session
 from . import error, event
 
 class Ack(IntFlag):
@@ -24,15 +26,12 @@ class Backend:
 		self._stats = Stats()
 		
 		self._sc = _SessionCollection()
-		# Dict[User.uuid, User]
-		self._user_by_uuid = {}
-		# Dict[User, UserDetail]
-		self._unsynced_db = {}
+		self._user_by_uuid = {} # type: Dict[str, User]
+		self._unsynced_db = {} # type: Dict[User, UserDetail]
 		
-		# Dict[chatid, Chat]
-		self._chats = {}
+		self._chats = {} # type: Dict[str, Chat]
 		
-		self._runners = []
+		self._runners = [] # type: List[Any]
 		
 		loop.create_task(self._sync_db())
 		loop.create_task(self._clean_sessions())
@@ -412,14 +411,10 @@ class Backend:
 
 class _SessionCollection:
 	def __init__(self):
-		# Set[Session]
-		self._sessions = set()
-		# Dict[User, Set[Session]]
-		self._sessions_by_user = defaultdict(set)
-		# Dict[str, Session]
-		self._sess_by_token = {}
-		# Dict[Session, Set[str]]
-		self._tokens_by_sess = defaultdict(set)
+		self._sessions = set() # type: Set[Session]
+		self._sessions_by_user = defaultdict(set) # type: Dict[User, Set[Session]]
+		self._sess_by_token = {} # type: Dict[str, Session]
+		self._tokens_by_sess = defaultdict(set) # type: Dict[Session, Set[str]]
 	
 	def get_sessions_by_user(self, user):
 		if user not in self._sessions_by_user:
@@ -454,8 +449,7 @@ class _SessionCollection:
 class Chat:
 	def __init__(self, stats):
 		self.id = gen_uuid()
-		# Dict[Session, User]
-		self._users_by_sess = {}
+		self._users_by_sess = {} # type: Dict[Session, User]
 		self._stats = stats
 	
 	def add_session(self, sess):

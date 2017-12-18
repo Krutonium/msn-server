@@ -1,3 +1,4 @@
+from typing import Tuple, Any
 from .misc import Err, MSNPHandlers
 
 _handlers = MSNPHandlers()
@@ -52,7 +53,7 @@ def _m_ans(sess, trid, arg, token, sessid):
 	# IRO trID 2 2 email@address.com;{xxxxxx-xxxx-xxxx-xxxxxxxxxx} status capabilities
 	l = len(roster)
 	for i, (sc, su) in enumerate(roster):
-		extra = ()
+		extra = () # type: Tuple[Any, ...]
 		if dialect >= 13:
 			extra = (sc.state.front_specific.get('msn_capabilities') or 0,)
 		sess.send_reply('IRO', trid, i + 1, l, su.email, su.status.name, *extra)

@@ -43,10 +43,11 @@ class ListenerYMSG(asyncio.Protocol):
 			email = kvs[1]
 			auth_dict = {1: email}
 			if version in (9, 10):
-			    auth_dict[94] = _generate_challenge_v1()
-			elif version in (11):
-			    auth_dict[94] = '' # Implement V2 challenge string generation later
-			    auth_dict[13] = 1
+				auth_dict[94] = _generate_challenge_v1()
+			elif version in (11,):
+				# Implement V2 challenge string generation later
+				auth_dict[94] = ''
+				auth_dict[13] = 1
 			msg = _encode_ymsg(YMSGService.Auth, status, session_id, auth_dict)
 			self.logger.info('<<<', msg)
 			self.transport.write(msg)
@@ -73,14 +74,14 @@ def _decode_ymsg(data):
 	return (version, vendor_id, service, status, session_id, kvs)
 
 def _encode_ymsg(service, status, session_id, kvs = None):
-	payload = []
+	payload_list = []
 	if kvs:
 		for k, v in kvs.items():
-			payload.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
-	payload = b''.join(payload)
+			payload_list.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
+	payload = b''.join(payload_list)
 	data = PRE
-	data += b'\x00\x00\x00\x00' # version number and vendor id are replaced with
-	                            # 0x00000000
+	# version number and vendor id are replaced with 0x00000000
+	data += b'\x00\x00\x00\x00'
 	data += struct.pack('!HHII', len(payload), service, status, session_id)
 	data += payload
 	return data
@@ -89,7 +90,8 @@ PRE = b'YMSG'
 SEP = b'\xC0\x80'
 
 def _generate_challenge_v1():
-    return Y64Encode(uuid4().bytes) #Yahoo64-encode the raw 16 bytes of a UUID
+	# Yahoo64-encode the raw 16 bytes of a UUID
+	return Y64Encode(uuid4().bytes)
 
 class YMSGService:
 	LogOn = 0x01

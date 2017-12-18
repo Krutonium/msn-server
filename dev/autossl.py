@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from pathlib import Path
 from functools import lru_cache
 
@@ -15,7 +16,7 @@ def create_context():
 	import ssl
 	ssl_context = ssl.create_default_context(purpose = ssl.Purpose.CLIENT_AUTH)
 	
-	cache = {}
+	cache = {} # type: Dict[str, Any]
 	def servername_callback(socket, domain, ssl_context):
 		if domain not in cache:
 			ctxt = ssl.create_default_context(purpose = ssl.Purpose.CLIENT_AUTH)
