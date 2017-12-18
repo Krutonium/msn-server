@@ -1,4 +1,5 @@
 from hashlib import md5
+from uuid import uuid4
 
 from db import Session, UserYahoo as DBUser_Yahoo
 from .yahoo_lib.Y64 import Y64Encode
@@ -22,7 +23,7 @@ STRING_ORDER = (
 	(CHALLENGE, PASSWORD, USERNAME)
 )
 
-def _generate_challenge_v1():
+def generate_challenge_v1():
 	# Yahoo64-encode the raw 16 bytes of a UUID
 	return Y64Encode(uuid4().bytes)
 
