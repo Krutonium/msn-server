@@ -1,10 +1,10 @@
 import asyncio
 import struct
-from uuid import uuid4
 
 from core.session import PersistentSession
 from util.misc import Logger
 from .yahoo_lib.Y64 import Y64Encode
+from .challenge import generate_challenge_v1, verify_challenge_v1
 
 def register(loop, backend):
 	from util.misc import ProtocolRunner
@@ -17,6 +17,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.backend = backend
 		self.transport = None
 		self.logger = None
+		self.challenge
 	
 	def connection_made(self, transport):
 		self.transport = transport
@@ -27,6 +28,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.logger.log_disconnect()
 		self.logger = None
 		self.transport = None
+		self.challenge = None
 	
 	def data_received(self, data):
 		self.logger.info('>>>', data)
@@ -43,7 +45,8 @@ class ListenerYMSG(asyncio.Protocol):
 			email = kvs[1]
 			auth_dict = {1: email}
 			if version in (9, 10):
-				auth_dict[94] = _generate_challenge_v1()
+			    self.challenge = generate_challenge_v1()
+				auth_dict[94] = self.challenge
 			elif version in (11,):
 				# Implement V2 challenge string generation later
 				auth_dict[94] = ''
@@ -53,6 +56,19 @@ class ListenerYMSG(asyncio.Protocol):
 			self.transport.write(msg)
 			return
 		if service == YMSGService.AuthResp:
+		    session_id = 1239999999
+		    email = kvs[0]
+		    if kvs[1] != email and kvs[2] != "1":
+                print('auth_resp failed')
+                self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
+		        self.transport.close()
+		    resp_6 = kvs[6]
+		    resp_96 = kvs[96]
+		    if version in (9, 10):
+		        is_resp_correct = verify_challenge_v1(email, self.challenge)
+		        if is_resp_correct:
+		            # Implement friends/cookies packet later
+            
 			print(kvs)
 			print("session_id", session_id)
 		
@@ -88,10 +104,6 @@ def _encode_ymsg(service, status, session_id, kvs = None):
 
 PRE = b'YMSG'
 SEP = b'\xC0\x80'
-
-def _generate_challenge_v1():
-	# Yahoo64-encode the raw 16 bytes of a UUID
-	return Y64Encode(uuid4().bytes)
 
 class YMSGService:
 	LogOn = 0x01
