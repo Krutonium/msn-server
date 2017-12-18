@@ -14,6 +14,7 @@ class Base(declarative_base()): # type: ignore
 
 TYPE_ESCARGOT = 1
 TYPE_LIVE = 2
+TYPE_YAHOO = 3
 
 class User(Base):
 	__tablename__ = 't_user'
@@ -29,6 +30,28 @@ class User(Base):
 	message = sa.Column(sa.String, nullable = False)
 	password = sa.Column(sa.String, nullable = False)
 	password_md5 = sa.Column(sa.String, nullable = False)
+	settings = sa.Column(JSONType, nullable = False)
+	groups = sa.Column(JSONType, nullable = False)
+	contacts = sa.Column(JSONType, nullable = False)
+
+# Create seperate table for Yahoo! Messenger users to avoid conflict with MSN user table
+
+class UserYahoo(Base):
+	__tablename__ = 't_user_ymsgr'
+	
+	id = sa.Column(sa.Integer, nullable = False, primary_key = True)
+	type = sa.Column(sa.Integer, nullable = False, default = TYPE_YAHOO)
+	date_created = sa.Column(sa.DateTime, nullable = True, default = datetime.utcnow)
+	date_login = sa.Column(sa.DateTime, nullable = True)
+	uuid = sa.Column(sa.String, nullable = False, unique = True)
+	email = sa.Column(sa.String, nullable = False, unique = True)
+	verified = sa.Column(sa.Boolean, nullable = False)
+	name = sa.Column(sa.String, nullable = False)
+	message = sa.Column(sa.String, nullable = False)
+	# Currently Escargot only supports MD5 and MD5Crypt-based Yahoo! clients. Ignore for now.
+	# password = sa.Column(sa.String, nullable = False)
+	password_md5 = sa.Column(sa.String, nullable = False)
+	password_md5crypt = sa.Column(sa.String, nullable = False)
 	settings = sa.Column(JSONType, nullable = False)
 	groups = sa.Column(JSONType, nullable = False)
 	contacts = sa.Column(JSONType, nullable = False)
