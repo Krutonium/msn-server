@@ -17,8 +17,8 @@ class ListenerYMSG(asyncio.Protocol):
 		self.backend = backend
 		self.transport = None
 		self.logger = None
-		self.challenge
-	
+		self.challenge = None
+    
 	def connection_made(self, transport):
 		self.transport = transport
 		self.logger = Logger(self.logger_prefix, transport)
@@ -46,7 +46,7 @@ class ListenerYMSG(asyncio.Protocol):
 			auth_dict = {1: email}
 			if version in (9, 10):
 			    self.challenge = generate_challenge_v1()
-				auth_dict[94] = self.challenge
+			    auth_dict[94] = self.challenge
 			elif version in (11,):
 				# Implement V2 challenge string generation later
 				auth_dict[94] = ''
@@ -61,7 +61,7 @@ class ListenerYMSG(asyncio.Protocol):
 		    if kvs[1] != email and kvs[2] != "1":
                 print('auth_resp failed')
                 self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
-		        self.transport.close()
+                self.transport.close()
 		    resp_6 = kvs[6]
 		    resp_96 = kvs[96]
 		    if version in (9, 10):
