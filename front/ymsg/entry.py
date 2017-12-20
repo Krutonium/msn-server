@@ -59,9 +59,9 @@ class ListenerYMSG(asyncio.Protocol):
 		    session_id = 1239999999
 		    email = kvs[0]
 		    if kvs[1] != email and kvs[2] != "1":
-                print('auth_resp failed')
-                self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
-                self.transport.close()
+		        print('auth_resp failed')
+		        self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
+		        self.transport.close()
 		    resp_6 = kvs[6]
 		    resp_96 = kvs[96]
 		    if version in (9, 10):
