@@ -6,7 +6,9 @@ from .yahoo_lib.Y64 import Y64Encode
 
 # V1 challenge definitions
 
-CHECKSUM_POS = [7, 9, 15, 1, 3, 7, 9, 15]
+CHECKSUM_POS = (
+    7, 9, 15, 1, 3, 7, 9, 15
+)
 
 USERNAME = 0
 PASSWORD = 1
@@ -38,7 +40,7 @@ def verify_challenge_v1(user_y, chal, resp_6, resp_96):
 	        dbuser = sess.query(DBUser_Yahoo).filter(DBUser_Yahoo.email == email).one_or_none()
 	        if dbuser is None: return False
 	        # Retreive Yahoo64-encoded MD5 hash of the user's password from the database
-	        # NOTE: The MD5 hash of the is literally unsalted. Good grief, Yahoo!
+	        # NOTE: The MD5 hash of the password is literally unsalted. Good grief, Yahoo!
 	        pass_md5 = dbuser.password_md5
 	        # Retreive MD5-crypt(3)'d hash of the user's password from the database
 	        pass_md5crypt = dbuser.password_md5crypt
@@ -57,7 +59,7 @@ def verify_challenge_v1(user_y, chal, resp_6, resp_96):
 	
 	resp96_md5 = md5()
 	resp96_md5.update(CHECKSUM)
-	resp96_md5.update(chal_combine(user_y, pass_hashes[1], chal, mode))
+	resp96_md5.update(_chal_combine(user_y, pass_hashes[1], chal, mode))
 	resp_96_server = Y64Encode(resp96_md5.digest())
 	
 	# TODO: Only the first response string generated on the server side is correct for some odd reason; either YMSG10's response function is slightly modified or something is wrong.
@@ -72,6 +74,6 @@ def _chal_combine(username, passwd, chal, mode):
 	cred_arr = [username, passwd, chal]
 	
 	for i in range(0, 2):
-		out += cred_arr[CHALLENGE_CONST_VARS.STRING_ORDER[mode][i]]
+		out += cred_arr[STRING_ORDER[mode][i]]
 	
 	return out
