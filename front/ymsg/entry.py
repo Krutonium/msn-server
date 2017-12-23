@@ -2,7 +2,6 @@ import asyncio
 import struct
 from uuid import uuid4
 
-from core.session import PersistentSession
 from util.misc import Logger
 from .yahoo_lib.Y64 import Y64Encode
 

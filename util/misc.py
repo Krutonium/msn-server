@@ -1,25 +1,28 @@
-from typing import FrozenSet, Any
+from typing import FrozenSet, Any, Iterable, Optional, TypeVar
+from abc import ABCMeta, abstractmethod
 import asyncio
 import functools
+import traceback
 from uuid import uuid4
 
 EMPTY_SET = frozenset() # type: FrozenSet[Any]
 
-def gen_uuid():
+def gen_uuid() -> str:
 	return str(uuid4())
 
-def first_in_iterable(iterable):
+T = TypeVar('T')
+def first_in_iterable(iterable: Iterable[T]) -> Optional[T]:
 	for x in iterable: return x
 	return None
 
-class Runner:
-	def __init__(self, host, port, *, ssl = None):
+class Runner(metaclass = ABCMeta):
+	def __init__(self, host: str, port: int, *, ssl = None) -> None:
 		self.host = host
 		self.port = port
 		self.ssl_context = ssl
 	
-	def setup(self, loop):
-		raise NotImplementedError('Runner.setup')
+	@abstractmethod
+	def setup(self, loop): pass
 	
 	def teardown(self, loop):
 		pass
@@ -52,22 +55,25 @@ class AIOHTTPRunner(Runner):
 		loop.run_until_complete(self.app.cleanup())
 
 class Logger:
-	def __init__(self, prefix, obj):
+	def __init__(self, prefix: str, obj: object) -> None:
 		import settings
 		self.prefix = '{}/{:04x}'.format(prefix, hash(obj) % 0xFFFF)
 		self._log = settings.DEBUG and settings.DEBUG_MSNP
 	
-	def info(self, *args):
+	def info(self, *args) -> None:
 		if self._log:
 			print(self.prefix, *args)
 	
-	def log_connect(self):
+	def error(self, exc) -> None:
+		traceback.print_tb(exc.__traceback__)
+	
+	def log_connect(self) -> None:
 		self.info("con")
 	
-	def log_disconnect(self):
+	def log_disconnect(self) -> None:
 		self.info("dis")
 
-def run_loop(loop, runners):
+def run_loop(loop, runners) -> None:
 	for runner in runners:
 		print("Serving on {}:{}".format(runner.host, runner.port))
 	

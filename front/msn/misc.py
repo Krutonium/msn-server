@@ -1,28 +1,12 @@
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Iterable
 from urllib.parse import quote
 from util.misc import first_in_iterable
 
 from core import error
+from core.backend import Backend
+from core.models import Contact
 
-class MSNPHandlers:
-	def __init__(self):
-		self._map = { 'OUT': _m_out }
-	
-	def apply(self, msg, sess):
-		handler = self._map.get(msg[0])
-		if handler:
-			handler(sess, *msg[1:])
-	
-	def __call__(self, f):
-		msg = f.__name__[3:].upper()
-		assert len(msg) == 3, "All MSNP command names are 3 characters long"
-		self._map[msg] = f
-
-def _m_out(sess):
-	sess.send_reply('OUT')
-	sess.close()
-
-def build_msnp_presence_notif(trid, ctc, dialect, backend):
+def build_msnp_presence_notif(trid: Optional[str], ctc: Contact, dialect: int, backend: Backend) -> Iterable[Tuple[Any, ...]]:
 	status = ctc.status
 	is_offlineish = status.is_offlineish()
 	if is_offlineish and trid is not None:
@@ -44,10 +28,12 @@ def build_msnp_presence_notif(trid, ctc, dialect, backend):
 	else: frst = ('NLN',)
 	rst = []
 	ctc_sess = first_in_iterable(backend.util_get_sessions_by_user(head))
+	assert ctc_sess is not None
+	
 	if dialect >= 8:
-		rst.append(ctc_sess.state.front_specific.get('msn_capabilities') or 0)
+		rst.append(ctc_sess.front_data.get('msn_capabilities') or 0)
 	if dialect >= 9:
-		rst.append(encode_msnobj(ctc_sess.state.front_specific.get('msn_msnobj') or '<msnobj/>'))
+		rst.append(encode_msnobj(ctc_sess.front_data.get('msn_msnobj') or '<msnobj/>'))
 	
 	if dialect >= 18:
 		yield (*frst, status.substatus.name, encode_email_networkid(head.email, networkid), status.name, *rst)
@@ -106,6 +92,8 @@ class Err:
 			return cls.InvalidUser
 		if isinstance(exc, error.ContactNotOnline):
 			return cls.PrincipalNotOnline
+		if isinstance(exc, error.AuthFail):
+			return cls.AuthFail
 		raise ValueError("Exception not convertible to MSNP error") from exc
 
 class NetworkID:

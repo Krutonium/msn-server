@@ -52,15 +52,13 @@ def create_app(backend):
 	
 	# Sound
 	from . import http_sound
-	app.router.add_get('/esnd/snd/builtin', http_sound.builtin)
-	app.router.add_get('/esnd/snd/check', http_sound.check)
-	app.router.add_get('/esnd/snd/get', http_sound.get)
-	app.router.add_get('/esnd/snd/random', http_sound.random)
-	app.router.add_post('/esnd/snd/put', http_sound.put)
+	http_sound.register(app)
+	
+	# Gateway
+	from . import http_gateway
+	http_gateway.register(app)
 	
 	# Misc
-	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)
-	app.router.add_post('/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	
@@ -84,60 +82,6 @@ async def on_response_prepare(req, res):
 		print("}")
 	else:
 		print("body {}")
-
-async def handle_http_gateway(req):
-	if req.method == 'OPTIONS':
-		return web.Response(status = 200, headers = {
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'POST',
-			'Access-Control-Allow-Headers': 'Content-Type',
-			'Access-Control-Expose-Headers': 'X-MSN-Messenger',
-			'Access-Control-Max-Age': '86400',
-		})
-	
-	from util.misc import Logger
-	from core.session import PollingSession
-	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState, MSNPReader, MSNPWriter
-	
-	query = req.query
-	session_id = query.get('SessionID')
-	backend = req.app['backend']
-	
-	if not session_id:
-		# Create new PollingSession
-		server_type = query.get('Server')
-		server_ip = query.get('IP')
-		session_id = util.misc.gen_uuid()
-		
-		logger = Logger('GW-{}'.format(server_type), session_id)
-		reader = MSNPReader(logger)
-		
-		if server_type == 'NS':
-			sess_state = MSNP_NS_SessState(reader, backend) # type: Any
-		else:
-			sess_state = MSNP_SB_SessState(reader, backend)
-		
-		sess = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
-		backend.util_set_sess_token(sess, ('msn-gw', session_id))
-	sess = backend.util_get_sess_by_token(('msn-gw', session_id))
-	if not sess or sess.closed:
-		return web.Response(status = 400, text = '')
-	
-	sess.on_connect(req.transport)
-	
-	# Read incoming messages
-	sess.state.data_received(await req.read(), sess)
-	
-	# Write outgoing messages
-	body = sess.on_disconnect()
-	
-	return web.Response(headers = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Methods': 'POST',
-		'Access-Control-Expose-Headers': 'X-MSN-Messenger',
-		'X-MSN-Messenger': 'SessionID={}; GW-IP={}'.format(session_id, sess.hostname),
-		'Content-Type': 'application/x-msn-messenger',
-	}, body = body)
 
 async def handle_debug(req):
 	return render(req, 'debug.html')

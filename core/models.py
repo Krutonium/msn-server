@@ -1,7 +1,9 @@
-from typing import Dict
+from typing import Dict, Optional
 from enum import Enum, IntFlag
 
 class User:
+	detail: Optional['UserDetail']
+	
 	def __init__(self, uuid, email, verified, status, date_created):
 		self.uuid = uuid
 		self.email = email
