@@ -1,7 +1,6 @@
 import asyncio
 import struct
 
-from core.session import PersistentSession
 from util.misc import Logger
 from .yahoo_lib.Y64 import Y64Encode
 from .challenge import generate_challenge_v1, verify_challenge_v1

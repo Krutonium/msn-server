@@ -1,43 +1,48 @@
-class OutgoingEvent:
-	pass
+from typing import TYPE_CHECKING, Callable
+from abc import ABCMeta, abstractmethod
+from .models import User, Contact, Lst
 
-class PresenceNotificationEvent(OutgoingEvent):
-	def __init__(self, contact):
-		self.contact = contact
+if TYPE_CHECKING:
+	from .backend import Chat, ChatSession
 
-class AddedToListEvent(OutgoingEvent):
-	def __init__(self, lst, user):
-		self.lst = lst
-		self.user = user
+class BackendEventHandler(metaclass = ABCMeta):
+	__slots__ = ()
+	
+	def on_open(self) -> None:
+		pass
+	
+	def on_close(self) -> None:
+		pass
+	
+	@abstractmethod
+	def on_presence_notification(self, contact: Contact) -> None: pass
+	
+	@abstractmethod
+	def on_chat_invite(self, chat: 'Chat', inviter: User) -> None: pass
+	
+	@abstractmethod
+	def on_added_to_list(self, lst: Lst, user: User) -> None: pass
+	
+	@abstractmethod
+	def on_pop_boot(self) -> None: pass
+	
+	@abstractmethod
+	def on_pop_notify(self) -> None: pass
 
-class InvitedToChatEvent(OutgoingEvent):
-	def __init__(self, chatid, token, caller):
-		self.chatid = chatid
-		self.token = token
-		self.caller = caller
-
-class ChatParticipantJoined(OutgoingEvent):
-	def __init__(self, sess):
-		self.sess = sess
-
-class ChatParticipantLeft(OutgoingEvent):
-	def __init__(self, user):
-		self.user = user
-
-class ChatMessage(OutgoingEvent):
-	def __init__(self, user_sender, data):
-		self.user_sender = user_sender
-		self.data = data
-
-class ReplyEvent(OutgoingEvent):
-	def __init__(self, data):
-		self.data = data
-
-class POPBootEvent(OutgoingEvent):
-	pass
-
-class POPNotifyEvent(OutgoingEvent):
-	pass
-
-class CloseEvent(OutgoingEvent):
-	pass
+class ChatEventHandler(metaclass = ABCMeta):
+	__slots__ = ()
+	
+	def on_open(self) -> None:
+		pass
+	
+	def on_close(self) -> None:
+		pass
+	
+	@abstractmethod
+	def on_participant_joined(self, cs_other: 'ChatSession') -> None: pass
+	
+	@abstractmethod
+	def on_participant_left(self, cs_other: 'ChatSession') -> None: pass
+	
+	@abstractmethod
+	def on_message(self, sender: User, data: bytes) -> None: pass

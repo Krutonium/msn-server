@@ -27,3 +27,6 @@ class UserDoesNotExist(ClientError):
 
 class ContactNotOnline(ClientError):
 	pass
+
+class AuthFail(ClientError):
+	pass

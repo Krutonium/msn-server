@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
@@ -6,19 +6,21 @@ import secrets
 import base64
 import os
 import time
+import asyncio
 from markupsafe import Markup
 from aiohttp import web
 
 import settings
 from core import models
+from core.backend import Backend
 import util.misc
 
 LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
 PP = 'Passport1.4 '
 
-def create_app(backend):
-	app = web.Application()
+def create_app(loop: asyncio.AbstractEventLoop, backend: Backend) -> Any:
+	app = web.Application(loop = loop)
 	app['backend'] = backend
 	app['jinja_env'] = util.misc.create_jinja_env(TMPL_DIR, {
 		'date_format': _date_format,
@@ -52,15 +54,13 @@ def create_app(backend):
 	
 	# Sound
 	from . import http_sound
-	app.router.add_get('/esnd/snd/builtin', http_sound.builtin)
-	app.router.add_get('/esnd/snd/check', http_sound.check)
-	app.router.add_get('/esnd/snd/get', http_sound.get)
-	app.router.add_get('/esnd/snd/random', http_sound.random)
-	app.router.add_post('/esnd/snd/put', http_sound.put)
+	http_sound.register(app)
+	
+	# Gateway
+	from . import http_gateway
+	http_gateway.register(loop, app)
 	
 	# Misc
-	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway)
-	app.router.add_post('/gateway/gateway.dll', handle_http_gateway)
 	app.router.add_get('/etc/debug', handle_debug)
 	app.router.add_route('*', '/{path:.*}', handle_other)
 	
@@ -84,60 +84,6 @@ async def on_response_prepare(req, res):
 		print("}")
 	else:
 		print("body {}")
-
-async def handle_http_gateway(req):
-	if req.method == 'OPTIONS':
-		return web.Response(status = 200, headers = {
-			'Access-Control-Allow-Origin': '*',
-			'Access-Control-Allow-Methods': 'POST',
-			'Access-Control-Allow-Headers': 'Content-Type',
-			'Access-Control-Expose-Headers': 'X-MSN-Messenger',
-			'Access-Control-Max-Age': '86400',
-		})
-	
-	from util.misc import Logger
-	from core.session import PollingSession
-	from .msnp import MSNP_NS_SessState, MSNP_SB_SessState, MSNPReader, MSNPWriter
-	
-	query = req.query
-	session_id = query.get('SessionID')
-	backend = req.app['backend']
-	
-	if not session_id:
-		# Create new PollingSession
-		server_type = query.get('Server')
-		server_ip = query.get('IP')
-		session_id = util.misc.gen_uuid()
-		
-		logger = Logger('GW-{}'.format(server_type), session_id)
-		reader = MSNPReader(logger)
-		
-		if server_type == 'NS':
-			sess_state = MSNP_NS_SessState(reader, backend) # type: Any
-		else:
-			sess_state = MSNP_SB_SessState(reader, backend)
-		
-		sess = PollingSession(sess_state, logger, MSNPWriter(logger, sess_state), server_ip)
-		backend.util_set_sess_token(sess, ('msn-gw', session_id))
-	sess = backend.util_get_sess_by_token(('msn-gw', session_id))
-	if not sess or sess.closed:
-		return web.Response(status = 400, text = '')
-	
-	sess.on_connect(req.transport)
-	
-	# Read incoming messages
-	sess.state.data_received(await req.read(), sess)
-	
-	# Write outgoing messages
-	body = sess.on_disconnect()
-	
-	return web.Response(headers = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Methods': 'POST',
-		'Access-Control-Expose-Headers': 'X-MSN-Messenger',
-		'X-MSN-Messenger': 'SessionID={}; GW-IP={}'.format(session_id, sess.hostname),
-		'Content-Type': 'application/x-msn-messenger',
-	}, body = body)
 
 async def handle_debug(req):
 	return render(req, 'debug.html')
@@ -549,8 +495,11 @@ def _extract_pp_credentials(auth_str):
 	pwd = auth['pwd']
 	return email, pwd
 
-def _login(req, email, pwd):
-	return req.app['backend'].login_twn_start(email, pwd)
+def _login(req, email: str, pwd: str) -> Optional[str]:
+	backend = req.app['backend'] # type: Backend
+	uuid = backend.user_service.login(email, pwd)
+	if uuid is None: return None
+	return backend.auth_service.create_token('nb/login', uuid)
 
 async def handle_other(req):
 	if settings.DEBUG:

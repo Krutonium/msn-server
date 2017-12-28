@@ -18,6 +18,13 @@ from random import randrange
 
 from db import Sound, Session
 
+def register(app):
+	app.router.add_get('/esnd/snd/builtin', builtin)
+	app.router.add_get('/esnd/snd/check', check)
+	app.router.add_get('/esnd/snd/get', get)
+	app.router.add_get('/esnd/snd/random', random)
+	app.router.add_post('/esnd/snd/put', put)
+
 PATH_BUILTINS = path.join('storage', 'sound', 'builtins')
 PATH_USERS = path.join('storage', 'sound', 'users')
 
