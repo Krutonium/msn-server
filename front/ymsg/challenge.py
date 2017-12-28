@@ -7,7 +7,7 @@ from .yahoo_lib.Y64 import Y64Encode
 # V1 challenge definitions
 
 CHECKSUM_POS = (
-    7, 9, 15, 1, 3, 7, 9, 15
+	7, 9, 15, 1, 3, 7, 9, 15
 )
 
 USERNAME = 0
@@ -31,19 +31,19 @@ def generate_challenge_v1():
 
 def verify_challenge_v1(user_y, chal, resp_6, resp_96):
 	# Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
-	if user.find('@') == -1:
-	    email = user_y + '@yahoo.com'
+	if user_y.find('@') == -1:
+		email = user_y + '@yahoo.com'
 	else:
-	    email = user_y
-	
-	    with Session() as sess:
-	        dbuser = sess.query(DBUser_Yahoo).filter(DBUser_Yahoo.email == email).one_or_none()
-	        if dbuser is None: return False
-	        # Retreive Yahoo64-encoded MD5 hash of the user's password from the database
-	        # NOTE: The MD5 hash of the password is literally unsalted. Good grief, Yahoo!
-	        pass_md5 = dbuser.password_md5
-	        # Retreive MD5-crypt(3)'d hash of the user's password from the database
-	        pass_md5crypt = dbuser.password_md5crypt
+		email = user_y
+		
+		with Session() as sess:
+			dbuser = sess.query(DBUser_Yahoo).filter(DBUser_Yahoo.email == email).one_or_none()
+			if dbuser is None: return False
+			# Retreive Yahoo64-encoded MD5 hash of the user's password from the database
+			# NOTE: The MD5 hash of the password is literally unsalted. Good grief, Yahoo!
+			pass_md5 = dbuser.password_md5
+			# Retreive MD5-crypt(3)'d hash of the user's password from the database
+			pass_md5crypt = dbuser.password_md5crypt
 	
 	pass_hashes = [pass_md5, Y64Encode(md5(pass_md5crypt.encode()).digest())]
 	
