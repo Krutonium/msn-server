@@ -41,6 +41,10 @@ class MSNPCtrlNS(MSNPCtrl):
 		self.syn_ser = 0
 		self.iln_sent = False
 	
+	def _on_close(self) -> None:
+		if self.bs:
+			self.bs.close()
+	
 	# State = Auth
 	
 	def _m_ver(self, trid, *args) -> None:
@@ -85,7 +89,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				return
 			if stage == 'I':
 				email = args[0]
-				salt = backend.login_md5_get_salt(email)
+				salt = backend.user_service.get_md5_salt(email)
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
@@ -98,7 +102,9 @@ class MSNPCtrlNS(MSNPCtrl):
 				md5_hash = args[0]
 				usr_email = self.usr_email
 				assert usr_email is not None
-				self.bs = backend.login_md5_verify(usr_email, md5_hash, self.client, BackendEventHandler(self))
+				uuid = backend.user_service.login_md5(usr_email, md5_hash)
+				if uuid is not None:
+					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
 				self._util_usr_final(trid, None)
 				return
 		
@@ -123,7 +129,9 @@ class MSNPCtrlNS(MSNPCtrl):
 					token = token[2:22]
 				usr_email = self.usr_email
 				assert usr_email is not None
-				self.bs = backend.login_twn_verify(usr_email, token, self.client, BackendEventHandler(self))
+				uuid = backend.auth_service.pop_token('nb/login', token)
+				if uuid is not None:
+					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
 				self._util_usr_final(trid, token)
 				return
 		
@@ -137,7 +145,7 @@ class MSNPCtrlNS(MSNPCtrl):
 			return
 		
 		if token:
-			bs.set_token(token)
+			self.backend.util_set_sess_token(bs, token)
 		
 		dialect = self.dialect
 		
@@ -163,7 +171,7 @@ class MSNPCtrlNS(MSNPCtrl):
 			return
 		
 		(high, low) = _uuid_to_high_low(user.uuid)
-		(ip, port) = bs.get_peername()
+		(ip, port) = self.peername
 		now = datetime.utcnow()
 		
 		if dialect == 21:
@@ -281,7 +289,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		mg = elm.find('MachineGuid')
 		if mg:
-			self.pop_id = str(mg)[1:-1]
+			bs.front_data['msn_pop_id'] = str(mg)[1:-1]
 		
 		self.send_reply('UUX', trid, 0)
 	
@@ -402,6 +410,9 @@ class MSNPCtrlNS(MSNPCtrl):
 		else:
 			#>>> REM 248 AL bob1@hotmail.com
 			contact_uuid = self.backend.util_get_uuid_from_email(usr)
+		if contact_uuid is None:
+			self.send_reply(Err.InvalidPrincipal, trid)
+			return
 		try:
 			if group_id:
 				bs.me_group_contact_remove(group_id, contact_uuid)
@@ -515,12 +526,6 @@ class MSNPCtrlNS(MSNPCtrl):
 	def _m_uun(self, trid, email, arg0, data) -> None:
 		self.send_reply('UUN', trid, 'OK')
 	
-	def _m_out(self):
-		self.send_reply('OUT')
-		bs = self.bs
-		if bs is not None:
-			bs.close()
-	
 	def _ser(self) -> Optional[int]:
 		if self.dialect >= 10:
 			return None
@@ -567,7 +572,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		pass
 	
 	def on_close(self) -> None:
-		self.ctrl.send_reply('OUT')
+		self.ctrl.close()
 
 def _encode_payload(tmpl, **kwargs):
 	return tmpl.format(**kwargs).replace('\n', '\r\n').encode('utf-8')

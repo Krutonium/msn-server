@@ -1,23 +1,33 @@
 import io
-from typing import List, Tuple, Any, Optional
+from abc import ABCMeta, abstractmethod
+import asyncio
+from typing import List, Tuple, Any, Optional, Callable
 from urllib.parse import unquote
 
 from util.misc import Logger
 from .misc import build_msnp_presence_notif
 
-class MSNPCtrl:
-	__slots__ = ('logger', 'reader', 'writer')
+class MSNPCtrl(metaclass = ABCMeta):
+	__slots__ = ('logger', 'reader', 'writer', 'peername', 'closed', 'close_callback', 'transport')
 	
 	logger: Logger
 	reader: 'MSNPReader'
 	writer: 'MSNPWriter'
+	peername: Tuple[str, int]
+	close_callback: Optional[Callable[[], None]]
+	closed: bool
+	transport: Optional[asyncio.WriteTransport]
 	
 	def __init__(self, logger: Logger) -> None:
 		self.logger = logger
 		self.reader = MSNPReader(logger)
 		self.writer = MSNPWriter(logger)
+		self.peername = ('0.0.0.0', 1863)
+		self.closed = False
+		self.close_callback = None
 	
-	def data_received(self, data: bytes) -> None:
+	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
+		self.peername = transport.get_extra_info('peername')
 		for m in self.reader.data_received(data):
 			try:
 				f = getattr(self, '_m_{}'.format(m[0].lower()))
@@ -25,11 +35,28 @@ class MSNPCtrl:
 			except Exception as ex:
 				self.logger.error(ex)
 	
-	def send_reply(self, *m):
+	def send_reply(self, *m) -> None:
 		self.writer.write(m)
+		transport = self.transport
+		if transport is not None:
+			transport.write(self.flush())
 	
-	def flush(self):
+	def flush(self) -> bytes:
 		return self.writer.flush()
+	
+	def _m_out(self) -> None:
+		self.close()
+	
+	def close(self) -> None:
+		if self.closed: return
+		self.closed = True
+		self.send_reply('OUT')
+		if self.close_callback:
+			self.close_callback()
+		self._on_close()
+	
+	@abstractmethod
+	def _on_close(self) -> None: pass
 
 class MSNPWriter:
 	def __init__(self, logger) -> None:

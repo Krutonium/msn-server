@@ -9,8 +9,10 @@ CLIENT = Client('testbot', '0.1')
 BOT_EMAIL = 'test@bot.log1p.xyz'
 
 def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
+	uuid = backend.util_get_uuid_from_email(BOT_EMAIL)
+	assert uuid is not None
 	evt = BackendEventHandler()
-	bs = backend.login_IKWIAD(BOT_EMAIL, CLIENT, evt)
+	bs = backend.login(uuid, CLIENT, evt)
 	assert bs is not None
 	evt.bs = bs
 
@@ -30,6 +32,9 @@ class BackendEventHandler(event.BackendEventHandler):
 		
 		self.bs.me_update({ 'substatus': Substatus.NLN })
 		uuid = self.bs.backend.util_get_uuid_from_email('test1@example.com')
+		if uuid is None:
+			return
+		
 		if uuid not in detail.contacts:
 			self.bs.me_contact_add(uuid, Lst.FL, "Test 1")
 			self.bs.me_contact_add(uuid, Lst.AL, "Test 1")

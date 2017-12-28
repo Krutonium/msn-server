@@ -1,4 +1,5 @@
 from typing import Dict, List, Set, Any, Tuple, Optional, Sequence, FrozenSet, Iterable
+from abc import ABCMeta, abstractmethod
 import asyncio, time
 from collections import defaultdict
 from enum import IntFlag
@@ -19,16 +20,15 @@ class Ack(IntFlag):
 	Full = 3
 
 class Backend:
-	__slots__ = ()
+	__slots__ = ('user_service', 'auth_service', '_loop', '_stats', '_sc', '_user_by_uuid', '_unsynced_db', '_runners')
 	
 	user_service: UserService
 	auth_service: AuthService
 	_loop: asyncio.AbstractEventLoop
 	_stats: Stats
-	_sc: _SessionCollection
+	_sc: '_SessionCollection'
 	_user_by_uuid: Dict[str, User]
 	_unsynced_db: Dict[User, UserDetail]
-	_chats: Dict[str, Chat]
 	_runners: List[Runner]
 	
 	def __init__(self, loop: asyncio.AbstractEventLoop, *, user_service: Optional[UserService] = None, auth_service: Optional[AuthService] = None) -> None:
@@ -39,7 +39,6 @@ class Backend:
 		self._sc = _SessionCollection()
 		self._user_by_uuid = {}
 		self._unsynced_db = {}
-		self._chats = {}
 		self._runners = []
 		
 		loop.create_task(self._sync_db())
@@ -65,36 +64,16 @@ class Backend:
 		self._sync_contact_statuses()
 		self._generic_notify(sess)
 	
-	def login_md5_get_salt(self, email: str) -> Optional[str]:
-		return self.user_service.get_md5_salt(email)
-	
-	def login_md5_verify(self, email: str, md5_hash: str, client: Client, evt: event.BackendEventHandler) -> Optional['BackendSession']:
-		uuid = self.user_service.login_md5(email, md5_hash)
-		return self._login_common(uuid, email, client, evt)
-	
-	def login_twn_start(self, email: str, password: str) -> Optional[str]:
-		uuid = self.user_service.login(email, password)
-		if uuid is None: return None
-		return self.auth_service.create_token('nb/login', uuid)
-	
-	def login_twn_verify(self, email: str, token: str, client: Client, evt: event.BackendEventHandler) -> Optional['BackendSession']:
-		uuid = self.auth_service.pop_token('nb/login', token)
-		return self._login_common(uuid, email, client, evt)
-	
-	def login_IKWIAD(self, email: str, client: Client, evt: event.BackendEventHandler) -> Optional['BackendSession']:
-		uuid = self.util_get_uuid_from_email(email)
-		return self._login_common(uuid, email, client, evt)
-	
-	def _login_common(self, uuid: Optional[str], email: str, client: Client, evt: event.BackendEventHandler) -> Optional['BackendSession']:
-		if uuid is None: return None
+	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler) -> Optional['BackendSession']:
 		user = self._load_user_record(uuid)
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
-		bs = BackendSession(self, user, evt)
+		bs = BackendSession(self, user, client, evt)
 		self._stats.on_login()
 		self._stats.on_user_active(user, client)
 		self._sc.add_session(bs)
 		user.detail = self._load_detail(user)
+		bs.evt.on_open()
 		return bs
 	
 	def _load_user_record(self, uuid: str) -> Optional[User]:
@@ -108,7 +87,7 @@ class Backend:
 		if user.detail: return user.detail
 		return self.user_service.get_detail(user.uuid)
 	
-	def chat_create(self) -> Chat:
+	def chat_create(self) -> 'Chat':
 		return Chat(self._stats)
 	
 	def _generic_notify(self, bs: 'BackendSession') -> None:
@@ -180,8 +159,6 @@ class Backend:
 				for sess in self._sc.iter_sessions():
 					if sess.closed:
 						closed.append(sess)
-						continue
-					# TODO: Close sessions that time out
 			except Exception:
 				import traceback
 				traceback.print_exc()
@@ -198,21 +175,48 @@ class Backend:
 				import traceback
 				traceback.print_exc()
 
-class BackendSession:
-	__slots__ = ('backend', 'user', 'evt', 'front_data')
+class Session(metaclass = ABCMeta):
+	__slots__ = ('closed',)
+	
+	closed: bool
+	
+	def __init__(self) -> None:
+		self.closed = False
+	
+	def close(self) -> None:
+		if self.closed:
+			return
+		self.closed = True
+		self._on_close()
+	
+	@abstractmethod
+	def _on_close(self) -> None: pass
+
+class BackendSession(Session):
+	__slots__ = ('backend', 'user', 'client', 'evt', 'front_data')
 	
 	backend: Backend
 	user: User
+	client: Client
 	evt: event.BackendEventHandler
 	front_data: Dict[str, Any]
 	
-	def __init__(self, backend: Backend, user: User, evt: event.BackendEventHandler) -> None:
+	def __init__(self, backend: Backend, user: User, client: Client, evt: event.BackendEventHandler) -> None:
+		super().__init__()
 		self.backend = backend
 		self.user = user
+		self.client = client
 		self.evt = evt
+		self.front_data = {}
 	
-	def me_update(self, fields):
+	def _on_close(self) -> None:
+		self.evt.on_close()
+		self.backend.on_leave(self)
+	
+	def me_update(self, fields: Dict[str, Any]) -> None:
 		user = self.user
+		detail = user.detail
+		assert detail is not None
 		
 		if 'message' in fields:
 			user.status.message = fields['message']
@@ -221,9 +225,9 @@ class BackendSession:
 		if 'name' in fields:
 			user.status.name = fields['name']
 		if 'gtc' in fields:
-			user.detail.settings['gtc'] = fields['gtc']
+			detail.settings['gtc'] = fields['gtc']
 		if 'blp' in fields:
-			user.detail.settings['blp'] = fields['blp']
+			detail.settings['blp'] = fields['blp']
 		if 'substatus' in fields:
 			user.status.substatus = fields['substatus']
 		
@@ -231,44 +235,51 @@ class BackendSession:
 		self.backend._sync_contact_statuses()
 		self.backend._generic_notify(self)
 	
-	def me_group_add(self, name, *, is_favorite = None):
+	def me_group_add(self, name: str, *, is_favorite: Optional[bool] = None) -> Group:
 		if len(name) > MAX_GROUP_NAME_LENGTH:
 			raise error.GroupNameTooLong()
 		user = self.user
-		group = Group(_gen_group_id(user.detail), name, is_favorite = is_favorite)
-		user.detail.groups[group.id] = group
+		detail = user.detail
+		assert detail is not None
+		group = Group(_gen_group_id(detail), name, is_favorite = is_favorite)
+		detail.groups[group.id] = group
 		self.backend._mark_modified(user)
 		return group
 	
-	def me_group_remove(self, group_id):
+	def me_group_remove(self, group_id: str) -> None:
 		if group_id == '0':
 			raise error.CannotRemoveSpecialGroup()
 		user = self.user
+		detail = user.detail
+		assert detail is not None
 		try:
-			del user.detail.groups[group_id]
+			del detail.groups[group_id]
 		except KeyError:
 			raise error.GroupDoesNotExist()
-		for ctc in user.detail.contacts.values():
+		for ctc in detail.contacts.values():
 			ctc.groups.discard(group_id)
 		self.backend._mark_modified(user)
 	
-	def me_group_edit(self, group_id, new_name, *, is_favorite = None):
+	def me_group_edit(self, group_id: str, new_name: str, *, is_favorite: Optional[bool] = None) -> None:
 		user = self.user
-		g = user.detail.groups.get(group_id)
+		detail = user.detail
+		assert detail is not None
+		g = detail.groups.get(group_id)
 		if g is None:
 			raise error.GroupDoesNotExist()
 		if new_name is not None:
 			if len(new_name) > MAX_GROUP_NAME_LENGTH:
 				raise error.GroupNameTooLong()
-			g.new_name = new_name
+			g.name = new_name
 		if is_favorite is not None:
 			g.is_favorite = is_favorite
 		self.backend._mark_modified(user)
 	
-	def me_group_contact_add(self, group_id, contact_uuid):
+	def me_group_contact_add(self, group_id: str, contact_uuid: str) -> None:
 		if group_id == '0': return
 		user = self.user
 		detail = user.detail
+		assert detail is not None
 		if group_id not in detail.groups:
 			raise error.GroupDoesNotExist()
 		ctc = detail.contacts.get(contact_uuid)
@@ -279,9 +290,10 @@ class BackendSession:
 		ctc.groups.add(group_id)
 		self.backend._mark_modified(user)
 	
-	def me_group_contact_remove(self, group_id, contact_uuid):
+	def me_group_contact_remove(self, group_id: str, contact_uuid: str) -> None:
 		user = self.user
 		detail = user.detail
+		assert detail is not None
 		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
@@ -294,8 +306,8 @@ class BackendSession:
 				raise error.ContactNotOnList()
 		self.backend._mark_modified(user)
 	
-	def me_contact_add(self, contact_uuid, lst, name):
-		ctc_head = self._load_user_record(contact_uuid)
+	def me_contact_add(self, contact_uuid: str, lst: Lst, name: Optional[str]) -> Tuple[Contact, User]:
+		ctc_head = self.backend._load_user_record(contact_uuid)
 		if ctc_head is None:
 			raise error.UserDoesNotExist()
 		user = self.user
@@ -308,25 +320,29 @@ class BackendSession:
 		self.backend._generic_notify(self)
 		return ctc, ctc_head
 	
-	def _notify_reverse_add(self, user_added):
+	def _notify_reverse_add(self, user_added: User) -> None:
 		user_adder = self.user
 		# `user_added` was added to `user_adder`'s RL
 		for sess_added in self.backend._sc.get_sessions_by_user(user_added):
 			if sess_added == self: continue
 			sess_added.evt.on_added_to_list(Lst.RL, user_adder)
 	
-	def me_contact_edit(self, contact_uuid, *, is_messenger_user = None):
+	def me_contact_edit(self, contact_uuid: str, *, is_messenger_user: Optional[bool] = None) -> None:
 		user = self.user
-		ctc = user.detail.contacts.get(contact_uuid)
+		detail = user.detail
+		assert detail is not None
+		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
 		if is_messenger_user is not None:
 			ctc.is_messenger_user = is_messenger_user
 		self.backend._mark_modified(user)
 	
-	def me_contact_remove(self, contact_uuid, lst):
+	def me_contact_remove(self, contact_uuid: str, lst: Lst) -> None:
 		user = self.user
-		ctc = user.detail.contacts.get(contact_uuid)
+		detail = user.detail
+		assert detail is not None
+		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
 		if lst is Lst.FL:
@@ -340,20 +356,20 @@ class BackendSession:
 		self.backend._mark_modified(user)
 		self.backend._sync_contact_statuses()
 	
-	def _add_to_list(self, user, ctc_head, lst, name):
+	def _add_to_list(self, user: User, ctc_head: User, lst: Lst, name: Optional[str]) -> Contact:
 		# Add `ctc_head` to `user`'s `lst`
 		detail = self.backend._load_detail(user)
 		contacts = detail.contacts
 		if ctc_head.uuid not in contacts:
 			contacts[ctc_head.uuid] = Contact(ctc_head, set(), 0, UserStatus(name))
-		ctc = contacts.get(ctc_head.uuid)
+		ctc = contacts[ctc_head.uuid]
 		if ctc.status.name is None:
 			ctc.status.name = name
 		ctc.lists |= lst
 		self.backend._mark_modified(user, detail = detail)
 		return ctc
 	
-	def _remove_from_list(self, user, ctc_head, lst):
+	def _remove_from_list(self, user: User, ctc_head: User, lst: Lst) -> None:
 		# Remove `ctc_head` from `user`'s `lst`
 		detail = self.backend._load_detail(user)
 		contacts = detail.contacts
@@ -364,13 +380,13 @@ class BackendSession:
 			del contacts[ctc_head.uuid]
 		self.backend._mark_modified(user, detail = detail)
 	
-	def me_pop_boot_others(self):
+	def me_pop_boot_others(self) -> None:
 		for sess_other in self.backend._sc.get_sessions_by_user(self.user):
 			if self is sess_other: continue
 			sess_other.evt.on_pop_boot()
 	
-	def me_pop_notify_others(self):
-		for sess_other in self._sc.get_sessions_by_user(self.user):
+	def me_pop_notify_others(self) -> None:
+		for sess_other in self.backend.util_get_sessions_by_user(self.user):
 			if self is sess_other: continue
 			sess_other.evt.on_pop_notify()
 
@@ -412,21 +428,33 @@ class _SessionCollection:
 			self._sessions_by_user[sess.user].discard(sess)
 
 class Chat:
+	__slots__ = ('id', '_users_by_sess', '_stats')
+	
+	id: str
+	_users_by_sess: Dict['ChatSession', User]
+	_stats: Any
+	
 	def __init__(self, stats: Any) -> None:
+		super().__init__()
 		self.id = gen_uuid()
-		self._users_by_sess = {} # type: Dict[ChatSession, User]
+		self._users_by_sess = {}
 		self._stats = stats
 	
-	def join(self, bs: BackendSession, evt: event.ChatEventHandler) -> ChatSession:
+	def join(self, bs: BackendSession, evt: event.ChatEventHandler) -> 'ChatSession':
 		cs = ChatSession(bs, self, evt)
 		self._users_by_sess[cs] = cs.user
+		cs.evt.on_open()
 		return cs
 	
 	def add_session(self, sess: 'ChatSession') -> None:
 		self._users_by_sess[sess] = sess.user
 	
-	def get_roster(self) -> Iterable[ChatSession]:
+	def get_roster(self) -> Iterable['ChatSession']:
 		return self._users_by_sess.keys()
+	
+	def send_participant_joined(self, cs: 'ChatSession') -> None:
+		for cs_other in self.get_roster():
+			cs_other.evt.on_participant_joined(cs)
 	
 	def on_leave(self, sess: 'ChatSession') -> None:
 		su = self._users_by_sess.pop(sess, None)
@@ -436,7 +464,7 @@ class Chat:
 			if sess1 is sess: continue
 			sess1.evt.on_participant_left(sess)
 
-class ChatSession:
+class ChatSession(Session):
 	__slots__ = ('user', 'chat', 'bs', 'evt')
 	
 	user: User
@@ -445,17 +473,22 @@ class ChatSession:
 	evt: event.ChatEventHandler
 	
 	def __init__(self, bs: BackendSession, chat: Chat, evt: event.ChatEventHandler) -> None:
+		super().__init__()
 		self.user = bs.user
 		self.chat = chat
 		self.bs = bs
 		self.evt = evt
+	
+	def _on_close(self) -> None:
+		self.evt.on_close()
+		self.chat.on_leave(self)
 	
 	def invite(self, invitee_uuid: str) -> None:
 		detail = self.user.detail
 		assert detail is not None
 		ctc = detail.contacts.get(invitee_uuid)
 		if ctc is None:
-			if self.user.uuid == invitee_uuid: raise error.ContactDoesNotExist()
+			if self.user.uuid != invitee_uuid: raise error.ContactDoesNotExist()
 			invitee = self.user
 		else:
 			if ctc.status.is_offlineish(): raise error.ContactNotOnline()
@@ -476,10 +509,6 @@ class ChatSession:
 			if cs_other is self: continue
 			cs_other.evt.on_message(self.user, data)
 			stats.on_message_received(cs_other.user, client)
-	
-	def send_participant_joined(self, sess):
-		for sc, _ in self.get_roster(self):
-			sc.evt.on_participant_joined(sess)
 
 def _gen_group_id(detail: UserDetail) -> str:
 	id = 1

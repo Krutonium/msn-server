@@ -65,7 +65,7 @@ class Logger:
 			print(self.prefix, *args)
 	
 	def error(self, exc) -> None:
-		traceback.print_tb(exc.__traceback__)
+		traceback.print_exception(type(exc), exc, exc.__traceback__)
 	
 	def log_connect(self) -> None:
 		self.info("con")

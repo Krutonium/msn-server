@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Callable
 import asyncio
 
 from core.backend import Backend
@@ -21,11 +21,11 @@ def register(loop, backend, *, http_port = None, devmode = False):
 	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 1863, ListenerMSNP, args = ['NS', backend, MSNPCtrlNS]))
 	backend.add_runner(ProtocolRunner('0.0.0.0', 1864, ListenerMSNP, args = ['SB', backend, MSNPCtrlSB]))
-	backend.add_runner(AIOHTTPRunner(http_host, http_port, create_app(backend)))
+	backend.add_runner(AIOHTTPRunner(http_host, http_port, create_app(loop, backend)))
 	if devmode:
 		from dev import autossl
 		ssl_context = autossl.create_context()
-		backend.add_runner(AIOHTTPRunner(http_host, 443, create_app(backend), ssl = ssl_context))
+		backend.add_runner(AIOHTTPRunner(http_host, 443, create_app(loop, backend), ssl = ssl_context))
 
 class ListenerMSNP(asyncio.Protocol):
 	logger: Logger
@@ -33,11 +33,12 @@ class ListenerMSNP(asyncio.Protocol):
 	controller: MSNPCtrl
 	transport: Optional[asyncio.WriteTransport]
 	
-	def __init__(self, logger_prefix: str, backend: Backend, controller: MSNPCtrl) -> None:
+	def __init__(self, logger_prefix: str, backend: Backend, controller_factory: Callable[[Logger, str, Backend], MSNPCtrl]) -> None:
 		super().__init__()
 		self.logger = Logger(logger_prefix, self)
 		self.backend = backend
-		self.controller = controller
+		self.controller = controller_factory(self.logger, 'direct', backend)
+		self.controller.close_callback = self._on_close
 		self.transport = None
 	
 	def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -46,12 +47,19 @@ class ListenerMSNP(asyncio.Protocol):
 		self.logger.log_connect()
 	
 	def connection_lost(self, exc: Exception) -> None:
+		self.controller.close()
 		self.logger.log_disconnect()
 		self.transport = None
 	
 	def data_received(self, data: bytes) -> None:
-		controller = self.controller
 		transport = self.transport
 		assert transport is not None
-		controller.data_received(data)
-		transport.write(controller.flush())
+		# Setting `transport` to None so all data is held until the flush
+		self.controller.transport = None
+		self.controller.data_received(transport, data)
+		transport.write(self.controller.flush())
+		self.controller.transport = transport
+	
+	def _on_close(self) -> None:
+		if self.transport is None: return
+		self.transport.close()

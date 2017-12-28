@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
@@ -6,19 +6,21 @@ import secrets
 import base64
 import os
 import time
+import asyncio
 from markupsafe import Markup
 from aiohttp import web
 
 import settings
 from core import models
+from core.backend import Backend
 import util.misc
 
 LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
 PP = 'Passport1.4 '
 
-def create_app(backend):
-	app = web.Application()
+def create_app(loop: asyncio.AbstractEventLoop, backend: Backend) -> Any:
+	app = web.Application(loop = loop)
 	app['backend'] = backend
 	app['jinja_env'] = util.misc.create_jinja_env(TMPL_DIR, {
 		'date_format': _date_format,
@@ -56,7 +58,7 @@ def create_app(backend):
 	
 	# Gateway
 	from . import http_gateway
-	http_gateway.register(app)
+	http_gateway.register(loop, app)
 	
 	# Misc
 	app.router.add_get('/etc/debug', handle_debug)
@@ -493,8 +495,11 @@ def _extract_pp_credentials(auth_str):
 	pwd = auth['pwd']
 	return email, pwd
 
-def _login(req, email, pwd):
-	return req.app['backend'].login_twn_start(email, pwd)
+def _login(req, email: str, pwd: str) -> Optional[str]:
+	backend = req.app['backend'] # type: Backend
+	uuid = backend.user_service.login(email, pwd)
+	if uuid is None: return None
+	return backend.auth_service.create_token('nb/login', uuid)
 
 async def handle_other(req):
 	if settings.DEBUG:

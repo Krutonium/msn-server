@@ -18,7 +18,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def on_presence_notification(self, contact: Contact) -> None: pass
 	
 	@abstractmethod
-	def on_chat_invite(self, chat: Chat, inviter: User) -> None: pass
+	def on_chat_invite(self, chat: 'Chat', inviter: User) -> None: pass
 	
 	@abstractmethod
 	def on_added_to_list(self, lst: Lst, user: User) -> None: pass

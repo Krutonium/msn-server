@@ -91,7 +91,7 @@ class Lst(IntFlag):
 	
 	# TODO: This is ugly.
 	def __init__(self, id):
-		super().__init__(id)
+		super().__init__()
 		if id == 0x01:
 			self.label = "Follow"
 		elif id == 0x02:

@@ -2,7 +2,7 @@ from typing import Tuple, Any, Optional, List, Set
 
 from util.misc import Logger
 from core.models import User
-from core.backend import Backend, BackendSession, ChatSession
+from core.backend import Backend, BackendSession, ChatSession, Chat
 from core import event, error
 from .misc import Err
 from .msnp import MSNPCtrl
@@ -15,12 +15,16 @@ class MSNPCtrlSB(MSNPCtrl):
 	bs: Optional[BackendSession]
 	cs: Optional[ChatSession]
 	
-	def __init__(self, logger: Logger, backend: Backend) -> None:
+	def __init__(self, logger: Logger, via: str, backend: Backend) -> None:
 		super().__init__(logger)
 		self.backend = backend
 		self.dialect = 0
 		self.bs = None
 		self.cs = None
+	
+	def _on_close(self) -> None:
+		if self.cs:
+			self.cs.close()
 	
 	# State = Auth
 	
@@ -29,7 +33,7 @@ class MSNPCtrlSB(MSNPCtrl):
 		#>>> USR trid email@example.com;{00000000-0000-0000-0000-000000000000} token (MSNP >= 18)
 		(email, pop_id) = _decode_email_pop(arg)
 		
-		data = self.backend.auth_service.pop_token('sb/xfr', token)
+		data = self.backend.auth_service.pop_token('sb/xfr', token) # type: Optional[Tuple[BackendSession, int]]
 		if data is None:
 			self.send_reply(Err.AuthFail, trid)
 			return
@@ -48,9 +52,9 @@ class MSNPCtrlSB(MSNPCtrl):
 	def _m_ans(self, trid, arg, token, sessid) -> None:
 		#>>> ANS trid email@example.com token sessionid (MSNP < 18)
 		#>>> ANS trid email@example.com;{00000000-0000-0000-0000-000000000000} token sessionid (MSNP >= 18)
-		(email, pop_id) = _decode_email_pop(arg)
+		(email, _) = _decode_email_pop(arg)
 		
-		data = self.backend.auth_service.pop_token('sb/cal', token)
+		data = self.backend.auth_service.pop_token('sb/cal', token) # type: Optional[Tuple[BackendSession, int, Chat]]
 		if data is None:
 			self.send_reply(Err.AuthFail, trid)
 			return
@@ -64,11 +68,13 @@ class MSNPCtrlSB(MSNPCtrl):
 		self.bs = bs
 		self.cs = cs
 		
-		roster_chatsessions = list(chat.get_roster())
+		chat.send_participant_joined(cs)
+		
+		roster_chatsessions = list(chat.get_roster()) # type: List[ChatSession]
 		
 		if dialect < 18:
 			roster_one_per_user = [] # type: List[ChatSession]
-			seen_users = set() # type: Set[User]
+			seen_users = { self.cs.user } # type: Set[User]
 			for other_cs in roster_chatsessions:
 				if other_cs.user in seen_users:
 					continue
@@ -82,14 +88,20 @@ class MSNPCtrlSB(MSNPCtrl):
 					extra = (other_cs.bs.front_data.get('msn_capabilities') or 0,)
 				self.send_reply('IRO', trid, i + 1, l, other_user.email, other_user.status.name, *extra)
 		else:
-			l = 2 * len(roster_chatsessions)
-			for i, other_cs in enumerate(roster_chatsessions):
+			tmp = [] # type: List[Tuple[ChatSession, Optional[str]]]
+			for other_cs in roster_chatsessions:
+				tmp.append((other_cs, None))
+				pop_id = other_cs.bs.front_data.get('msn_pop_id')
+				if pop_id:
+					tmp.append((other_cs, pop_id))
+			l = len(tmp)
+			for i, (other_cs, pop_id) in enumerate(tmp):
 				other_user = other_cs.user
 				capabilities = other_cs.bs.front_data.get('msn_capabilities') or 0
-				pop_id = other_cs.bs.front_data.get('msn_pop_id')
-				self.send_reply('IRO', trid, 2*i + 1, l, other_user.email, other_user.status.name, capabilities)
-				# TODO: What if this user doesn't have pop_id (< MSNP18)?
-				self.send_reply('IRO', trid, 2*i + 2, l, '{};{}'.format(other_user.email, pop_id), other_user.status.name, capabilities)
+				email = other_user.email
+				if pop_id:
+					email = '{};{}'.format(email, pop_id)
+				self.send_reply('IRO', trid, i + 1, l, other_user.email, other_user.status.name, capabilities)
 		
 		self.send_reply('ANS', trid, 'OK')
 	
@@ -128,12 +140,6 @@ class MSNPCtrlSB(MSNPCtrl):
 			self.send_reply('NAK', trid)
 		elif ack != 'N': # AD
 			self.send_reply('ACK', trid)
-	
-	def _m_out(self):
-		self.send_reply('OUT')
-		cs = self.cs
-		if cs is not None:
-			cs.close()
 
 class ChatEventHandler(event.ChatEventHandler):
 	__slots__ = ('ctrl',)
@@ -171,7 +177,7 @@ class ChatEventHandler(event.ChatEventHandler):
 		self.ctrl.send_reply('MSG', sender.email, sender.status.name, data)
 	
 	def on_close(self):
-		self.ctrl.send_reply('OUT')
+		self.ctrl.close()
 
 def _decode_email_pop(s: str) -> Tuple[str, Optional[str]]:
 	# Split `foo@email.com;{uuid}` into (email, pop_id)
