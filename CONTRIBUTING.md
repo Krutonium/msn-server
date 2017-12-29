@@ -18,6 +18,7 @@
 - for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
 - for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
 	```
+	127.0.0.1 m1.escargot.log1p.xyz
 	127.0.0.1 messenger.hotmail.com
 	127.0.0.1 gateway.messenger.hotmail.com
 	127.0.0.1 byrdr.omega.contacts.msn.com
@@ -26,7 +27,7 @@
 	127.0.0.1 ows.messenger.msn.com
 	127.0.0.1 rsi.hotmail.com
 	```
-- run `python dev`
+- run `python dev` to start the dev server
 
 The **first time** you run `python dev`, a root certificate `DO_NOT_TRUST_DevEscargotRoot.crt` is created in `dev/cert`,
 it tells you to install it, and exits. To install (on Windows):
@@ -50,6 +51,10 @@ if you're testing those versions. It's located:
 All generated certificates expire after 30 days for "security" purposes (i.e. I didn't
 set it to a long period of time so as to not open anyone up to... vulnerabilities...
 if they forget to uninstall the root certificate).
+
+## mypy
+
+Take advantage of [mypy](https://mypy-lang.org) by adding type annotations. Run `mypy dev` to typecheck.
 
 ## Testing
 
