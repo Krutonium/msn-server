@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import asyncio, time
 from collections import defaultdict
 from enum import IntFlag
+from hashlib import md5
 
 from util.misc import gen_uuid, EMPTY_SET, run_loop, Runner
 
@@ -12,6 +13,7 @@ from .stats import Stats
 from .client import Client
 from .models import User, UserDetail, Group, Lst, Contact, UserStatus
 from . import error, event
+from .Y64 import Y64Encode
 
 class Ack(IntFlag):
 	Zero = 0
@@ -174,6 +176,52 @@ class Backend:
 			except Exception:
 				import traceback
 				traceback.print_exc()
+	
+	# Yahoo-specific functions
+	
+	def generate_challenge_v1():
+	    # Yahoo64-encode the raw 16 bytes of a UUID
+	    return Y64Encode(uuid4().bytes)
+    
+    def verify_challenge_v1(user_y, chal, resp_6, resp_96):
+	    # Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
+	    if user_y.find('@') == -1:
+		    email = user_y + '@yahoo.com'
+	    else:
+		    email = user_y
+		    
+		    with Session() as sess:
+			    dbuser = sess.query(DBUser_Yahoo).filter(DBUser_Yahoo.email == email).one_or_none()
+			    if dbuser is None: return False
+			    # Retreive Yahoo64-encoded MD5 hash of the user's password from the database
+			    # NOTE: The MD5 hash of the password is literally unsalted. Good grief, Yahoo!
+			    pass_md5 = dbuser.password_md5
+			    # Retreive MD5-crypt(3)'d hash of the user's password from the database
+			    pass_md5crypt = dbuser.password_md5crypt
+	    
+	    pass_hashes = [pass_md5, Y64Encode(md5(pass_md5crypt.encode()).digest())]
+	    
+	    mode = ord(chal[15]) % 8
+	    
+	    # Note that the "checksum" is not a static character
+	    CHECKSUM = chal[ord(chal[CHECKSUM_POS[mode]]) % 16]
+	    
+	    resp6_md5 = md5()
+	    resp6_md5.update(CHECKSUM)
+	    resp6_md5.update(_chal_combine(user_y, pass_hashes[0], chal, mode))
+	    resp_6_server = Y64Encode(resp6_md5.digest())
+	    
+	    resp96_md5 = md5()
+	    resp96_md5.update(CHECKSUM)
+	    resp96_md5.update(_chal_combine(user_y, pass_hashes[1], chal, mode))
+	    resp_96_server = Y64Encode(resp96_md5.digest())
+	    
+	    # TODO: Only the first response string generated on the server side is correct for some odd reason; either YMSG10's response function is slightly modified or something is wrong.
+	    
+	    if resp_6 == resp_6_server or resp_96 == resp_6_server:
+		    return True
+	    else:
+		    return False
 
 class Session(metaclass = ABCMeta):
 	__slots__ = ('closed',)
@@ -517,5 +565,16 @@ def _gen_group_id(detail: UserDetail) -> str:
 		id += 1
 		s = str(id)
 	return s
+
+# Yahoo-specific functions
+
+def _chal_combine(username, passwd, chal, mode):
+	out = ''
+	cred_arr = [username, passwd, chal]
+	
+	for i in range(0, 2):
+		out += cred_arr[STRING_ORDER[mode][i]]
+	
+	return out
 
 MAX_GROUP_NAME_LENGTH = 61
