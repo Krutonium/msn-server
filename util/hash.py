@@ -79,6 +79,15 @@ class MD5PasswordHasher(Hasher):
 		return (md5.digest(),)
 	
 	@classmethod
+	def extract_hash(cls, encoded):
+	    # This function is specifically for Yahoo!
+	    try:
+		    (_, hash) = encoded.split(cls.separator)
+		except ValueError:
+		    return False
+		return hash
+	
+	@classmethod
 	def verify_hash(cls, hash_1, encoded):
 	    try:
 	        (_, _, hash) = encoded.split(cls.separator)
