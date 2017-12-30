@@ -1,7 +1,7 @@
 from typing import Dict
 from datetime import datetime
 
-from db import Session, User as DBUser
+from db import Session, User as DBUser, UserYahoo as DBUserYahoo
 from util.hash import hasher, hasher_md5
 
 from .models import User, Contact, UserStatus, UserDetail, Group
@@ -23,6 +23,12 @@ class UserService:
 			if dbuser is None: return None
 			if not hasher_md5.verify_hash(md5_hash, dbuser.password_md5): return None
 			return dbuser.uuid
+	
+	def get_md5_password_yahoo(self, email):
+	    with Session() as sess:
+	        dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.email == email).one_or_none()
+	        if dbuser is None: return None
+	        return dbuser.password_md5
 	
 	def get_md5_salt(self, email):
 		with Session() as sess:
