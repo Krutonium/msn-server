@@ -21,6 +21,14 @@ class Hasher:
 		return cls.separator.join([cls.algorithm] + other_stuff + [salt, hash])
 	
 	@classmethod
+	def encode_unsalted(cls, password, *stuff):
+	    # This function is specifically for Yahoo!
+		assert password is not None
+		(hash, *other_stuff) = cls._encode_impl_unsalted(password, *stuff)
+		hash = base64.b64encode(hash).decode('ascii').strip()
+		return cls.separator.join([cls.algorithm] + other_stuff + [hash])
+	
+	@classmethod
 	def extract_salt(cls, encoded):
 		try: (*_, salt, _) = encoded.split(cls.separator)
 		except ValueError: return None
@@ -64,9 +72,22 @@ class MD5PasswordHasher(Hasher):
 		return (md5.digest(),)
 	
 	@classmethod
+	def _encode_impl_unsalted(cls, password):
+	    # This function is specifically for Yahoo!
+		md5 = hashlib.md5()
+		md5.update(password.encode('utf-8'))
+		return (md5.digest(),)
+	
+	@classmethod
 	def verify_hash(cls, hash_1, encoded):
-		try: (_, _, hash) = encoded.split(cls.separator)
-		except ValueError: return False
+	    try:
+	        (_, _, hash) = encoded.split(cls.separator)
+		except ValueError:
+		    # This is for unsalted Yahoo! hashes
+		    try:
+		        (_, hash) = encoded.split(cls.separator)
+		    except ValueError:
+		        return False
 		hash = binascii.hexlify(base64.b64decode(hash)).decode('ascii')
 		return secrets.compare_digest(hash_1, hash)
 Hasher._HASHERS[MD5PasswordHasher.algorithm] = MD5PasswordHasher
