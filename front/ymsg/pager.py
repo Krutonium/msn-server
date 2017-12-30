@@ -6,6 +6,7 @@ from core import event
 from core.backend import Backend, BackendSession, Chat
 from core.models import Substatus, Lst, User, Contact
 from core.client import Client
+from core.yahoo.YCS import YahooSessionClearing
 
 from .ymsg import YMSGCtrlBase
 
@@ -26,6 +27,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	init_client_id: int
 	challenge: Optional[str]
 	bs: Optional[BackendSession]
+	sc: Optional[YahooSessionClearing]
 	client: Client
 	syn_ser: int
 	iln_sent: bool
@@ -39,6 +41,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.init_client_id = 0
 		self.challenge = None
 		self.bs = None
+		self.sc = None
 		self.client = Client('yahoo', '?', via)
 		self.syn_ser = 0
 		self.iln_sent = False
@@ -54,5 +57,19 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	def _y_0057(self, *args):
 	    self.usr_email = args[4][1]
+	    # Generate a 64-bit session ID within a range if 10000000-99999999
 	    # Keep session ID in variable until login is complete; then transfer to Backend Session
 	    self.sess_id = secrets.randbelow(89999999) + 10000000
+	    self.sc = YahooSessionClearing(str(self.sess_id), self.usr_email)
+	    
+	    auth_dict = {1: self.usr_email}
+	    if self.dialect in (9, 10):
+	        self.challenge = backend.generate_challenge_v1()
+	        auth_dict[94] = self.challenge
+	    elif self.dialect in (11,):
+	        # Implement V2 challenge string generation later
+	        auth_dict[94] = ''
+	        auth_dict[13] = '1'
+	    
+	    self.send_reply(YMSGService.Auth, 1, self.sess_id, auth_dict)
+	    
