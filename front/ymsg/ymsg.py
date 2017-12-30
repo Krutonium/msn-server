@@ -92,10 +92,8 @@ class YMSGDecoder:
                 print("ERR _ymsg_read", self._data)
                 raise
         
-        y = [service]
-        z = [version, vendor_id, status, session_id, kvs]
-        y.append(z)
-        return y
+        y = [service, version, vendor_id, status, session_id, kvs]
+        return list(y)
 
 def _decode_ymsg(data) -> Tuple[int, int, int, int, int, Dict[int, Optional[str]]]:
     assert data[:4] == PRE
