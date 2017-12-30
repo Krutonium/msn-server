@@ -30,17 +30,18 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
-		y = self.decoder.data_received(data)
 		
-		# Escargot's MSN and Yahoo functions have similar name structures
-		# MSN: "_m_CMD"
-		# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]
-		
-		try:
-			f = getattr(self, '_y_{}'.format(binascii.hexlify(struct.pack('!H', y[2])).decode()))
-			f(*y[3:])
-		except Exception as ex:
-			self.logger.error(ex)
+		for y in self.decoder.data_received(data):
+		    
+		    # Escargot's MSN and Yahoo functions have similar name structures
+		    # MSN: "_m_CMD"
+		    # Yahoo: "_y_[hex version of service; a bit nicer than using the service number]
+		    
+		    try:
+			    f = getattr(self, '_y_{}'.format(binascii.hexlify(struct.pack('!H', y[0])).decode())
+			    f(*y[1:])
+		    except Exception as ex:
+			    self.logger.error(ex)
 	
 	def send_reply(self, *y) -> None:
 		self.encoder.write(y)
@@ -75,26 +76,36 @@ class YMSGDecoder:
         else:
             self._data = data
         while self._data:
-            try:
-                if self._decode_ymsg(self._data) is None:
-                    break
-                else:
-                    (version, vendor_id, service, status, session_id, kvs) = self._decode_ymsg(self._data)
-                
-                yield (version, vendor_id, service, status, session_id, kvs)
+            y = self._ymsg_read()
+            if y is None: break
+            yield y
     
-    def _decode_ymsg(self, data):
-        assert data[:4] == PRE
-        assert len(data) >= 20
-        header = data[4:20]
-        payload = data[20:]
-        (version, vendor_id, pkt_len, service, status, session_id) = struct.unpack('!BxHHHII', header)
-        assert len(payload) == pkt_len
-        parts = payload.split(SEP)
-        kvs = {}
-        for i in range(1, len(parts), 2):
-            kvs[int(parts[i-1])] = parts[i].decode('utf-8')
-        return (version, vendor_id, service, status, session_id, kvs)
+    def _ymsg_read(self):
+        try:
+            (version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(self._data)
+        except AssertionError:
+            return None
+        except Exception:
+                print("ERR _ymsg_read", self._data)
+                raise
+        
+        y = [service]
+        z = [version, vendor_id, status, session_id, kvs]
+        y.append(z)
+        return y
+
+def _decode_ymsg(data):
+    assert data[:4] == PRE
+    assert len(data) >= 20
+    header = data[4:20]
+    payload = data[20:]
+    (version, vendor_id, pkt_len, service, status, session_id) = struct.unpack('!BxHHHII', header)
+    assert len(payload) == pkt_len
+    parts = payload.split(SEP)
+    kvs = {}
+    for i in range(1, len(parts), 2):
+        kvs[int(parts[i-1])] = parts[i].decode('utf-8')
+    return (version, vendor_id, service, status, session_id, kvs)
 
 class YMSGEncoder:
     def __init__(self, logger):
