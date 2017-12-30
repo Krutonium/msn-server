@@ -2,7 +2,6 @@
 http://web.archive.org/web/20010801212305/http://www.venkydude.com:80/articles/yahoo.htm (Archive of http://www.venkydude.com/articles/yahoo.htm from 2001)
 
 --- YMSG9/10 ---
-
 http://libyahoo2.sourceforge.net/ymsg-9.txt (YMSG9)
 http://www.engr.mun.ca/~sircar/ymsg9.htm (YMSG9)
 http://web.archive.org/web/20020806213426/http://www.venkydude.com:80/articles/yahoo.htm (YMSG9, Archive of http://www.venkydude.com/articles/yahoo.htm from 2002)
