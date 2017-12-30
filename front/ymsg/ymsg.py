@@ -117,7 +117,7 @@ class YMSGEncoder:
     
     def encode(self, y):
         y = list(y)
-        # y = List[version, vendor_id, service, status, session_id, kvs]
+        # y = List[service, status, session_id, kvs]
         
         w = self._buf.write
         w(PRE)
@@ -125,14 +125,14 @@ class YMSGEncoder:
         w(b'\x00\x00\x00\x00')
         
         payload_list = []
-        kvs = y[5]
+        kvs = y[3]
         
         if kvs:
             for k, v in kvs.items():
                 payload_list.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
         payload = b''.join(payload_list)
-        self._logger.info('<<<', struct.pack('!HHII', len(payload), y[2], y[3], y[4]) + payload)
-        w(struct.pack('!HHII', len(payload), y[2], y[3], y[4]))
+        self._logger.info('<<<', struct.pack('!HHII', len(payload), y[0], y[1], y[2]) + payload)
+        w(struct.pack('!HHII', len(payload), y[0], y[1], y[2]))
         w(payload)
     
     def flush(self):
