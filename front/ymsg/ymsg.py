@@ -94,7 +94,7 @@ class YMSGDecoder:
         y.append(z)
         return y
 
-def _decode_ymsg(data):
+def _decode_ymsg(data) -> Tuple[int, int, int, int, int, Dict[int, Optional[str]]]:
     assert data[:4] == PRE
     assert len(data) >= 20
     header = data[4:20]
@@ -105,7 +105,7 @@ def _decode_ymsg(data):
     kvs = {}
     for i in range(1, len(parts), 2):
         kvs[int(parts[i-1])] = parts[i].decode('utf-8')
-    return (version, vendor_id, service, status, session_id, kvs)
+    return version, vendor_id, service, status, session_id, kvs
 
 class YMSGEncoder:
     def __init__(self, logger):
