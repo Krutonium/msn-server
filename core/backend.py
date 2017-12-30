@@ -13,7 +13,7 @@ from .stats import Stats
 from .client import Client
 from .models import User, UserDetail, Group, Lst, Contact, UserStatus
 from . import error, event
-from .Y64 import Y64Encode
+from util.yahoo.Y64 import Y64Encode
 
 class Ack(IntFlag):
 	Zero = 0
