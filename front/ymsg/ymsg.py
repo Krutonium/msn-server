@@ -84,6 +84,8 @@ class YMSGDecoder:
             yield y
     
     def _ymsg_read(self):
+        self._logger.info('>>>', self._data)
+        
         try:
             (version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(self._data)
         except AssertionError:
@@ -131,12 +133,12 @@ class YMSGEncoder:
             for k, v in kvs.items():
                 payload_list.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
         payload = b''.join(payload_list)
-        self._logger.info('<<<', struct.pack('!HHII', len(payload), y[0], y[1], y[2]) + payload)
         w(struct.pack('!HHII', len(payload), y[0], y[1], y[2]))
         w(payload)
     
     def flush(self):
         data = self._buf.getvalue()
+        self._logger.info('<<<', data)
         if data:
             self._buf = io.BytesIO()
         return data
