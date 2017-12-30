@@ -76,6 +76,8 @@ class ListenerYMSG(asyncio.Protocol):
 		self.transport.write(_encode_ymsg(YMSGService.LogOff, 0, 0))
 		self.transport.close()
 
+# TODO: Remove decode, encode, and constants after 'ymsg.py' is fully implemented.
+
 def _decode_ymsg(data):
 	assert data[:4] == PRE
 	assert len(data) >= 20
