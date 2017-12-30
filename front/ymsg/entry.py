@@ -1,35 +1,53 @@
+from typing import Optional, Callable
+
 import asyncio
 import struct
 
+from core.backend import Backend
 from util.misc import Logger
 from .yahoo_lib.Y64 import Y64Encode
 from .challenge import generate_challenge_v1, verify_challenge_v1
 
+from .ymsg import YMSGCtrlBase
+
 def register(loop, backend):
 	from util.misc import ProtocolRunner
-	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend]))
+	# Use YMSGCtrlBase as a filler for now
+	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, YMSGCtrlBase]))
 
 class ListenerYMSG(asyncio.Protocol):
-	def __init__(self, logger_prefix, backend):
-		super().__init__()
-		self.logger_prefix = logger_prefix
-		self.backend = backend
-		self.transport = None
-		self.logger = None
-		self.challenge = None
+    logger: Logger
+    backend: Backend
+    controller: YMSGCtrlBase
+    transport: Optional[asyncio.WriteTransport]
     
-	def connection_made(self, transport):
+	def __init__(self, logger_prefix: str, backend: Backend, controller_factory: Callable[[Logger, str, Backend], YMSGCtrlBase]) -> None:
+		super().__init__()
+		self.logger = Logger(logger_prefix, self)
+		self.backend = backend
+		self.controller = controller_factory(self.logger, 'direct', backend)
+		self.controller.close_callback = self._on_close
+		self.transport = None
+    
+	def connection_made(self, transport: asyncio.BaseTrasport) -> None:
+	    assert isinstance(transport, asyncio.WriteTransport)
 		self.transport = transport
-		self.logger = Logger(self.logger_prefix, transport)
 		self.logger.log_connect()
 	
-	def connection_lost(self, exc):
+	def connection_lost(self, exc: Exception) -> None:
+	    self.controller.close()
 		self.logger.log_disconnect()
-		self.logger = None
 		self.transport = None
-		self.challenge = None
 	
-	def data_received(self, data):
+	def data_received(self, data) -> None:
+	    transport = self.transport
+	    assert transport is not None
+	    self.controller.transport = None
+	    self.controller.data_received(transport, data)
+	    transport.write(self.controller.flush())
+	    self.controller.transport = transport
+	    
+	    # TODO: Move this chunk of code to it's own library
 		self.logger.info('>>>', data)
 		
 		(version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(data)
