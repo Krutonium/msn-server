@@ -42,7 +42,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 		        if y[1][0] > 16 or y[1][1] not in (0, 100):
 		            break
 			    f = getattr(self, '_y_{}'.format(binascii.hexlify(struct.pack('!H', y[0])).decode())
-			    f(*y[1:])
+			    f(*y[1][0:])
 		    except Exception as ex:
 			    self.logger.error(ex)
 	
@@ -92,8 +92,10 @@ class YMSGDecoder:
                 print("ERR _ymsg_read", self._data)
                 raise
         
-        y = [service, version, vendor_id, status, session_id, kvs]
-        return list(y)
+        y = [service]
+        z = [version, vendor_id, status, session_id, kvs]
+        y.append(z)
+        return y
 
 def _decode_ymsg(data) -> Tuple[int, int, int, int, int, Dict[int, Optional[str]]]:
     assert data[:4] == PRE
