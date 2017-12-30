@@ -28,7 +28,7 @@ class UserService:
 	    with Session() as sess:
 	        dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.email == email).one_or_none()
 	        if dbuser is None: return None
-	        return dbuser.password_md5
+	        return hasher_md5.extract_hash(dbuser.password_md5)
 	
 	def get_md5_salt(self, email):
 		with Session() as sess:
