@@ -29,7 +29,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
 		
-		y = self.reader.data_received(data)
+		y = self.decoder.data_received(data)
 		
 		# Escargot's MSN and Yahoo functions have similar name structures
 		# MSN: "_m_CMD"
