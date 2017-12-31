@@ -28,7 +28,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.controller.close_callback = self._on_close
 		self.transport = None
 	
-	def connection_made(self, transport: asyncio.BaseTrasport) -> None:
+	def connection_made(self, transport: asyncio.BaseTransport) -> None:
 		assert isinstance(transport, asyncio.WriteTransport)
 		self.transport = transport
 		self.logger.log_connect()
