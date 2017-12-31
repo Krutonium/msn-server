@@ -8,7 +8,7 @@ from core.models import Substatus, Lst, User, Contact
 from core.client import Client
 from core.yahoo.YCS import YahooSessionClearing
 
-from .ymsg import YMSGCtrlBase
+from .ymsg_ctrl import YMSGCtrlBase
 
 class YMSGService:
 	LogOn = 0x01
