@@ -34,7 +34,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.logger.log_connect()
 	
 	def connection_lost(self, exc: Exception) -> None:
-	    self.controller.close()
+		self.controller.close()
 		self.logger.log_disconnect()
 		self.transport = None
 	
