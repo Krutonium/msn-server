@@ -16,6 +16,7 @@ def main(*, devmode = False):
 	if settings.ENABLE_FRONT_MSN:
 		front.msn.register(loop, backend, http_port = http_port, devmode = devmode)
 	if settings.ENABLE_FRONT_YMSG:
+	    # TODO: front.ymsg registers, but refuses to make connections
 		front.ymsg.register(loop, backend)
 	if settings.ENABLE_FRONT_BOT:
 		front.bot.register(loop, backend)
