@@ -14,6 +14,7 @@ def register(loop, backend):
 	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, YMSGCtrlPager]))
 
+# TODO: Fix weird inconsistent indentation
 class ListenerYMSG(asyncio.Protocol):
     logger: Logger
     backend: Backend
@@ -39,14 +40,14 @@ class ListenerYMSG(asyncio.Protocol):
 		self.transport = None
 	
 	def data_received(self, data: bytes) -> None:
-	    transport = self.transport
-	    assert transport is not None
-	    self.controller.transport = None
-	    self.controller.data_received(transport, data)
-	    transport.write(self.controller.flush())
-	    self.controller.transport = transport
-	    
-	    # TODO: Move this chunk of code to it's own library
+		transport = self.transport
+		assert transport is not None
+		self.controller.transport = None
+		self.controller.data_received(transport, data)
+		transport.write(self.controller.flush())
+		self.controller.transport = transport
+		
+		# TODO: Move this chunk of code to it's own library
 		
 		# Verify and Auth service functions were moved to "pager.py"
 		if service == YMSGService.AuthResp:
