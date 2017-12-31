@@ -3,7 +3,7 @@
 import io
 from abc import ABCMeta, abstractmethod
 import asyncio
-from typing import List, Tuple, Any, Optional, Callable
+from typing import Dict, List, Tuple, Any, Optional, Callable
 import binascii
 import struct
 
