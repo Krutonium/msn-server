@@ -1,5 +1,5 @@
 from util.hash import hasher
-from ctrl_nb import Lst
+from core.models import Lst
 from db import Base, Session, User, engine
 from uuid import uuid4
 
