@@ -22,7 +22,7 @@ class Hasher:
 	
 	@classmethod
 	def encode_unsalted(cls, password, *stuff):
-	    # This function is specifically for Yahoo!
+        # This function is specifically for Yahoo!
 		assert password is not None
 		(hash, *other_stuff) = cls._encode_impl_unsalted(password, *stuff)
 		hash = base64.b64encode(hash).decode('ascii').strip()
