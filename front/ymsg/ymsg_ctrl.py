@@ -68,7 +68,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 
 class YMSGDecoder:
 	def __init__(self, logger):
-		self.logger = logger
+		self._logger = logger
 		self._data = b''
 	
 	def data_received(self, data):
