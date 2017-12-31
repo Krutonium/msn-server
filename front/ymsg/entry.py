@@ -14,13 +14,12 @@ def register(loop, backend):
 	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, YMSGCtrlPager]))
 
-# TODO: Fix weird inconsistent indentation
 class ListenerYMSG(asyncio.Protocol):
-    logger: Logger
-    backend: Backend
-    controller: YMSGCtrlBase
-    transport: Optional[asyncio.WriteTransport]
-    
+	logger: Logger
+	backend: Backend
+	controller: YMSGCtrlBase
+	transport: Optional[asyncio.WriteTransport]
+	
 	def __init__(self, logger_prefix: str, backend: Backend, controller_factory: Callable[[Logger, str, Backend], YMSGCtrlBase]) -> None:
 		super().__init__()
 		self.logger = Logger(logger_prefix, self)
@@ -28,7 +27,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.controller = controller_factory(self.logger, 'direct', backend)
 		self.controller.close_callback = self._on_close
 		self.transport = None
-    
+	
 	def connection_made(self, transport: asyncio.BaseTrasport) -> None:
 		assert isinstance(transport, asyncio.WriteTransport)
 		self.transport = transport
