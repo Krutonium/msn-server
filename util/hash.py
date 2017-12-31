@@ -96,7 +96,7 @@ class MD5PasswordHasher(Hasher):
             try:
                 (_, hash) = encoded.split(cls.separator)
             except ValueError:
-            return False
+                return False
 		hash = binascii.hexlify(base64.b64decode(hash)).decode('ascii')
 		return secrets.compare_digest(hash_1, hash)
 Hasher._HASHERS[MD5PasswordHasher.algorithm] = MD5PasswordHasher
