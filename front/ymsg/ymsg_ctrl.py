@@ -76,10 +76,10 @@ class YMSGDecoder:
 			self._data += data
 		else:
 			self._data = data
-		while self._data:
-			y = self._ymsg_read()
-			if y is None: break
-			yield y
+		
+		y = self._ymsg_read()
+		if y is None: break
+		yield y
 	
 	def _ymsg_read(self):
 		self._logger.info('>>>', self._data)
