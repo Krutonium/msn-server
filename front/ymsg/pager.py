@@ -18,7 +18,7 @@ class YMSGService:
 	Auth = 0x57
 
 class YMSGCtrlPager(YMSGCtrlBase):
-	__slots__ = ('backend', 'dialect', 'usr_email', 'bs', 'client', 'syn_ser', 'iln_sent')
+	__slots__ = ('backend', 'dialect', 'usr_email', 'sess_id', 'init_client_id', 'challenge', 'bs', 'client', 'syn_ser', 'iln_sent')
 	
 	backend: Backend
 	dialect: int
