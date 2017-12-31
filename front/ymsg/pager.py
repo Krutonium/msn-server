@@ -1,3 +1,4 @@
+from typing import Optional
 import secrets
 
 from util.misc import Logger
@@ -6,7 +7,7 @@ from core import event
 from core.backend import Backend, BackendSession, Chat
 from core.models import Substatus, Lst, User, Contact
 from core.client import Client
-from core.yahoo.YCS import YahooSessionClearing
+from core.yahoo.YSC import YahooSessionClearing
 
 from .ymsg_ctrl import YMSGCtrlBase
 
