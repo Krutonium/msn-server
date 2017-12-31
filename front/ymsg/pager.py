@@ -81,5 +81,5 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if self.dialect in (9, 10):
 			is_resp_correct = self.backend.verify_challenge_v1(email, self.challenge, resp_6, resp_96)
 			if is_resp_correct:
-				# Implement friends/cookies packet later
+				# Implement friends/HTTP cookies packet later
 				pass
