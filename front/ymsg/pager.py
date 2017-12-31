@@ -48,25 +48,25 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			self.bs.close()
 	
 	def _y_004c(self, *args) -> None:
-	    self.client = Client('yahoo', 'YMSG' + str(args[0]), self.client.via)
-	    self.dialect = int(args[0])
-	    self.send_reply(YMSGService.Verify, args[2], 0, None)
+		self.client = Client('yahoo', 'YMSG' + str(args[0]), self.client.via)
+		self.dialect = int(args[0])
+		self.send_reply(YMSGService.Verify, args[2], 0, None)
 	
 	def _y_0057(self, *args):
-	    self.usr_email = args[4][1]
-	    # Generate a 64-bit session ID within a range if 10000000-99999999
-	    # Keep session ID in variable until login is complete; then transfer to Backend Session
-	    self.sess_id = secrets.randbelow(89999999) + 10000000
-	    self.sc = YahooSessionClearing(str(self.sess_id), self.usr_email)
-	    
-	    auth_dict = {1: self.usr_email}
-	    if self.dialect in (9, 10):
-	        self.challenge = backend.generate_challenge_v1()
-	        auth_dict[94] = self.challenge
-	    elif self.dialect in (11,):
-	        # Implement V2 challenge string generation later
-	        auth_dict[94] = ''
-	        auth_dict[13] = '1'
+		self.usr_email = args[4][1]
+		# Generate a 64-bit session ID within a range if 10000000-99999999
+		# Keep session ID in variable until login is complete; then transfer to Backend Session
+		self.sess_id = secrets.randbelow(89999999) + 10000000
+		self.sc = YahooSessionClearing(str(self.sess_id), self.usr_email)
+		
+		auth_dict = {1: self.usr_email}
+		if self.dialect in (9, 10):
+			self.challenge = backend.generate_challenge_v1()
+			auth_dict[94] = self.challenge
+		elif self.dialect in (11,):
+			# Implement V2 challenge string generation later
+			auth_dict[94] = ''
+			auth_dict[13] = '1'
 		
 		self.send_reply(YMSGService.Auth, 1, self.sess_id, auth_dict)
 	
