@@ -45,7 +45,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 				self.logger.error(ex)
 	
 	def send_reply(self, *y) -> None:
-		self.encoder.write(y)
+		self.encoder.encode(y)
 		transport = self.transport
 		if transport is not None:
 			transport.write(self.flush())
