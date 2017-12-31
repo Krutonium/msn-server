@@ -67,6 +67,19 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	        # Implement V2 challenge string generation later
 	        auth_dict[94] = ''
 	        auth_dict[13] = '1'
-	    
-	    self.send_reply(YMSGService.Auth, 1, self.sess_id, auth_dict)
-	    
+		
+		self.send_reply(YMSGService.Auth, 1, self.sess_id, auth_dict)
+	
+	def _y_0054(self, *args):
+		email = args[4][0]
+		if args[4][1] != email and args[4][2] != "1":
+			self.logger._info('auth resp. failed')
+			self.send_reply(YMSGService.LogOff, 0, 0, None)
+			self.close()
+		resp_6 = args[4][6]
+		resp_96 = args[4][96]
+		if self.dialect in (9, 10):
+			is_resp_correct = self.backend.verify_challenge_v1(email, self.challenge, resp_6, resp_96)
+			if is_resp_correct:
+				# Implement friends/cookies packet later
+				pass
