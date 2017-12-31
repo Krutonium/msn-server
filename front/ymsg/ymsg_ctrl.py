@@ -29,20 +29,20 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
 		
-		for y in self.decoder.data_received(data):
-			
-			# Escargot's MSN and Yahoo functions have similar name structures
-			# MSN: "_m_CMD"
-			# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]
-			
-			try:
-				# check version and vendorId
-				if y[1][0] > 16 or y[1][1] not in (0, 100):
-					break
-				f = getattr(self, '_y_{}'.format(binascii.hexlify(struct.pack('!H', y[0])).decode()))
-				f(*y[1][0:])
-			except Exception as ex:
-				self.logger.error(ex)
+		y = self.reader.data_received(data)
+		
+		# Escargot's MSN and Yahoo functions have similar name structures
+		# MSN: "_m_CMD"
+		# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]
+		
+		try:
+			# check version and vendorId
+			if y[1][0] > 16 or y[1][1] not in (0, 100):
+				return
+			f = getattr(self, '_y_{}'.format(binascii.hexlify(struct.pack('!H', y[0])).decode()))
+			f(*y[1][0:])
+		except Exception as ex:
+			self.logger.error(ex)
 	
 	def send_reply(self, *y) -> None:
 		self.encoder.encode(y)
@@ -78,8 +78,8 @@ class YMSGDecoder:
 			self._data = data
 		
 		y = self._ymsg_read()
-		if y is None: break
-		yield y
+		if y is None: return None
+		return y
 	
 	def _ymsg_read(self):
 		self._logger.info('>>>', self._data)
