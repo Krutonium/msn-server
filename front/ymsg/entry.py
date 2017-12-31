@@ -6,7 +6,7 @@ import struct
 from core.backend import Backend
 from util.misc import Logger
 
-from .ymsg import YMSGCtrlBase
+from .ymsg_ctrl import YMSGCtrlBase
 
 def register(loop, backend):
 	from util.misc import ProtocolRunner
