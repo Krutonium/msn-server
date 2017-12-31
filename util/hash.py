@@ -73,7 +73,7 @@ class MD5PasswordHasher(Hasher):
 	
 	@classmethod
 	def _encode_impl_unsalted(cls, password):
-        # This function is specifically for Yahoo!
+		# This function is specifically for Yahoo!
 		md5 = hashlib.md5()
 		md5.update(password.encode('utf-8'))
 		return (md5.digest(),)
