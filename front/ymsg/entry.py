@@ -29,7 +29,7 @@ class ListenerYMSG(asyncio.Protocol):
 		self.transport = None
     
 	def connection_made(self, transport: asyncio.BaseTrasport) -> None:
-	    assert isinstance(transport, asyncio.WriteTransport)
+		assert isinstance(transport, asyncio.WriteTransport)
 		self.transport = transport
 		self.logger.log_connect()
 	
