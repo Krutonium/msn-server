@@ -18,7 +18,7 @@ class YMSGService:
 	Auth = 0x57
 
 class YMSGCtrlPager(YMSGCtrlBase):
-	__slots__ = ('backend', 'dialect', 'usr_email', 'sess_id', 'init_client_id', 'challenge', 'bs', 'client', 'syn_ser', 'iln_sent')
+	__slots__ = ('backend', 'dialect', 'usr_email', 'sess_id', 'init_client_id', 'challenge', 'bs', 'client')
 	
 	backend: Backend
 	dialect: int
@@ -29,8 +29,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	bs: Optional[BackendSession]
 	sc: Optional[YahooSessionClearing]
 	client: Client
-	syn_ser: int
-	iln_sent: bool
 	
 	def __init__(self, logger: Logger, via: str, backend: Backend) -> None:
 		super().__init__(logger)
@@ -43,8 +41,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.bs = None
 		self.sc = None
 		self.client = Client('yahoo', '?', via)
-		self.syn_ser = 0
-		self.iln_sent = False
 	
 	def _on_close(self) -> None:
 		if self.bs:
