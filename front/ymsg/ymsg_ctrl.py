@@ -1,5 +1,3 @@
-# TO BE IMPLEMENTED SOON
-
 import io
 from abc import ABCMeta, abstractmethod
 import asyncio
