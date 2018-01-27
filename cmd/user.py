@@ -8,7 +8,7 @@ def main():
 	parser.add_argument('email', help = "email of new/existing user")
 	parser.add_argument('password')
 	parser.add_argument(
-		'--old', dest = 'old_msn_support', action = 'store_const',
+		'--old-msn', dest = 'old_msn_support', action = 'store_const',
 		const = True, default = False, help = "old MSN support"
 	)
 	args = parser.parse_args()
@@ -34,7 +34,8 @@ def main():
 
 def _set_passwords(user, pw, support_old):
 	user.password = hash.hasher.encode(pw)
-	user.password_md5 = (hash.hasher_md5.encode(pw) if support_old else '')
+	pw_md5 = (hash.hasher_md5.encode(pw) if support_old else None)
+	user.set_front_data('msn', 'pw_md5', pw_md5)
 
 if __name__ == '__main__':
 	main()

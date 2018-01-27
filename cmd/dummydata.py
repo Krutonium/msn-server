@@ -17,7 +17,6 @@ with Session() as sess:
 		name = "~~Foo~~",
 		message = "Ahoy!",
 		password = hasher.encode('foopass'),
-		password_md5 = "cbbb9b3bc98eb2d52be3c223b7dadf35",
 		settings = {},
 		groups = [
 			{ 'id': '1', "name": "Space Group" },
@@ -40,6 +39,9 @@ with Session() as sess:
 				'groups': [],
 			},
 		],
+		front_data = {
+			'msn': { 'pw_md5': "cbbb9b3bc98eb2d52be3c223b7dadf35" },
+		},
 	))
 	sess.add(User(
 		uuid = uuid[1],
@@ -48,10 +50,12 @@ with Session() as sess:
 		name = "Bob Ross 1",
 		message = "The Joy of Painting Rules!!!1",
 		password = hasher.encode('foopass'),
-		password_md5 = "cbbb9b3bc98eb2d52be3c223b7dadf35",
 		settings = {},
 		groups = [],
 		contacts = [],
+		front_data = {
+			'msn': { 'pw_md5': "cbbb9b3bc98eb2d52be3c223b7dadf35" },
+		},
 	))
 	sess.add(User(
 		uuid = uuid[2],
@@ -60,7 +64,6 @@ with Session() as sess:
 		name = "Bob Ross 2",
 		message = "because everybody needs a friend",
 		password = hasher.encode('foopass'),
-		password_md5 = "cbbb9b3bc98eb2d52be3c223b7dadf35",
 		settings = {},
 		groups = [],
 		contacts = [
@@ -72,4 +75,7 @@ with Session() as sess:
 				'groups': [],
 			},
 		],
+		front_data = {
+			'msn': { 'pw_md5': "cbbb9b3bc98eb2d52be3c223b7dadf35" },
+		},
 	))

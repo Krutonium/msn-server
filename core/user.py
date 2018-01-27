@@ -1,7 +1,7 @@
 from typing import Dict
 from datetime import datetime
 
-from db import Session, User as DBUser, UserYahoo as DBUserYahoo
+from db import Session, User as DBUser
 from util.hash import hasher, hasher_md5
 
 from .models import User, Contact, UserStatus, UserDetail, Group
@@ -17,25 +17,26 @@ class UserService:
 			if not hasher.verify(pwd, dbuser.password): return None
 			return dbuser.uuid
 	
-	def login_md5(self, email, md5_hash):
+	def login_msn_md5(self, email, md5_hash):
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
 			if dbuser is None: return None
-			if not hasher_md5.verify_hash(md5_hash, dbuser.password_md5): return None
+			if not hasher_md5.verify_hash(md5_hash, dbuser.get_front_data('msn', 'pw_md5') or ''): return None
 			return dbuser.uuid
 	
 	def get_md5_password_yahoo(self, email):
-	    with Session() as sess:
-	        dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.email == email).one_or_none()
-	        if dbuser is None: return None
-	        return hasher_md5.extract_hash(dbuser.password_md5)
-	
-	def get_md5_salt(self, email):
 		with Session() as sess:
-			tmp = sess.query(DBUser.password_md5).filter(DBUser.email == email).one_or_none()
-			password_md5 = tmp and tmp[0]
-		if password_md5 is None: return None
-		return hasher.extract_salt(password_md5)
+			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
+			if dbuser is None: return None
+			return hasher_md5.extract_hash(dbuser.get_front_data('ymsg', 'pw_md5') or '')
+	
+	def get_msn_md5_salt(self, email):
+		with Session() as sess:
+			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
+			if dbuser is None: return None
+			pw_md5 = dbuser.get_front_data('msn', 'pw_md5')
+		if pw_md5 is None: return None
+		return hasher.extract_salt(pw_md5)
 	
 	def update_date_login(self, uuid):
 		with Session() as sess:

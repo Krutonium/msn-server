@@ -89,7 +89,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				return
 			if stage == 'I':
 				email = args[0]
-				salt = backend.user_service.get_md5_salt(email)
+				salt = backend.user_service.get_msn_md5_salt(email)
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
@@ -102,7 +102,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				md5_hash = args[0]
 				usr_email = self.usr_email
 				assert usr_email is not None
-				uuid = backend.user_service.login_md5(usr_email, md5_hash)
+				uuid = backend.user_service.login_msn_md5(usr_email, md5_hash)
 				if uuid is not None:
 					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
 				self._util_usr_final(trid, None)

@@ -1,3 +1,4 @@
+from typing import Any
 import json
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -12,6 +13,9 @@ import settings
 class Base(declarative_base()): # type: ignore
 	__abstract__ = True
 
+# `user.type != TYPE_ESCARGOT` means logging in is done via
+# a third-party service (e.g. Windows Live for TYPE_LIVE).
+# Not currently implemented, so all accounts are TYPE_ESCARGOT.
 TYPE_ESCARGOT = 1
 TYPE_LIVE = 2
 TYPE_YAHOO = 3
@@ -29,32 +33,44 @@ class User(Base):
 	name = sa.Column(sa.String, nullable = False)
 	message = sa.Column(sa.String, nullable = False)
 	password = sa.Column(sa.String, nullable = False)
-	password_md5 = sa.Column(sa.String, nullable = False)
 	settings = sa.Column(JSONType, nullable = False)
 	groups = sa.Column(JSONType, nullable = False)
 	contacts = sa.Column(JSONType, nullable = False)
-
-# Create seperate table for Yahoo! Messenger users to avoid conflict with MSN user table
-
-class UserYahoo(Base):
-	__tablename__ = 't_user_ymsgr'
 	
-	id = sa.Column(sa.Integer, nullable = False, primary_key = True)
-	type = sa.Column(sa.Integer, nullable = False, default = TYPE_YAHOO)
-	date_created = sa.Column(sa.DateTime, nullable = True, default = datetime.utcnow)
-	date_login = sa.Column(sa.DateTime, nullable = True)
-	uuid = sa.Column(sa.String, nullable = False, unique = True)
-	email = sa.Column(sa.String, nullable = False, unique = True)
-	verified = sa.Column(sa.Boolean, nullable = False)
-	name = sa.Column(sa.String, nullable = False)
-	message = sa.Column(sa.String, nullable = False)
-	# Currently Escargot only supports MD5 and MD5Crypt-based Yahoo! clients. Ignore for now.
-	# password = sa.Column(sa.String, nullable = False)
-	password_md5 = sa.Column(sa.String, nullable = False)
-	password_md5crypt = sa.Column(sa.String, nullable = False)
-	settings = sa.Column(JSONType, nullable = False)
-	groups = sa.Column(JSONType, nullable = False)
-	contacts = sa.Column(JSONType, nullable = False)
+	# Data specific to front-ends; e.g. different types of password hashes
+	# E.g. front_data = { 'msn': { ... }, 'ymsg': { ... }, ... }
+	_front_data = sa.Column(JSONType, name = 'front_data', nullable = False)
+	
+	def set_front_data(self, frontend: str, key: str, value: Any) -> None:
+		fd = self._front_data or {}
+		if frontend not in fd:
+			fd[frontend] = {}
+		fd[frontend][key] = value
+		# As a side-effect, this also makes `._front_data` into a new object,
+		# so SQLAlchemy picks up the fact that it's been changed.
+		# (SQLAlchemy only does shallow comparisons on fields by default.)
+		self._front_data = _simplify_json_data(fd)
+	
+	def get_front_data(self, frontend: str, key: str) -> Any:
+		fd = self._front_data
+		if not fd: return None
+		fd = fd.get(frontend)
+		if not fd: return None
+		return fd.get(key)
+
+def _simplify_json_data(data):
+	if isinstance(data, dict):
+		d = {}
+		for k, v in data.items():
+			v = _simplify_json_data(v)
+			if v is not None:
+				d[k] = v
+		if not d:
+			return None
+		return d
+	if isinstance(data, (list, tuple)):
+		return [_simplify_json_data(x) for x in data]
+	return data
 
 class Sound(Base):
 	__tablename__ = 't_sound'
