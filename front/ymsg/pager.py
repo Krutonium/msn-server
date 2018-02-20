@@ -686,7 +686,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		if after_auth:
 			if self.dialect >= 10:
-				self.send_reply_multiple([YMSGService.LogOn, YMSGStatus.Available, self.sess_id, logon_payload], [YMSGService.Ping, YMSGStatus.Available, self.sess_id, MultiDict(
+				self.send_reply_multiple([YMSGService.LogOn, YMSGStatus.Available, self.sess_id, logon_payload], [YMSGService.PingConfiguration, YMSGStatus.Available, self.sess_id, MultiDict(
 					[
 						('143', 60),
 						('144', 13)
