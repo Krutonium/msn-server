@@ -22,35 +22,35 @@
 
 ## MSN
 
-	- for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
-	- for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
-		```
-		127.0.0.1 m1.escargot.log1p.xyz
-		127.0.0.1 messenger.hotmail.com
-		127.0.0.1 gateway.messenger.hotmail.com
-		127.0.0.1 byrdr.omega.contacts.msn.com
-		127.0.0.1 config.messenger.msn.com
-		127.0.0.1 tkrdr.storage.msn.com
-		127.0.0.1 ows.messenger.msn.com
-		127.0.0.1 rsi.hotmail.com
-		```
-	
+- for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
+- for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
+	```
+	127.0.0.1 m1.escargot.log1p.xyz
+	127.0.0.1 messenger.hotmail.com
+	127.0.0.1 gateway.messenger.hotmail.com
+	127.0.0.1 byrdr.omega.contacts.msn.com
+	127.0.0.1 config.messenger.msn.com
+	127.0.0.1 tkrdr.storage.msn.com
+	127.0.0.1 ows.messenger.msn.com
+	127.0.0.1 rsi.hotmail.com
+	```
+
 ## Yahoo!
-	
-	- for version 5.5, used a **clean** install and patch the following registry value:
-		```
-		HKEY_CURRENT_USER\SOFTWARE\Yahoo!\Pager\IPLookup -> 127.0.0.1,127.0.0.1`
-		```
-		and in your `HOSTS` add:
-		```
-		127.0.0.1 scs.yahoo.com
-		127.0.0.1 scsa.yahoo.com
-		127.0.0.1 scsb.yahoo.com
-		127.0.0.1 scsc.yahoo.com
-		127.0.0.1 insider.msg.yahoo.com
-		127.0.0.1 chat.yahoo.com
-		```
-	
+
+- for version 5.5, used a **clean** install and patch the following registry value:
+	```
+	HKEY_CURRENT_USER\SOFTWARE\Yahoo!\Pager\IPLookup -> 127.0.0.1,127.0.0.1`
+	```
+	and in your `HOSTS` add:
+	```
+	127.0.0.1 scs.yahoo.com
+	127.0.0.1 scsa.yahoo.com
+	127.0.0.1 scsb.yahoo.com
+	127.0.0.1 scsc.yahoo.com
+	127.0.0.1 insider.msg.yahoo.com
+	127.0.0.1 chat.yahoo.com
+	```
+
 - run `python dev` to start the dev server
 
 The **first time** you run `python dev`, a root certificate `DO_NOT_TRUST_DevEscargotRoot.crt` is created in `dev/cert`,
