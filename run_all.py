@@ -4,6 +4,7 @@ def main(*, devmode = False):
 	import front.msn
 	import front.ymsg
 	import front.bot
+	import http_server
 	import settings
 	
 	if devmode:
@@ -13,11 +14,15 @@ def main(*, devmode = False):
 	
 	loop = asyncio.get_event_loop()
 	backend = Backend(loop)
+	msn_http_enable = False
+	yahoo_http_enable = False
 	if settings.ENABLE_FRONT_MSN:
-		front.msn.register(loop, backend, http_port = http_port, devmode = devmode)
+		front.msn.register(loop, backend)
+		msn_http_enable = True
 	if settings.ENABLE_FRONT_YMSG:
-	    # TODO: front.ymsg registers, but refuses to make connections
 		front.ymsg.register(loop, backend)
+		yahoo_http_enable = True
+	http_server.register(loop, backend, http_port = http_port, devmode = devmode, msn_http = msn_http_enable, yahoo_http = yahoo_http_enable)
 	if settings.ENABLE_FRONT_BOT:
 		front.bot.register(loop, backend)
 	backend.run_forever()
