@@ -47,7 +47,6 @@ class UserYahoo(Base):
 	email = sa.Column(sa.String, nullable = False, unique = True)
 	verified = sa.Column(sa.Boolean, nullable = False)
 	name = sa.Column(sa.String, nullable = False)
-	message = sa.Column(sa.String, nullable = False)
 	# Currently Escargot only supports MD5 and MD5Crypt-based Yahoo! clients. Ignore for now.
 	# password = sa.Column(sa.String, nullable = False)
 	password_md5 = sa.Column(sa.String, nullable = False)
