@@ -49,7 +49,3 @@ class ListenerYMSG(asyncio.Protocol):
 	def _on_close(self) -> None:
 		if self.transport is None: return
 		self.transport.close()
-
-# ymsg encode and decode function moved to "ymsg.py"
-# ymsg service class also moved to "pager.py"
-
