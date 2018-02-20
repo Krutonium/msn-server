@@ -39,7 +39,7 @@
 
 - for version 5.5, used a **clean** install and patch the following registry value:
 	```
-	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> 127.0.0.1,127.0.0.1`
+	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> `127.0.0.1,127.0.0.1`
 	```
 
 - and in your `HOSTS` add:
