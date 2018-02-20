@@ -41,6 +41,7 @@
 	```
 	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> `127.0.0.1,127.0.0.1`
 	```
+	
 - and in your `HOSTS` add:
 	```
 	127.0.0.1 scs.yahoo.com
