@@ -13,6 +13,18 @@ class User:
 		self.detail = None
 		self.date_created = date_created
 
+class UserYahoo:
+	detail: Optional['UserDetail']
+	
+	def __init__(self, uuid, email, verified, status, date_created):
+		self.uuid = uuid
+		self.email = email
+		self.verified = verified
+		# `status`: true status of user
+		self.status = status
+		self.detail = None
+		self.date_created = date_created
+
 class Contact:
 	def __init__(self, user, groups, lists, status, *, is_messenger_user = None):
 		self.head = user
@@ -34,6 +46,20 @@ class Contact:
 		self.status.message = true_status.message
 		self.status.media = true_status.media
 
+class YahooContact:
+	def __init__(self, user, groups, status, *, is_messenger_user = None):
+		self.head = user
+		self.groups = groups
+		# `status`: status as known by the contact
+		self.status = status
+		self.is_messenger_user = _default_if_none(is_messenger_user, False)
+	
+	def compute_visible_status(self, to_user):
+		true_status = self.head.status
+		self.status.substatus = true_status.substatus
+		self.status.name = true_status.name
+		self.status.message = true_status.message
+
 def _is_blocking(blocker, blockee):
 	detail = blocker.detail
 	contact = detail.contacts.get(blockee.uuid)
@@ -54,6 +80,19 @@ class UserStatus:
 	def is_offlineish(self):
 		ss = self.substatus
 		return ss == Substatus.FLN or ss == Substatus.HDN
+
+class UserYahooStatus:
+	__slots__ = ('substatus', 'name', 'message')
+	
+	def __init__(self, name, message = None):
+		# Use Offline as default
+		self.substatus = YMSGStatus.Offline
+		self.name = name
+		self.message = message
+	
+	def is_offlineish(self):
+		ss = self.substatus
+		return ss == YMSGStatus.Offline or ss == YMSGStatus.Invisible
 
 class UserDetail:
 	def __init__(self, settings):
@@ -116,3 +155,49 @@ class Service:
 	def __init__(self, host, port):
 		self.host = host
 		self.port = port
+
+# Yahoo stuff
+
+class YMSGService:
+	LogOn = 0x01
+	LogOff = 0x02
+	IsAway = 0x03
+	IsBack = 0x04
+	Message = 0x06
+	UserStat = 0x0a
+	ContactNew = 0x0f
+	AddIgnore = 0x11
+	PingConfiguration = 0x12
+	ConfInvite = 0x18
+	ConfLogon = 0x19
+	ConfDecline = 0x1a
+	ConfLogoff = 0x1b
+	ConfAddInvite = 0x1c
+	ConfMsg = 0x1d
+	Notify = 0x4b
+	Handshake = 0x4c
+	P2PFileXfer = 0x4d
+	AuthResp = 0x54
+	List = 0x55
+	Auth = 0x57
+	FriendAdd = 0x83
+	Ignore = 0x85
+	Ping = 0x8a
+
+class YMSGStatus:
+	# Available/Client Request
+	Available = 0x00000000
+	WebLogin = 0x5a55aa55
+	# BRB/Server Response
+	BRB = 0x00000001
+	Busy = 0x00000002
+	# "Not at Home"/BadUsername
+	NotAtHome = 0x00000003
+	OnVacation = 0x00000007
+	Invisible = 0x0000000c
+	Bad = 0x0000000d
+	Locked = 0x0000000e
+	Typing = 0x00000016
+	Custom = 0x00000063
+	Offline = 0x5a55aa56
+	LoginError = 0xffffffff
