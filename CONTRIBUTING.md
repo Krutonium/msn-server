@@ -12,21 +12,45 @@
 	DEBUG_MSNP = True
 	DEBUG_HTTP_REQUEST = True
 	```
+	- if you want to enable YMSG support, set the following option:
+	```
+	ENABLE_FRONT_YMSG = True
+	```
 - run `python cmd/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
 - run `python cmd/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords)
 - to create users, run `python cmd/user.py -h` for instructions
-- for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
-- for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
-	```
-	127.0.0.1 m1.escargot.log1p.xyz
-	127.0.0.1 messenger.hotmail.com
-	127.0.0.1 gateway.messenger.hotmail.com
-	127.0.0.1 byrdr.omega.contacts.msn.com
-	127.0.0.1 config.messenger.msn.com
-	127.0.0.1 tkrdr.storage.msn.com
-	127.0.0.1 ows.messenger.msn.com
-	127.0.0.1 rsi.hotmail.com
-	```
+
+## MSN
+
+	- for MSN <= 7.5, use a **patched** install, and in your `HOSTS` add `127.0.0.1 m1.escargot.log1p.xyz`
+	- for WLM, use a 8.1.0178 **clean** install, replace [msidcrl40.dll](https://storage.googleapis.com/escargot-storage-1/public/msidcrl.dll), and in your `HOSTS` add:
+		```
+		127.0.0.1 m1.escargot.log1p.xyz
+		127.0.0.1 messenger.hotmail.com
+		127.0.0.1 gateway.messenger.hotmail.com
+		127.0.0.1 byrdr.omega.contacts.msn.com
+		127.0.0.1 config.messenger.msn.com
+		127.0.0.1 tkrdr.storage.msn.com
+		127.0.0.1 ows.messenger.msn.com
+		127.0.0.1 rsi.hotmail.com
+		```
+	
+## Yahoo!
+	
+	- for version 5.5, used a **clean** install and patch the following registry value:
+		```
+		HKEY_CURRENT_USER\SOFTWARE\Yahoo!\Pager\IPLookup -> 127.0.0.1,127.0.0.1`
+		```
+		and in your `HOSTS` add:
+		```
+		127.0.0.1 scs.yahoo.com
+		127.0.0.1 scsa.yahoo.com
+		127.0.0.1 scsb.yahoo.com
+		127.0.0.1 scsc.yahoo.com
+		127.0.0.1 insider.msg.yahoo.com
+		127.0.0.1 chat.yahoo.com
+		```
+	
 - run `python dev` to start the dev server
 
 The **first time** you run `python dev`, a root certificate `DO_NOT_TRUST_DevEscargotRoot.crt` is created in `dev/cert`,
