@@ -217,6 +217,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		contact_to_add = args[4].get('7')
 		message = args[4].get('14')
 		buddy_group = args[4].get('65')
+		utf8 = args[4].get('97')
 		
 		group = None
 		
@@ -284,7 +285,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			add_request_response.add('66', 0)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			
-			ybs.me_contact_add(ctc_head, contact_to_add, group, message)
+			ybs.me_contact_add(ctc_head, contact_to_add, group, message, utf8)
 		else:
 			ybs.me_group_contact_move(group.id, user_contact_uuid)
 		
@@ -721,12 +722,12 @@ class YahooBackendEventHandler(event.YahooBackendEventHandler):
 		for y in build_yahoo_conf_invite(inviter, self.ctrl.ybs, conf.id, invite_msg, conf_roster, voice_chat, existing_conf = existing_conf):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_conf_invite_decline(self, inviter: UserYahoo, conf_id: str, deny_msg: Optional[str]):
+	def on_conf_invite_decline(self, inviter: UserYahoo, conf_id: str, deny_msg: Optional[str]) -> None:
 		for y in build_yahoo_conf_invite_decline(inviter, self.ctrl.ybs, conf_id, deny_msg):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_init_contact_request(self, user_adder: UserYahoo, user_added: UserYahoo, message: Optional[str]) -> None:
-		for y in build_yahoo_contact_request_notif(user_adder, user_added, message):
+	def on_init_contact_request(self, user_adder: UserYahoo, user_added: UserYahoo, message: Optional[str], utf8: Optional[str]) -> None:
+		for y in build_yahoo_contact_request_notif(user_adder, user_added, message, utf8):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_deny_contact_request(self, user_denier: UserYahoo, deny_message: Optional[str]) -> None:

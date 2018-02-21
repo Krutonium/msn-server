@@ -796,7 +796,7 @@ class YahooBackendSession(Session):
 			else:
 				self.backend._yahoo_notify_absence(self)
 	
-	def me_contact_add(self, ctc_head: UserYahoo, name: Optional[str], group: Group, request_message: Optional[str]):
+	def me_contact_add(self, ctc_head: UserYahoo, name: Optional[str], group: Group, request_message: Optional[str], utf8: Optional[str]):
 		if ctc_head is None:
 			raise error.UserDoesNotExist()
 		user_adder = self.user_yahoo
@@ -808,7 +808,7 @@ class YahooBackendSession(Session):
 		
 		for sess_added in self.backend._ysc.get_sessions_by_user(ctc_head):
 			if sess_added == self: continue
-			sess_added.evt.on_init_contact_request(user_adder, ctc_head, request_message)
+			sess_added.evt.on_init_contact_request(user_adder, ctc_head, request_message, utf8)
 		
 		self.backend._sync_yahoo_contact_statuses()
 		return ctc_head

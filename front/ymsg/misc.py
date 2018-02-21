@@ -124,7 +124,7 @@ def build_yahoo_absence_notif(ctc: YahooContact, dialect: int, backend: Backend,
 	
 	yield (YMSGService.IsAway, YMSGStatus.BRB, contact_absence_data)
 
-def build_yahoo_contact_request_notif(user_adder: UserYahoo, user_added: UserYahoo, message: Optional[str]) -> Iterable[Tuple[int, int, Dict[str, Any]]]:
+def build_yahoo_contact_request_notif(user_adder: UserYahoo, user_added: UserYahoo, message: Optional[str], utf8: Optional[str]) -> Iterable[Tuple[int, int, Dict[str, Any]]]:
 	adder_status = user_adder.status
 	user_status = user_added.status
 	
@@ -133,9 +133,11 @@ def build_yahoo_contact_request_notif(user_adder: UserYahoo, user_added: UserYah
 			('1', user_status.name),
 			('3', adder_status.name),
 			('14', message),
-			('15', time.time())
 		]
 	)
+	
+	if utf8 is not None: contact_request_data.add('97', utf8)
+	contact_request_data.add('15', time.time())
 	
 	yield (YMSGService.ContactNew, YMSGStatus.NotAtHome, contact_request_data)
 
