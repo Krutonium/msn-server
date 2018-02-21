@@ -319,7 +319,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		groups = detail.groups
 		self._update_buddy_list(contacts, groups)
 	
-	def _y_0084(self, *args):
+	def _y_0084(self, *args) -> None:
 		# SERVICE_FRIENDREMOVE (0x84); remove a buddy from your list
 		
 		buddy_to_remove = args[4].get('7')
@@ -350,7 +350,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		groups = detail.groups
 		self._update_buddy_list(contacts, groups)
 	
-	def _y_0085(self, *args):
+	def _y_0085(self, *args) -> None:
 		# SERVICE_IGNORE (0x85); add/remove someone from your ignore list
 		
 		user_to_ignore = args[4].get('7')
@@ -428,7 +428,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	# State = Messaging
 	
-	def _y_004f(self, *args):
+	def _y_004f(self, *args) -> None:
 		# SERVICE_PEERTOPEER (0x4f); possibly to either see if P2P file transfer or if P2P messaging was possible; dig into this later
 		
 		return
@@ -446,7 +446,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			
 		ybs.me_send_notify_pkt(invitee_uuid, args[4])
 	
-	def _y_0006(self, *args):
+	def _y_0006(self, *args) -> None:
 		# SERVICE_MESSAGE (0x06); send a message to a user
 		
 		ybs = self.ybs
@@ -458,7 +458,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		ybs.me_send_im(invitee_uuid, args[4])
 	
-	def _y_004d(self, *args):
+	def _y_004d(self, *args) -> None:
 		# SERVICE_P2PFILEXFER (0x4d); initiate P2P file transfer. Due to this service being present in 3rd-party libraries; we can implement it here
 		
 		ybs = self.ybs
@@ -470,7 +470,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		ybs.me_send_filexfer(target_uuid, args[4])
 	
-	def _y_0018(self, *args):
+	def _y_0018(self, *args) -> None:
 		# SERVICE_CONFINVITE (0x18); send a conference invite to one or more people
 		
 		ybs = self.ybs
@@ -492,7 +492,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 				return
 			cs.invite(conf_user_uuid, invite_msg, conf_roster, voice_chat)
 	
-	def _y_001c(self, *args):
+	def _y_001c(self, *args) -> None:
 		# SERVICE_CONFADDINVITE (0x1c); send a conference invite to an existing conference to one or more people
 		
 		conf_new_roster = args[4].getall('51', None)
@@ -516,7 +516,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 				return
 			cs.invite(conf_user_uuid, invite_msg, conf_roster, voice_chat, existing = True)
 	
-	def _y_0019(self, *args):
+	def _y_0019(self, *args) -> None:
 		# SERVICE_CONFLOGON (0x19); request someone to join a conference
 		
 		ybs = self.ybs
@@ -544,7 +544,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		conf.send_participant_joined(cs)
 	
-	def _y_001a(self, *args):
+	def _y_001a(self, *args) -> None:
 		# SERVICE_CONFDECLINE (0x1a); decline a request to join a conference
 		
 		ybs = self.ybs
@@ -568,7 +568,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			
 			ybs.me_decline_conf_invite(inviter, conf.id, deny_msg)
 	
-	def _y_001d(self, *args):
+	def _y_001d(self, *args) -> None:
 		# SERVICE_CONFMSG (0x1d); send a message in a conference
 		
 		conf_user_ids = args[4].getall('53', None)
@@ -581,7 +581,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		cs.send_message_to_everyone(conf_id, args[4])
 	
-	def _y_001b(self, *args):
+	def _y_001b(self, *args) -> None:
 		# SERVICE_CONFLOGOFF (0x1b); leave a conference
 		
 		conf_roster = args[4].getall('3', None)
