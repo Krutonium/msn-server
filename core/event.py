@@ -60,6 +60,9 @@ class YahooBackendEventHandler(metaclass = ABCMeta):
 	def on_conf_invite(self, conf: 'Conference', inviter: UserYahoo, invite_msg: Optional[str], conf_roster: List[str], voice_chat: int) -> None: pass
 	
 	@abstractmethod
+	def on_conf_invite_decline(self, inviter: UserYahoo, conf_id: str, deny_msg: Optional[str]) -> None: pass
+	
+	@abstractmethod
 	def on_init_contact_request(self, user_adder: UserYahoo, user_added: UserYahoo, message: Optional[str]) -> None: pass
 	
 	@abstractmethod
