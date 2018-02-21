@@ -74,6 +74,15 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		# SERVICE_AUTH (0x57); send a challenge string for the client to craft two response strings with
 		
 		self.usr_name = args[4].get('1')
+		
+		if not self.backend.verify_yahoo_user(self.usr_name):
+			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, 0, MultiDict(
+				[
+					('66', YMSGStatus.NotAtHome)
+				]
+			))
+			return
+		
 		self.sc = YahooSessionClearing(self.usr_name)
 		if self.sc.dup:
 			self.send_reply(YMSGService.LogOff, YMSGStatus.Available, 0, None)
@@ -105,20 +114,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		else:
 			self.status = args[2]
 		
-		if not self.backend.verify_yahoo_user(self.usr_name):
-			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, self.sess_id, MultiDict(
-				[
-					('66', YMSGStatus.NotAtHome)
-				]
-			))
-			return
-		if args[4].get('1') != self.usr_name and args[4].get('2') != '1':
-			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, self.sess_id, MultiDict(
-				[
-					('66', YMSGStatus.Bad)
-				]
-			))
-			return
 		resp_6 = args[4].get('6')
 		resp_96 = args[4].get('96')
 		
