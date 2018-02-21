@@ -111,7 +111,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 					('66', YMSGStatus.NotAtHome)
 				]
 			))
-			self.close()
 			return
 		if args[4].get('1') != self.usr_name and args[4].get('2') != '1':
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, self.sess_id, MultiDict(
@@ -119,7 +118,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 					('66', YMSGStatus.Bad)
 				]
 			))
-			self.close()
 			return
 		resp_6 = args[4].get('6')
 		resp_96 = args[4].get('96')
@@ -143,7 +141,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 						('66', YMSGStatus.Bad)
 					]
 				))
-				self.close()
 				return
 	
 	def _util_authresp_final(self, status):
