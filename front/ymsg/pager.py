@@ -114,7 +114,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			self.close()
 			return
 		if args[4].get('1') != self.usr_name and args[4].get('2') != '1':
-			self.logger.info('auth resp. failed')
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, self.sess_id, MultiDict(
 				[
 					('66', YMSGStatus.Bad)
@@ -133,7 +132,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if self.dialect in (9, 10):
 			is_resp_correct = self.backend.verify_challenge_v1(self.usr_name, self.challenge, resp_6, resp_96)
 			if is_resp_correct:
-				self.logger.info('auth success')
 				backend = self.backend
 				uuid = backend.util_get_yahoo_uuid_from_email(self.usr_name)
 				self.ybs = backend.login_yahoo(uuid, self.client, YahooBackendEventHandler(self))
@@ -681,8 +679,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 				logon_payload.add('13', (0 if c.status.substatus == YMSGStatus.Offline else 1))
 				if c.status.substatus == YMSGStatus.Offline:
 					logon_payload.add('60', '2')
-		
-		# logon_payload.add('16', 'This is a dummy error message. We will replace this soon...')
 		
 		if after_auth:
 			if self.dialect >= 10:
