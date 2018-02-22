@@ -814,7 +814,7 @@ class YahooBackendSession(Session):
 		return ctc_head
 	
 	def me_contact_deny(self, adder_uuid: str, deny_message: Optional[str]):
-		adder_head = self.backend._load_user_record(contact_uuid)
+		adder_head = self.backend._load_yahoo_user_record(adder_uuid)
 		if adder_head is None:
 			raise error.UserDoesNotExist()
 		user_yahoo = self.user_yahoo
