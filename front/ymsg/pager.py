@@ -261,7 +261,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		ctc_head = self.backend._load_yahoo_user_record(user_contact_uuid)
 		
-		if ctc_head.status.substatus != YMSGStatus.Offline:
+		if ctc_head.status.substatus not in (YMSGStatus.Offline,YMSGStatus.Invisible):
 			contact_struct = MultiDict(
 				[
 					('0', self.usr_name),
@@ -655,7 +655,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			[
 				('0', self.usr_name),
 				('1', self.usr_name),
-				# ('8', (len(cs) if len(cs) != 1 else ''))
 				('8', len(cs))
 			]
 		)
@@ -669,9 +668,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 					logon_payload.add('19', c.status.message['text'])
 					logon_payload.add('47', c.status.message['is_away_message'])
 				logon_payload.add('17', 0)
-				logon_payload.add('13', (0 if c.status.substatus == YMSGStatus.Offline else 1))
+				logon_payload.add('13', (0 if c.status.substatus in (YMSGStatus.Offline,YMSGStatus.Invisible) else 1))
 				if c.status.substatus == YMSGStatus.Offline:
-					logon_payload.add('60', '2')
+					logon_payload.add('60', 2)
 		
 		if after_auth:
 			if self.dialect >= 10:
