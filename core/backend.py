@@ -196,7 +196,7 @@ class Backend:
 			ybs_other.evt.on_invisible_absence_notification(ctc)
 	
 	def _yahoo_notify_invisible_presence(self, ybs: 'YahooBackendSession') -> None:
-		# Notify relevant `Session`s of Yahoo! invisibility
+		# Notify relevant `Session`s of Yahoo! presence after invisibility
 		user_yahoo = ybs.user_yahoo
 		# TODO: This does a lot of work, iterating through _every_ session.
 		for ybs_other in self._ysc.iter_sessions():
@@ -245,7 +245,7 @@ class Backend:
 			if user_yahoo_other == head: ybs_other.evt.on_notify_notification(ybs.user_yahoo, notify_dict)
 	
 	def _yahoo_im_message(self, ybs: 'YahooBackendSession', head: UserYahoo, message_dict: Dict[str, Any]):
-		# Send a typing notification to a specified `UserYahoo`
+		# Send an IM to a specified `UserYahoo`
 		user_yahoo = ybs.user_yahoo
 		# TODO: This does a lot of work, iterating through _every_ session.
 		for ybs_other in self._ysc.iter_sessions():
