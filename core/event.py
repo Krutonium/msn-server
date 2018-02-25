@@ -45,9 +45,6 @@ class YahooBackendEventHandler(metaclass = ABCMeta):
 	def on_login_presence_notification(self, contact: YahooContact) -> None: pass
 	
 	@abstractmethod
-	def on_invisible_absence_notification(self, contact: YahooContact) -> None: pass
-	
-	@abstractmethod
 	def on_invisible_presence_notification(self, contact: YahooContact) -> None: pass
 	
 	@abstractmethod

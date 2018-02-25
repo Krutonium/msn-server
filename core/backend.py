@@ -12,7 +12,7 @@ from .user import UserService
 from .auth import AuthService
 from .stats import Stats
 from .client import Client
-from .models import User, UserYahoo, UserDetail, Group, Lst, Contact, YahooContact, UserStatus, YMSGStatus
+from .models import User, UserYahoo, UserDetail, UserYahooDetail, Group, Lst, Contact, YahooContact, UserStatus, UserYahooStatus, YMSGStatus
 from . import error, event
 from util.yahoo import Y64
 
@@ -34,7 +34,7 @@ class Backend:
 	_user_by_uuid: Dict[str, User]
 	_yahoo_user_by_uuid: Dict[str, UserYahoo]
 	_unsynced_db: Dict[User, UserDetail]
-	_unsynced_db_yahoo: Dict[UserYahoo, UserDetail]
+	_unsynced_db_yahoo: Dict[UserYahoo, UserYahooDetail]
 	_runners: List[Runner]
 	
 	def __init__(self, loop: asyncio.AbstractEventLoop, *, user_service: Optional[UserService] = None, auth_service: Optional[AuthService] = None) -> None:
@@ -132,7 +132,7 @@ class Backend:
 		if user.detail: return user.detail
 		return self.user_service.get_detail(user.uuid)
 	
-	def _load_yahoo_detail(self, user_yahoo: UserYahoo) -> UserDetail:
+	def _load_yahoo_detail(self, user_yahoo: UserYahoo) -> UserYahooDetail:
 		if user_yahoo.detail: return user_yahoo.detail
 		return self.user_service.get_yahoo_detail(user_yahoo.uuid)
 	
@@ -181,19 +181,6 @@ class Backend:
 			ctc = user_yahoo_other.detail.contacts.get(user_yahoo.uuid)
 			if ctc is None: continue
 			ybs_other.evt.on_presence_notification(ctc)
-	
-	def _yahoo_notify_invisible_absence(self, ybs: 'YahooBackendSession') -> None:
-		# Notify relevant `Session`s of Yahoo! invisibility
-		user_yahoo = ybs.user_yahoo
-		# TODO: This does a lot of work, iterating through _every_ session.
-		for ybs_other in self._ysc.iter_sessions():
-			if ybs_other == ybs: continue
-			user_yahoo_other = ybs_other.user_yahoo
-			if user_yahoo_other is None: continue
-			if user_yahoo_other.detail is None: continue
-			ctc = user_yahoo_other.detail.contacts.get(user_yahoo.uuid)
-			if ctc is None: continue
-			ybs_other.evt.on_invisible_absence_notification(ctc)
 	
 	def _yahoo_notify_invisible_presence(self, ybs: 'YahooBackendSession') -> None:
 		# Notify relevant `Session`s of Yahoo! presence after invisibility
@@ -297,7 +284,7 @@ class Backend:
 		assert ud is not None
 		self._unsynced_db[user] = ud
 	
-	def _yahoo_mark_modified(self, user_yahoo: UserYahoo, *, detail: Optional[UserDetail] = None) -> None:
+	def _yahoo_mark_modified(self, user_yahoo: UserYahoo, *, detail: Optional[UserYahooDetail] = None) -> None:
 		ud = user_yahoo.detail or detail
 		if detail: assert ud is detail
 		assert ud is not None
@@ -792,18 +779,18 @@ class YahooBackendSession(Session):
 			elif status_new == YMSGStatus.Available:
 				self.backend._yahoo_notify_presence(self)
 			elif status_new == YMSGStatus.Invisible:
-				self.backend._yahoo_notify_invisible_absence(self)
+				self.backend._yahoo_notify_logout(self)
 			else:
 				self.backend._yahoo_notify_absence(self)
 	
-	def me_contact_add(self, ctc_head: UserYahoo, name: Optional[str], group: Group, request_message: Optional[str], utf8: Optional[str]):
+	def me_contact_add(self, ctc_head: UserYahoo, group: Group, request_message: Optional[str], utf8: Optional[str]):
 		if ctc_head is None:
 			raise error.UserDoesNotExist()
 		user_adder = self.user_yahoo
 		detail = user_adder.detail
 		contacts = detail.contacts
 		
-		ctc = self._add_to_yahoo_list(user_adder, ctc_head, user_adder.status.name)
+		ctc = self._add_to_yahoo_list(user_adder, ctc_head)
 		self.me_group_contact_add(group.id, ctc_head.uuid)
 		
 		for sess_added in self.backend._ysc.get_sessions_by_user(ctc_head):
@@ -836,23 +823,23 @@ class YahooBackendSession(Session):
 		self.backend._yahoo_mark_modified(user_yahoo)
 		self.backend._sync_yahoo_contact_statuses()
 	
-	def me_contact_add_ignore(self, contact_uuid: str, name: Optional[str]) -> None:
+	def me_contact_add_ignore(self, contact_uuid: str, yahoo_id: Optional[str]) -> None:
 		ctc_head = self.backend._load_yahoo_user_record(contact_uuid)
 		if ctc_head is None:
 			raise error.UserDoesNotExist()
 		user_yahoo = self.user_yahoo
-		ctc = self._add_to_yahoo_list(user_yahoo, ctc_head, name)
+		ctc = self._add_to_yahoo_list(user_yahoo, ctc_head, yahoo_id)
 		self.backend._sync_yahoo_contact_statuses()
 	
-	def _add_to_yahoo_list(self, user_yahoo: UserYahoo, ctc_head: UserYahoo, name: Optional[str]) -> YahooContact:
+	def _add_to_yahoo_list(self, user_yahoo: UserYahoo, ctc_head: UserYahoo) -> YahooContact:
 		# Add `ctc_head` to `user_yahoo`'s buddy list
 		detail = self.backend._load_yahoo_detail(user_yahoo)
 		contacts = detail.contacts
 		if ctc_head.uuid not in contacts:
-			contacts[ctc_head.uuid] = YahooContact(ctc_head, set(), UserStatus(name, message = ctc_head.status.message))
+			contacts[ctc_head.uuid] = YahooContact(ctc_head, ctc_head.yahoo_id, set(), UserYahooStatus())
 		ctc = contacts[ctc_head.uuid]
-		if ctc.status.name is None:
-			ctc.status.name = name
+		if ctc.yahoo_id is None:
+			ctc.yahoo_id = ctc_head.yahoo_id
 		self.backend._yahoo_mark_modified(user_yahoo, detail = detail)
 		return ctc
 	
@@ -1042,13 +1029,13 @@ class Conference:
 		if conf_roster is None:
 			roster_tmp = []
 			for invitee in list(self._users_by_sess.values()):
-				roster_tmp.append(invitee.status.name)
+				roster_tmp.append(invitee.yahoo_id)
 			conf_roster = roster_tmp
 			del roster_tmp
 		# Notify others that `sess` has left
 		for sess1, _ in self._users_by_sess.items():
 			if sess1 is sess: continue
-			if sess1.user_yahoo.status.name in conf_roster:
+			if sess1.user_yahoo.yahoo_id in conf_roster:
 				sess1.evt.on_participant_left(sess)
 
 class ChatSession(Session):
