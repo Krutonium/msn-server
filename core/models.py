@@ -14,11 +14,12 @@ class User:
 		self.date_created = date_created
 
 class UserYahoo:
-	detail: Optional['UserDetail']
+	detail: Optional['UserYahooDetail']
 	
-	def __init__(self, uuid, email, verified, status, date_created):
+	def __init__(self, uuid, email, yahoo_id, verified, status, date_created):
 		self.uuid = uuid
 		self.email = email
+		self.yahoo_id = yahoo_id
 		self.verified = verified
 		# `status`: true status of user
 		self.status = status
@@ -47,8 +48,9 @@ class Contact:
 		self.status.media = true_status.media
 
 class YahooContact:
-	def __init__(self, user, groups, status, *, is_messenger_user = None):
+	def __init__(self, user, yahoo_id, groups, status, *, is_messenger_user = None):
 		self.head = user
+		self.yahoo_id = yahoo_id
 		self.groups = groups
 		# `status`: status as known by the contact
 		self.status = status
@@ -57,7 +59,6 @@ class YahooContact:
 	def compute_visible_status(self, to_user):
 		true_status = self.head.status
 		self.status.substatus = true_status.substatus
-		self.status.name = true_status.name
 		self.status.message = true_status.message
 
 def _is_blocking(blocker, blockee):
@@ -82,13 +83,12 @@ class UserStatus:
 		return ss == Substatus.FLN or ss == Substatus.HDN
 
 class UserYahooStatus:
-	__slots__ = ('substatus', 'name', 'message')
+	__slots__ = ('substatus', 'message')
 	
-	def __init__(self, name, message = None):
+	def __init__(self):
 		# Use Offline as default
 		self.substatus = YMSGStatus.Offline
-		self.name = name
-		self.message = message
+		self.message = {'text': '', 'is_away_message': 0}
 	
 	def is_offlineish(self):
 		ss = self.substatus
@@ -99,6 +99,11 @@ class UserDetail:
 		self.settings = settings
 		self.groups = {} # type: Dict[str, Group]
 		self.contacts = {} # type: Dict[str, Contact]
+
+class UserYahooDetail:
+	def __init__(self):
+		self.groups = {} # type: Dict[str, Group]
+		self.contacts = {} # type: Dict[str, YahooContact]
 
 class Group:
 	def __init__(self, id, name, *, is_favorite = None):

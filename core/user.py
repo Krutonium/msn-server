@@ -4,7 +4,7 @@ from datetime import datetime
 from db import Session, User as DBUser, UserYahoo as DBUserYahoo
 from util.hash import hasher, hasher_md5, hasher_md5crypt
 
-from .models import User, UserYahoo, Contact, YahooContact, UserStatus, UserYahooStatus, UserDetail, Group
+from .models import User, UserYahoo, Contact, YahooContact, UserStatus, UserYahooStatus, UserDetail, UserYahooDetail, Group
 
 class UserService:
 	def __init__(self):
@@ -101,8 +101,8 @@ class UserService:
 		with Session() as sess:
 			dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == uuid).one_or_none()
 			if dbuser is None: return None
-			status = UserYahooStatus(dbuser.name, {'text': '', 'is_away_message': 0})
-			return UserYahoo(dbuser.uuid, dbuser.email, dbuser.verified, status, dbuser.date_created)
+			yahoo_status = UserYahooStatus()
+			return UserYahoo(dbuser.uuid, dbuser.email, dbuser.yahoo_id, dbuser.verified, yahoo_status, dbuser.date_created)
 	
 	def get_detail(self, uuid):
 		with Session() as sess:
@@ -127,16 +127,16 @@ class UserService:
 		with Session() as sess:
 			dbuser_yahoo = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == uuid).one_or_none()
 			if dbuser_yahoo is None: return None
-			detail = UserDetail(dbuser_yahoo.settings)
+			detail = UserYahooDetail()
 			for g in dbuser_yahoo.groups:
 				grp = Group(**g)
 				detail.groups[grp.id] = grp
 			for c in dbuser_yahoo.contacts:
 				ctc_head = self.yahoo_get(c['uuid'])
 				if ctc_head is None: continue
-				status = UserYahooStatus(c['name'], {'text': '', 'is_away_message': 0})
+				yahoo_status = UserYahooStatus()
 				ctc = YahooContact(
-					ctc_head, set(c['groups']), status, is_messenger_user = c.get('is_messenger_user'),
+					ctc_head, c['yahoo_id'], set(c['groups']), yahoo_status, is_messenger_user = c.get('is_messenger_user'),
 				)
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
@@ -163,13 +163,11 @@ class UserService:
 		with Session() as sess:
 			for user, detail in to_save:
 				dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == user.uuid).one()
-				dbuser.name = user.status.name
-				dbuser.settings = detail.settings
 				dbuser.groups = [{
 					'id': g.id, 'name': g.name
 				} for g in detail.groups.values()]
 				dbuser.contacts = [{
-					'uuid': c.head.uuid, 'name': c.status.name, 'message': c.status.message,
+					'uuid': c.head.uuid, 'yahoo_id': c.yahoo_id,
 					'groups': list(c.groups),
 					'is_messenger_user': c.is_messenger_user,
 				} for c in detail.contacts.values()]
