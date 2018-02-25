@@ -46,8 +46,7 @@ def user_type_msn(email):
 def user_type_yahoo(email):
 	return UserYahoo(
 		uuid = gen_uuid(), email = email, verified = False,
-		name = email[:email.find('@')],
-		settings = {}, groups = {}, contacts = {},
+		yahoo_id = email[:email.find('@')], groups = {}, contacts = {},
 	)
 
 def _set_passwords(user, pw, support_old, support_yahoo = None):
