@@ -245,7 +245,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		contact_yahoo = contacts.get(user_contact_uuid)
 		
 		if contact_yahoo is not None:
-			if contact_yahoo.status.name == contact_to_add:
+			if contact_yahoo.yahoo_id == contact_to_add:
 				for grp in contact_yahoo.groups:
 					if groups[grp].name == buddy_group:
 						add_request_response.add('66', 2)
@@ -285,7 +285,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			add_request_response.add('66', 0)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			
-			ybs.me_contact_add(ctc_head, contact_to_add, group, message, utf8)
+			ybs.me_contact_add(ctc_head, group, message, utf8)
 		else:
 			ybs.me_group_contact_move(group.id, user_contact_uuid)
 		
@@ -374,7 +374,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			cs = [c for c in contacts.values()]
 			if cs:
 				for c in cs:
-					if c.status.name == user_to_ignore:
+					if c.yahoo_id == user_to_ignore:
 						if len(c.groups) == 0:
 							ignore_reply_response.add('66', 2)
 							self.send_reply(YMSGService.Ignore, YMSGStatus.BRB, self.sess_id, ignore_reply_response)
@@ -614,7 +614,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 				for c in cs:
 					for grp_id in c.groups:
 						if grp_id == cat_id:
-							contact_list.append(c.status.name)
+							contact_list.append(c.yahoo_id)
 							break
 				
 				if len(contact_list) == 0: continue
@@ -626,7 +626,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if cs:
 			ignore_list = []
 			for c in cs:
-				if len(c.groups) == 0: ignore_list.append(c.status.name)
+				if len(c.groups) == 0: ignore_list.append(c.yahoo_id)
 			ignore_pkt_format = ','.join(ignore_list)
 		
 		expiry = datetime.datetime.utcnow() + datetime.timedelta(days=1)
@@ -661,8 +661,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		if cs:
 			for c in cs:
-				logon_payload.add('7', c.status.name)
-				logon_payload.add('10', (YMSGStatus.Offline if c.status.substatus == YMSGStatus.Invisible else c.status.substatus))
+				logon_payload.add('7', c.yahoo_id)
+				logon_payload.add('10', (YMSGStatus.Available if c.status.substatus in (YMSGStatus.Offline,YMSGStatus.Invisible) else c.status.substatus))
 				logon_payload.add('11', c.head.uuid[:8].upper())
 				if c.status.substatus == YMSGStatus.Custom and c.status.message not in ({'text': '', 'is_away_message': 0},):
 					logon_payload.add('19', c.status.message['text'])
@@ -692,27 +692,23 @@ class YahooBackendEventHandler(event.YahooBackendEventHandler):
 		self.ctrl = ctrl
 	
 	def on_presence_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_presence_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
+		for y in build_yahoo_presence_notif(contact, self.ctrl.dialect, self.ctrl.ybs):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_login_presence_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_login_presence_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
+		for y in build_yahoo_login_presence_notif(contact, self.ctrl.dialect, self.ctrl.ybs):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_logout_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_logout_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
-	
-	def on_invisible_absence_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_invisible_absence_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
+		for y in build_yahoo_logout_notif(contact, self.ctrl.dialect):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_invisible_presence_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_presence_invisible_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
+		for y in build_yahoo_presence_invisible_notif(contact, self.ctrl.dialect):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_absence_notification(self, contact: YahooContact) -> None:
-		for y in build_yahoo_absence_notif(contact, self.ctrl.dialect, self.ctrl.backend, self.ctrl.ybs):
+		for y in build_yahoo_absence_notif(contact, self.ctrl.dialect):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_conf_invite(self, conf: Conference, inviter: UserYahoo, invite_msg: Optional[str], conf_roster: List[str], voice_chat: int, existing_conf: bool = False) -> None:
