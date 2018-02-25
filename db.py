@@ -46,12 +46,11 @@ class UserYahoo(Base):
 	uuid = sa.Column(sa.String, nullable = False, unique = True)
 	email = sa.Column(sa.String, nullable = False, unique = True)
 	verified = sa.Column(sa.Boolean, nullable = False)
-	name = sa.Column(sa.String, nullable = False)
+	yahoo_id = sa.Column(sa.String, nullable = False, unique = True)
 	# Currently Escargot only supports MD5 and MD5Crypt-based Yahoo! clients. Ignore for now.
 	# password = sa.Column(sa.String, nullable = False)
 	password_md5 = sa.Column(sa.String, nullable = False)
 	password_md5crypt = sa.Column(sa.String, nullable = False)
-	settings = sa.Column(JSONType, nullable = False)
 	groups = sa.Column(JSONType, nullable = False)
 	contacts = sa.Column(JSONType, nullable = False)
 
