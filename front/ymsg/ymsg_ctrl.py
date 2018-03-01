@@ -45,7 +45,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 			
 			# Escargot's MSN and Yahoo functions have similar name structures
 			# MSN: "_m_CMD"
-			# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]
+			# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]"
 			
 			try:
 				# check version and vendorId
