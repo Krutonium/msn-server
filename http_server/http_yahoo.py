@@ -10,17 +10,26 @@ def register(app):
 	app['jinja_env_yahoo'] = util.misc.create_jinja_env(YAHOO_TMPL_DIR, None)
 	
 	app.router.add_route('*', '/', handle_insider)
-	app.router.add_route('*', '/ycontent/', handle_insider_ycontent)
+	app.router.add_get('/ycontent/', handle_insider_ycontent)
 	app.router.add_static('/c/msg', YAHOO_TMPL_DIR + '/c/msg')
 
 async def handle_insider_ycontent(req):
 	query = req.query
-	print(query)
+	
 	config_xml = []
 	if len(query) != 0:
 		for query_xml in query.keys():
-			# 'intl' and 'os' are NOT queries to retreive config XML files, ignore
-			if query_xml in ('intl', 'os', 'ver', 'getwc', 'getgp'): continue
+			# 'intl', 'os', and 'ver' are NOT queries to retreive config XML files; 'getwc' and 'getgp' are unsure of their use; 'ab2' and all related query strings are used for the address book, which isn't implemented as of now
+			unused_queries = (
+				'intl', 'os', 'ver',
+				'getwc', 'getgp', 'ab2',
+				'fname', 'lname', 'yid',
+				'nname', 'email', 'hphone',
+				'wphone', 'mphone', 'pp',
+				'ee', 'ow', 'id',
+			)
+			
+			if query_xml in unused_queries: continue
 			tmpl = req.app['jinja_env_yahoo'].get_template('Yinsider/Ycontent/Ycontent.' + query_xml + '.xml')
 			config_xml.append(tmpl.render())
 	
@@ -36,13 +45,6 @@ async def handle_insider(req):
 	
 	return render(req, 'Yinsider/Yinsider.html', {
 		'insidercontent': Markup(tmpl.render())
-	})
-
-async def handle_banad(req):
-	query = req.query
-	
-	return render(req, 'c/msg/banad.html', {
-		'spaceid': (query.get('spaceid') if query.get('spaceid') is not None else '0 robot')
 	})
 
 def render(req, tmpl_name, ctxt = None, status = 200):
