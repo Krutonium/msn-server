@@ -649,8 +649,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			]
 		))
 		
-		# TODO: Current contact detail implementation results in the Yahoo! Messenger clients appending "()" to offline contacts' names
-		
 		logon_payload = MultiDict(
 			[
 				('0', self.usr_name),
