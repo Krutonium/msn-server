@@ -170,16 +170,18 @@ def build_yahoo_ft_packet(user_from: UserYahoo, ybs: Optional[YahooBackendSessio
 	ft_dict = MultiDict(
 		[
 			('5', user_to.yahoo_id),
-			('4', user_from.yahoo_id),
-			('13', xfer_dict.get('13')),
-			('27', xfer_dict.get('27')),
-			('28', xfer_dict.get('28')),
-			('20', xfer_dict.get('20')),
-			('14', xfer_dict.get('14')),
-			('38', 86400),
-			('49', xfer_dict.get('49'))
+			('4', user_from.yahoo_id)
 		]
 	)
+	
+	ft_dict.add('13', xfer_dict.get('13'))
+	if xfer_dict.get('27') is not None: ft_dict.add('27', xfer_dict.get('27'))
+	if xfer_dict.get('28') is not None: ft_dict.add('28', xfer_dict.get('28'))
+	if xfer_dict.get('20') is not None: ft_dict.add('20', xfer_dict.get('20'))
+	if xfer_dict.get('14') is not None: ft_dict.add('14', xfer_dict.get('14'))
+	if int(xfer_dict.get('13')) == 1: ft_dict.add('38', 86400)
+	if xfer_dict.get('53') is not None: ft_dict.add('53', xfer_dict.get('53'))
+	ft_dict.add('49', xfer_dict.get('49'))
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
 
