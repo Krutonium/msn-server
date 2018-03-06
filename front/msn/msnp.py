@@ -23,8 +23,9 @@ class MSNPCtrl(metaclass = ABCMeta):
 		self.reader = MSNPReader(logger)
 		self.writer = MSNPWriter(logger)
 		self.peername = ('0.0.0.0', 1863)
-		self.closed = False
 		self.close_callback = None
+		self.closed = False
+		self.transport = None
 	
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
