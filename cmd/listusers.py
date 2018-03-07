@@ -21,6 +21,12 @@ def main(arg = None):
 				print(u.email)
 			if online_since is not None and u.date_login is not None:
 				total_online += (1 if u.date_login >= online_since else 0)
+		for u_y in sess.query(db.UserYahoo).all():
+			total += 1
+			if verbose:
+				print(u_y.email)
+			if online_since is not None and u_y.date_login is not None:
+				total_online += (1 if u_y.date_login >= online_since else 0)
 	
 	print("Total:", total)
 	if online_since is not None:
