@@ -1,9 +1,8 @@
 import argparse
-from db import Session, User
-from util.misc import gen_uuid
-from util import hash
+from util import misc, hash
+from core.db import Session, User
 
-def main():
+def main() -> None:
 	parser = argparse.ArgumentParser(description = "Create user/change password.")
 	parser.add_argument('email', help = "email of new/existing user")
 	parser.add_argument('password')
@@ -25,18 +24,18 @@ def main():
 		if user is None:
 			print("Creating new user...")
 			user = User(
-				uuid = gen_uuid(), email = email, verified = False,
+				uuid = misc.gen_uuid(), email = email, verified = False,
 				name = email, message = '',
 				settings = {}, groups = {}, contacts = {},
 			)
 		else:
 			print("User exists, changing password...")
-		_set_passwords(user, pw, *, support_old_msn = args.support_old_msn, support_yahoo = args.support_yahoo)
+		set_passwords(user, pw, support_old_msn = args.support_old_msn, support_yahoo = args.support_yahoo)
 		sess.add(user)
 	
 	print("Done.")
 
-def _set_passwords(user, pw, *, support_old_msn = False, support_yahoo = False):
+def set_passwords(user: User, pw: str, *, support_old_msn: bool = False, support_yahoo: bool = False) -> None:
 	user.password = hash.hasher.encode(pw)
 	
 	if support_old_msn:

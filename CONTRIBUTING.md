@@ -16,9 +16,9 @@
 	```
 	ENABLE_FRONT_YMSG = True
 	```
-- run `python cmd/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
-- run `python cmd/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords; MSN only, for now)
-- to create users, run `python cmd/user.py -h` for instructions
+- run `python script/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
+- run `python script/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords; MSN only, for now)
+- to create users, run `python script/user.py -h` for instructions
 
 ## MSN
 
