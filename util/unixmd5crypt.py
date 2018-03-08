@@ -154,4 +154,4 @@ def unix_md5_crypt(pw, salt):
 	passwd = passwd + to64((int(final_hex[22:24], 16)), 2)
 	
 	
-	return MAGIC + salt + '$' + passwd
+	return (MAGIC + salt + '$' + passwd).encode('utf-8')

@@ -1,0 +1,48 @@
+<filters signature="gkwxLK0AFQJLQ7OOCdw2waHSj+Be+vC21j1FavJ/aiK6v2P073+nY8htit8T22Pa3jdpbSaZe/9qmEXNBhMy4Uy1fF9QxoopUsLglUTDAlgR3UkL/r9P9Zytoh+gQoABeEf3Q/Us2O/AEkXeviW541qdfAEnMd4KqQem3d6b19wj5BtXAaFD4QG7cY7SwfogDpXj9sCudnDBGg19udHvIsE62ottiILdk5+qvEF6DgL/Z54+PYIeebk8qoWXFX1njmnXTX603+FwSrnY0M6SyIIIXsZy88A6ZXJrp+pJYu5VaTj9RYCekAY2ogTlhanatdefILS0CCnIOfgGsQhYVw==">
+	<replace field="135" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*|^\s*$" with=""/>
+	<replace field="310" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*|^\s*$" with=""/>
+	<replace field="265" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*|^\s*$" with=""/>
+	<replace field="11" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace field="180" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace field="230" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace field="231" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace field="232" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace field="182" flags="3" pattern=".*[&lt;&gt;&quot;&apos;&amp;\/].*" with=""/>
+	<replace command="208" field="231" flags="3" pattern="http.*|www..*" with=" "/>
+	<replace field="14" flags="3" pattern="&lt;search[^&gt;]*&gt;.*&lt;search[^&gt;]*&gt;.*&lt;search[^&gt;]*&gt;.*&lt;search[^&gt;]*&gt;" with=" "/>
+	<replace field="14" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="14" flags="3" pattern="ymsgr:-kill" with=" "/>
+	<replace field="14" flags="3" pattern="geocities.com/a[0-9]{4,9}" with=" "/>
+	<replace field="14" flags="3" pattern="rmarriso.blogspot.com" with=" "/>
+	<replace field="280" flags="3" pattern="&amp;#39;" with="&apos;"/>
+	<replace field="280" flags="3" pattern="&amp;quot;" with="&quot;"/>
+	<replace field="280" flags="3" pattern="&amp;." with=" "/>
+	<replace field="254" flags="3" pattern="[&lt;&gt;]." with=" "/>
+	<replace field="216" flags="3" pattern="[&lt;&gt;]." with=" "/>
+	<replace field="19" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="63" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="117" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="57" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="58" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="105" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="231" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="27" flags="3" pattern="msg:" with="msg: "/>
+	<replace command="220" field="27" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="4" flags="3" pattern="msg:" with="msg: "/>
+	<replace field="5" flags="3" pattern="&lt;" with="  "/>
+	<replace field="4" flags="3" pattern="&lt;" with="  "/>
+	<replace field="14" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="19" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="63" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="117" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="57" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="58" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="105" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="231" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="27" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="4" flags="3" pattern="y-source.com" with=" "/>
+	<replace field="14" flags="3" pattern="geocities.com/a[0-9]{4,9}" with=" "/>
+	<replace field="14" flags="3" pattern="thecoolpics.com" with=" "/>
+	<replace field="14" flags="3" pattern="^s*s:" with=" s;"/>
+	<replace command="233" field="59" flags="3" pattern="[,&quot;&lt;&gt;]" with=" "/>
+</filters>

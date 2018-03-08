@@ -1,0 +1,112 @@
+<sms signature="Q7ZR0QLgniIrASEJlPHHPeeaRNSjWbSEBDyhqSlQT8A7GmXsQnFJkD17nnevfcNfHFmQcxmCHIAELuMlBpiQuLKUgTBrYMRcdZczBCpgJF+02kVPZmlb1TdY5CnrP1rtKHUDWrgZGMn4YhPZzo8LhS1qCfbXc65/y3Q5Lc6xguf7kkYZ2uwpisv+0ofmUIyn9JF8A/8GSXtxvbKttsdL1nejOyVRCu4QPbtgDUqc9TcvQdU3TLF+cuI2mWSJr9xZFWGJVIu9LtmEcPpVz/fYKA+clrC4qXTZDuZhzLy+UWFiKOCRMTRKZczzg8u6e3RTdIG6Qi4BMbA1gizl0ojHUw==">
+	<countries>
+		<intl code="1" id="us" maxdigits="10" mindigits="10"/>
+		<intl code="1" id="ca" maxdigits="10" mindigits="10"/>
+		<intl code="91" id="in" maxdigits="10" mindigits="10"/>
+		<intl code="60" maxdigits="9" mindigits="9" name="Malaysia"/>
+		<intl code="965" maxdigits="7" mindigits="7" name="Kuwait"/>
+		<intl code="962" maxdigits="9" mindigits="9" name="Jordan"/>
+		<intl code="974" maxdigits="7" mindigits="7" name="Qatar"/>
+		<intl code="94" maxdigits="9" mindigits="9" name="Sri Lanka"/>
+		<intl code="66" maxdigits="9" mindigits="8" name="Thailand"/>
+		<intl code="65" id="sg" maxdigits="8" mindigits="8"/>
+		<intl code="62" maxdigits="11" mindigits="8" name="Indonesia"/>
+		<intl code="63" maxdigits="10" mindigits="10" name="Philippines"/>
+		<intl code="880" maxdigits="10" mindigits="10" name="Bangladesh"/>
+		<intl code="234" maxdigits="8" mindigits="8" name="Nigeria"/>
+		<intl code="84" maxdigits="12" mindigits="9" name="Vietnam"/>
+	</countries>
+	<carrierslist>
+		<carrier id="pcsms.in.acl" maxchars="159" name="ACL India"/>
+		<carrier id="pcsms.us.boost" maxchars="159" name="Sprint Boost"/>
+		<carrier id="pcsms.us.att" maxchars="159" name="AT&amp;T"/>
+		<carrier id="pcsms.us.cingular" maxchars="156" name="Cingular"/>
+		<carrier id="pcsms.us.verizon" maxchars="159" name="Verizon"/>
+		<carrier id="pcsms.us.virgin" maxchars="159" name="Virgin"/>
+		<carrier id="pcsms.us.tmobile" maxchars="159" name="T-Mobile"/>
+		<carrier id="pcsms.us.alltel" maxchars="159" name="Alltel"/>
+		<carrier id="pcsms.us.sprintpcs" maxchars="159" name="Sprint PCS"/>
+		<carrier id="pcsms.us.sprint_iden" maxchars="159" name="Sprint IDEN(Nextel)"/>
+		<carrier id="pcsms.us.uscell" maxchars="159" name="US Cellular"/>
+		<carrier id="pcsms.ca.rogers" maxchars="159" name="Rogers Wireless"/>
+		<carrier id="hutchinson.in" maxchars="159" name="Orange Mumbai"/>
+		<carrier id="hutchinson.in.mum" maxchars="159" name="Orange Mumbai (Pre-Paid)"/>
+		<carrier id="hutchinson.in.del" maxchars="159" name="Hutch Delhi"/>
+		<carrier id="hutchinson.in.guj" maxchars="159" name="Hutch Gujarat"/>
+		<carrier id="hutchinson.in.kol" maxchars="159" name="Hutch Kolkata"/>
+		<carrier id="hutchinson.in.south" maxchars="159" name="Hutch South"/>
+		<carrier id="hutchinson.in.south2" maxchars="159" name="Hutch South"/>
+		<carrier id="hutchinson.in.adil" maxchars="159" name="Hutch ADIL"/>
+		<carrier id="escotel.in.up" maxchars="159" name="Escotel UP"/>
+		<carrier id="escotel.in.har" maxchars="159" name="Escotel Haryana"/>
+		<carrier id="escotel.in.ker" maxchars="159" name="Escotel Kerala"/>
+		<carrier id="spice.in.kk" maxchars="159" name="Spice Karnataka"/>
+		<carrier id="spice.in.pun" maxchars="159" name="Spice Punjab"/>
+		<carrier id="aircel.in.north" maxchars="159" name="Aircel North"/>
+		<carrier id="airtel.in.del" maxchars="159" name="Airtel Delhi"/>
+		<carrier id="airtel.in.pun" maxchars="159" name="Airtel Punjab"/>
+		<carrier id="airtel.in.ap" maxchars="159" name="Airtel AP"/>
+		<carrier id="airtel.in.kk" maxchars="159" name="Airtel Karnataka"/>
+		<carrier id="airtel.in.mum" maxchars="159" name="Airtel Mumbai"/>
+		<carrier id="airtel.in.kol" maxchars="159" name="Airtel Kolkata"/>
+		<carrier id="airtel.in.chen" maxchars="159" name="Airtel Chennai"/>
+		<carrier id="idea.in" maxchars="159" name="Idea India"/>
+		<carrier id="idea.in.ap" maxchars="159" name="Idea AP"/>
+		<carrier id="idea.in.mp" maxchars="159" name="Idea MP"/>
+		<carrier id="idea.in.guj" maxchars="159" name="Idea Gujarat"/>
+		<carrier id="idea.in.del" maxchars="159" name="Idea Delhi"/>
+		<carrier id="idea.in.mah" maxchars="159" name="Idea Maharashtra"/>
+		<carrier id="reliance.in" maxchars="159" name="Reliance India"/>
+		<carrier id="tatatele.in" maxchars="159" name="TataTele India"/>
+		<carrier id="tatagsm.in" maxchars="159" name="Tata GSM India"/>
+		<carrier id="rpg.in" maxchars="159" name="RPG India"/>
+		<carrier id="oasis.in" maxchars="159" name="Oasis India"/>
+		<carrier id="mtnl.in.mum" maxchars="159" name="MTNL Mumbai"/>
+		<carrier id="mtnl.in.del" maxchars="159" name="MTNL Delhi"/>
+		<carrier id="reliance" maxchars="159" name="Reliance"/>
+		<carrier id="bpl.in.mum" maxchars="159" name="BPL Mumbai"/>
+		<carrier id="bpl.in.mah" maxchars="159" name="BPL Maharashtra"/>
+		<carrier id="bpl.in.ker" maxchars="159" name="BPL Kerala"/>
+		<carrier id="bpl.in.tn" maxchars="159" name="BPL Tamil Nadu"/>
+		<carrier id="bsnl.in.punjab" maxchars="159" name="BSNL Punjab"/>
+		<carrier id="reliance.in.infocomm" maxchars="159" name="Reliance Infocomm"/>
+		<carrier id="reliance.in.infocomm6" maxchars="159" name="Reliance Infocomm6"/>
+		<carrier id="kuwataniya" maxchars="159" name="Wataniya Kuwait"/>
+		<carrier id="pcsms.th.ais" maxchars="159" name="AIS Thailand"/>
+		<carrier id="pcsms.th.dtac" maxchars="159" name="DTAC Thailand"/>
+		<carrier id="pcsms.ph.smart" maxchars="159" name="Smart Philippines"/>
+		<carrier id="globe.ph" maxchars="159" name="Globe Philippines"/>
+		<carrier id="telkomsel.id" maxchars="159" name="Telkomsel Indonesia"/>
+		<carrier id="excelcom.id" maxchars="159" name="Excelcom Indonesia"/>
+		<carrier id="pcsms.id.excelcom" maxchars="159" name="Excelcom Indonesia2"/>
+		<carrier id="pcsms.id.hutch3" maxchars="159" name="Hutch3 Indonesia"/>
+		<carrier id="pcsms.id.indosat" maxchars="159" name="Indosat Indonesia"/>
+		<carrier id="pcsms.my.celcom" maxchars="159" name="Celcom Malaysia"/>
+		<carrier id="pcsms.my.akn_celcom" maxchars="159" name="AKN Celcom Malaysia"/>
+		<carrier id="pcsms.my.akn_digi" maxchars="159" name="MyDigi Malaysia"/>
+		<carrier id="pcsms.vn.gapit_vinaphone" maxchars="159" name="Vinaphone Vietnam"/>
+		<carrier id="pcsms.vn.gapit_mobifone" maxchars="159" name="Mobifone Vietnam"/>
+		<carrier id="pcsms.vn.gapit_viettel" maxchars="159" name="Viettel Vietnam"/>
+		<carrier id="pcsms.vn.htmobile" maxchars="159" name="Htmobile Vietnam"/>
+		<carrier id="pcsms.vn.evntelecom" maxchars="159" name="Evntelecom Vietnam"/>
+		<carrier id="pcsms.vn.sfone" maxchars="159" name="Sfone Vietnam"/>
+		<carrier id="pcsms.yahoo.test" maxchars="159" name="Yahoo Test Carrier"/>
+		<carrier id="reliancegsm.in" maxchars="159" name="Reliance GSM"/>
+		<carrier id="airtel.in" maxchars="159" name="Airtel"/>
+		<carrier id="aircel.in.south" maxchars="159" name="Aircel"/>
+		<carrier id="idea.in.pun" maxchars="159" name="Idea"/>
+		<carrier id="idea.in.ker" maxchars="159" name="Idea"/>
+		<carrier id="reliancecdma.in" maxchars="159" name="Reliance CDMA"/>
+		<carrier id="bpl.in" maxchars="159" name="BPL"/>
+		<carrier id="pcsms.id.mobile8" maxchars="159" name="Mobile 8"/>
+		<carrier id="pcsms.my.maxis" maxchars="159" name="Maxis"/>
+		<carrier id="pcsms.ca.telus" maxchars="159" name="CA Telus"/>
+		<carrier id="pcsms.id.bakrie" maxchars="159" name="ID Bakrie"/>
+		<carrier id="pcsms.ph.sun" maxchars="159" name="Sun Cellular"/>
+		<carrier id="pcsms.us.test" maxchars="159" name="Yahoo US Test Carrier"/>
+		<carrier id="pcsms.id.smart" maxchars="159" name="ID Smart"/>
+		<carrier id="pcsms.vn.gtel" maxchars="159" name="Gtel"/>
+		<carrier id="tatacdma.in" maxchars="159" name="TataCDMA"/>
+		<carrier id="pcsms.ca.bell" maxchars="159" name="Bell Cannada"/>
+	</carrierslist>
+</sms>

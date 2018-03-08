@@ -6,26 +6,13 @@ from util.misc import Logger
 
 from .msnp import MSNPCtrl
 
-def register(loop, backend, *, http_port = None, devmode = False):
-	from util.misc import AIOHTTPRunner, ProtocolRunner
-	from .http import create_app
+def register(loop, backend):
+	from util.misc import ProtocolRunner
 	from .msnp_ns import MSNPCtrlNS
 	from .msnp_sb import MSNPCtrlSB
 	
-	assert http_port, "Please specify `http_port`."
-	
-	if devmode:
-		http_host = '0.0.0.0'
-	else:
-		http_host = '127.0.0.1'
-	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 1863, ListenerMSNP, args = ['NS', backend, MSNPCtrlNS]))
 	backend.add_runner(ProtocolRunner('0.0.0.0', 1864, ListenerMSNP, args = ['SB', backend, MSNPCtrlSB]))
-	backend.add_runner(AIOHTTPRunner(http_host, http_port, create_app(loop, backend)))
-	if devmode:
-		from dev import autossl
-		ssl_context = autossl.create_context()
-		backend.add_runner(AIOHTTPRunner(http_host, 443, create_app(loop, backend), ssl = ssl_context))
 
 class ListenerMSNP(asyncio.Protocol):
 	logger: Logger

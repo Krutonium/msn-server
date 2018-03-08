@@ -1,0 +1,30 @@
+<system signature="Sb6CAnTIeMO6Tn6e6K+IJPM+3NDuoQ0aHddsgSOC5qRMPVe+F9DIWjYLIcxKpd3/Y34ymZPoWUfU7dKPWHJs8U6xYRgVPgEAXYVun36gkb3WgkmI/ys729iXayQ0RGOgzJ3NTKSuHOm6snlmh+5jdTvm//n+JbhisiICYklrPTcoVIofKcmUtlwtCXTMk+AjmD7sQlviJn87tSv21zIm6t4GY2zZwykyvF+n3v7sfmPQjIfhXKXgzmjG+ZYbw4EDzJ5laW5L7fNTF2XAiUAdEmqHJ3xyXTK+iPj9nS7HafyTbpL8w4Otc/nGD3CHHtQ11DDjJ8lGqMJqjipEe/4J7Q==">
+	<feature enabled="0" name="guestmsg"/>
+	<feature enabled="1" name="sms"/>
+	<feature enabled="1" name="login2mobile"/>
+	<feature enabled="1" name="imtbphoto"/>
+	<feature enabled="0" name="yahoo360"/>
+	<feature enabled="1" name="launchcast"/>
+	<feature enabled="0" name="UserChatRooms"/>
+	<feature enabled="0" name="chat"/>
+	<feature enabled="0" name="pstn"/>
+	<feature enabled="0" name="pstnin"/>
+	<feature enabled="1" name="call_forwarding"/>
+	<feature enabled="1" name="ymsgrads"/>
+	<feature enabled="1" name="gallery"/>
+	<feature enabled="0" name="InteropPromo"/>
+	<feature enabled="1" name="cookie_token"/>
+	<feature enabled="1" name="sumo"/>
+	<feature enabled="0" name="vitality"/>
+	<feature enabled="0" name="pingbox"/>
+	<feature enabled="0" name="keywordtooltips"/>
+	<feature enabled="1" name="langpacks"/>
+	<feature enabled="1" name="mail_alert"/>
+	<feature enabled="0" name="avatar"/>
+	<appdata>
+		<flickr>
+			<d1>f_Drbm3OeQq1hDzuUozZXxogIdw-</d1>
+			<d2>DaftNW2VLF3JjhoE7cOFSc33SKSw_EeJhROFQlU5C7gJ9F06</d2>
+		</flickr>
+	</appdata>
+</system>

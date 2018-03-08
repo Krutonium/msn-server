@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 import lxml
@@ -6,23 +6,19 @@ import secrets
 import base64
 import os
 import time
-import asyncio
 from markupsafe import Markup
 from aiohttp import web
 
 import settings
 from core import models
-from core.backend import Backend
 import util.misc
 
 LOGIN_PATH = '/login'
 TMPL_DIR = 'front/msn/tmpl'
 PP = 'Passport1.4 '
 
-def create_app(loop: asyncio.AbstractEventLoop, backend: Backend) -> Any:
-	app = web.Application(loop = loop)
-	app['backend'] = backend
-	app['jinja_env'] = util.misc.create_jinja_env(TMPL_DIR, {
+def register(app):
+	app['jinja_env_msn'] = util.misc.create_jinja_env(TMPL_DIR, {
 		'date_format': _date_format,
 		'cid_format': _cid_format,
 		'bool_to_str': _bool_to_str,
@@ -51,42 +47,6 @@ def create_app(loop: asyncio.AbstractEventLoop, backend: Backend) -> Any:
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
 	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
 	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
-	
-	# Sound
-	from . import http_sound
-	http_sound.register(app)
-	
-	# Gateway
-	from . import http_gateway
-	http_gateway.register(loop, app)
-	
-	# Misc
-	app.router.add_get('/etc/debug', handle_debug)
-	app.router.add_route('*', '/{path:.*}', handle_other)
-	
-	app.on_response_prepare.append(on_response_prepare)
-	
-	return app
-
-async def on_response_prepare(req, res):
-	if not settings.DEBUG:
-		return
-	if not settings.DEBUG_HTTP_REQUEST:
-		return
-	print("# Request: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
-	if not settings.DEBUG_HTTP_REQUEST_FULL:
-		return
-	print(req.headers)
-	body = await req.read()
-	if body:
-		print("body {")
-		print(body)
-		print("}")
-	else:
-		print("body {}")
-
-async def handle_debug(req):
-	return render(req, 'debug.html')
 
 async def handle_abservice(req):
 	header, action, ns_sess, token = await _preprocess_soap(req)
@@ -401,7 +361,7 @@ async def handle_rst(req):
 		domains = root.findall('.//{*}Address')
 		domains.pop(0) # ignore Passport token request
 		
-		tmpl = req.app['jinja_env'].get_template('RST/RST.token.xml')
+		tmpl = req.app['jinja_env_msn'].get_template('RST/RST.token.xml')
 		# collect tokens for requested domains
 		tokenxmls = [tmpl.render(
 			i = i + 1,
@@ -411,7 +371,7 @@ async def handle_rst(req):
 			pptoken1 = token,
 		) for i, domain in enumerate(domains)]
 		
-		tmpl = req.app['jinja_env'].get_template('RST/RST.xml')
+		tmpl = req.app['jinja_env_msn'].get_template('RST/RST.xml')
 		return web.Response(
 			status = 200,
 			content_type = 'text/xml',
@@ -501,17 +461,12 @@ def _login(req, email: str, pwd: str) -> Optional[str]:
 	if uuid is None: return None
 	return backend.auth_service.create_token('nb/login', uuid)
 
-async def handle_other(req):
-	if settings.DEBUG:
-		print("! Unknown: {} {}://{}{}".format(req.method, req.scheme, req.host, req.path_qs))
-	return web.Response(status = 404, text = '')
-
 def render(req, tmpl_name, ctxt = None, status = 200):
 	if tmpl_name.endswith('.xml'):
 		content_type = 'text/xml'
 	else:
 		content_type = 'text/html'
-	tmpl = req.app['jinja_env'].get_template(tmpl_name)
+	tmpl = req.app['jinja_env_msn'].get_template(tmpl_name)
 	content = tmpl.render(**(ctxt or {}))
 	return web.Response(status = status, content_type = content_type, text = content)
 
