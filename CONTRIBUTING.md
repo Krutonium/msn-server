@@ -38,7 +38,7 @@
 
 ## Yahoo!
 
-- for version 5.5, use a **clean** install and patch the following registry value:
+- for version 5.5, use a **clean** install (specifically, of [build 1244](http://www.oldversion.com/windows/yahoo-messenger-5-5-0-1244)) and patch the following registry value:
 	```
 	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> `127.0.0.1,127.0.0.1`
 	```
