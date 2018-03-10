@@ -49,6 +49,10 @@
 	127.0.0.1 scsa.yahoo.com
 	127.0.0.1 scsb.yahoo.com
 	127.0.0.1 scsc.yahoo.com
+	127.0.0.1 scs.msg.yahoo.com
+	127.0.0.1 scsa.msg.yahoo.com
+	127.0.0.1 scsb.msg.yahoo.com
+	127.0.0.1 scsc.msg.yahoo.com
 	127.0.0.1 insider.msg.yahoo.com
 	127.0.0.1 chat.yahoo.com
 	```
