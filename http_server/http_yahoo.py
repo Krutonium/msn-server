@@ -11,7 +11,11 @@ def register(app):
 	
 	app.router.add_route('*', '/', handle_insider)
 	app.router.add_get('/ycontent/', handle_insider_ycontent)
-	app.router.add_static('/c/msg', YAHOO_TMPL_DIR + '/c/msg')
+	app.router.add_route('*', '/c/msg/banad.html', handle_chat_banad)
+	app.router.add_route('*', '/c/msg/tabs.html', handle_chat_tabad)
+	app.router.add_route('*', '/c/msg/chat.html', handle_chat_notice)
+	app.router.add_static('/c/msg/chat_img', YAHOO_TMPL_DIR + '/c/msg/chat_img')
+	app.router.add_static('/c/msg/ad_img', YAHOO_TMPL_DIR + '/c/msg/ad_img')
 
 async def handle_insider_ycontent(req):
 	query = req.query
@@ -46,6 +50,23 @@ async def handle_insider(req):
 	return render(req, 'Yinsider/Yinsider.html', {
 		'insidercontent': Markup(tmpl.render())
 	})
+
+async def handle_chat_banad(req):
+	query = req.query
+	
+	return render(req, 'c/msg/banad.html', {
+		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid'))
+	})
+
+async def handle_chat_tabad(req):
+	query = req.query
+	
+	return render(req, 'c/msg/tabs.html', {
+		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid'))
+	})
+
+async def handle_chat_notice(req):
+	return render(req, 'c/msg/chat.html')
 
 def render(req, tmpl_name, ctxt = None, status = 200):
 	if tmpl_name.endswith('.xml'):
