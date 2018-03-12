@@ -778,7 +778,7 @@ class YahooBackendSession(Session):
 				self.backend._yahoo_notify_invisible_presence(self)
 			elif status_new == YMSGStatus.Available:
 				self.backend._yahoo_notify_presence(self)
-			elif status_new == YMSGStatus.Invisible:
+			elif status_new == YMSGStatus.Invisible and not old_status = YMSGStatus.Offline:
 				self.backend._yahoo_notify_logout(self)
 			else:
 				self.backend._yahoo_notify_absence(self)
