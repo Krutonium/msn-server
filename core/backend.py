@@ -1111,9 +1111,9 @@ class ConferenceSession(Session):
 	def invite(self, invitee_uuid: str, invite_msg: Optional[str], conf_roster: List[str], voice_chat: int, existing: bool = False) -> None:
 		invitee = self.ybs.backend._load_yahoo_user_record(invitee_uuid)
 		ctc_sessions = self.ybs.backend.util_get_sessions_by_user_yahoo(invitee)
-		if not ctc_sessions: raise error.ContactNotOnline()
-		for ctc_sess in ctc_sessions:
-			ctc_sess.evt.on_conf_invite(self.conf, self.user_yahoo, invite_msg, conf_roster, voice_chat, existing_conf = existing)
+		if ctc_sessions:
+			for ctc_sess in ctc_sessions:
+				ctc_sess.evt.on_conf_invite(self.conf, self.user_yahoo, invite_msg, conf_roster, voice_chat, existing_conf = existing)
 	
 	def send_message_to_everyone(self, conf_id: str, message_dict: Dict[str, Any]) -> None:
 		stats = self.conf._stats
