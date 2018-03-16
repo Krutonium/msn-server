@@ -21,8 +21,8 @@ def register(app):
 	app.router.add_static('/c/msg/ad_img', YAHOO_TMPL_DIR + '/c/msg/ad_img')
 	
 	# Yahoo!'s redirect service (rd.yahoo.com)
-	app.router.add_get('/msgr/search/', handle_rd_yahoo)
-	app.router.add_get('/msgr/client/', handle_rd_yahoo)
+	app.router.add_get('/messenger/search/', handle_rd_yahoo)
+	app.router.add_get('/messenger/client/', handle_rd_yahoo)
 
 async def handle_insider_ycontent(req):
 	query = req.query
