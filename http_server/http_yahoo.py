@@ -9,13 +9,20 @@ YAHOO_TMPL_DIR = 'front/ymsg/tmpl'
 def register(app):
 	app['jinja_env_yahoo'] = util.misc.create_jinja_env(YAHOO_TMPL_DIR, None)
 	
+	# Yahoo! Insider
 	app.router.add_route('*', '/', handle_insider)
 	app.router.add_get('/ycontent/', handle_insider_ycontent)
+	
+	# Yahoo! Chat
 	app.router.add_route('*', '/c/msg/banad.html', handle_chat_banad)
 	app.router.add_route('*', '/c/msg/tabs.html', handle_chat_tabad)
 	app.router.add_route('*', '/c/msg/chat.html', handle_chat_notice)
 	app.router.add_static('/c/msg/chat_img', YAHOO_TMPL_DIR + '/c/msg/chat_img')
 	app.router.add_static('/c/msg/ad_img', YAHOO_TMPL_DIR + '/c/msg/ad_img')
+	
+	# Yahoo!'s redirect service (rd.yahoo.com)
+	app.router.add_get('/msgr/search/', handle_rd_yahoo)
+	app.router.add_get('/msgr/client/', handle_rd_yahoo)
 
 async def handle_insider_ycontent(req):
 	query = req.query
@@ -67,6 +74,11 @@ async def handle_chat_tabad(req):
 
 async def handle_chat_notice(req):
 	return render(req, 'c/msg/chat.html')
+
+async def handle_rd_yahoo(req):
+	return web.Response(status = 302, headers = {
+		'Location': req.query_string,
+	})
 
 def render(req, tmpl_name, ctxt = None, status = 200):
 	if tmpl_name.endswith('.xml'):
