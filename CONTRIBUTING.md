@@ -47,6 +47,7 @@
 - and also, in your `HOSTS`, add:
 	```
 	127.0.0.1 scs.msg.yahoo.com
+	127.0.0.1 rd.yahoo.com
 	127.0.0.1 insider.msg.yahoo.com
 	127.0.0.1 chat.yahoo.com
 	```
