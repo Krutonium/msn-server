@@ -34,7 +34,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 		self.logger.info('>>>', data)
 		
 		if find_count_PRE(data) > 1:
-			pkt_list = sep_cluster(data, find_count_PRE(data) - 1)
+			pkt_list = sep_cluster(data, find_count_PRE(data))
 			for pack in pkt_list:
 				self.receive_event(pack)
 		else:
@@ -163,7 +163,7 @@ def sep_cluster(data, length):
 	
 	for i in range(0, length):
 		length_post_PRE = 20 + struct.unpack('!H', data[(pos + 8):(pos + 10)])[0]
-		cluster_pack.append(data[pos:length_post_PRE])
+		cluster_pack.append(data[pos:(pos + length_post_PRE)])
 		pos = length_post_PRE
 	
 	return cluster_pack
