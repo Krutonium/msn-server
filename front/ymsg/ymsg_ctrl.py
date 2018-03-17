@@ -162,8 +162,8 @@ def sep_cluster(data, length):
 	cluster_pack = []
 	
 	for i in range(0, length):
-		length_post_PRE = 20 + struct.unpack('!H', data[(pos + 8):(pos + 10)])[0]
-		cluster_pack.append(data[pos:(pos + length_post_PRE)])
+		length_post_PRE = pos + (20 + struct.unpack('!H', data[(pos + 8):(pos + 10)])[0])
+		cluster_pack.append(data[pos:length_post_PRE])
 		pos = length_post_PRE
 	
 	return cluster_pack
