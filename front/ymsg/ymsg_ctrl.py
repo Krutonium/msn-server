@@ -132,8 +132,8 @@ class YMSGDecoder:
 		except AssertionError:
 			return None
 		except Exception:
-				print("ERR _ymsg_read", self._data)
-				raise
+			print("ERR _ymsg_read", self._data)
+			raise
 		
 		y = [service, version, vendor_id, status, session_id, kvs]
 		return y
