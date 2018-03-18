@@ -41,7 +41,8 @@ async def handle_insider_ycontent(req):
 				'ee', 'ow', 'id',
 			)
 			
-			if query_xml in unused_queries: continue
+			# Ignore any `chatroom_##########` requests for now
+			if query_xml in unused_queries or query_xml.startswith('chatroom_'): continue
 			tmpl = req.app['jinja_env_yahoo'].get_template('Yinsider/Ycontent/Ycontent.' + query_xml + '.xml')
 			config_xml.append(tmpl.render())
 	
