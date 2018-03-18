@@ -1,4 +1,4 @@
-<chatcategories>
+<chatCategories intl="us">
 <category id="1600000002" name="Business &amp; Finance">
 </category>
 <category id="1600004725" name="Computers &amp; Internet">
@@ -103,4 +103,4 @@
 </category>
 <category id="20377088" name="Voice Chat">
 </category>
-</chatcategories>
+</chatCategories>
