@@ -13,10 +13,11 @@ def register(app):
 	app.router.add_route('*', '/', handle_insider)
 	app.router.add_get('/ycontent/', handle_insider_ycontent)
 	
-	# Yahoo! Chat
+	# Yahoo! Chat/Ads
 	app.router.add_route('*', '/c/msg/banad.html', handle_chat_banad)
 	app.router.add_route('*', '/c/msg/tabs.html', handle_chat_tabad)
 	app.router.add_route('*', '/c/msg/chat.html', handle_chat_notice)
+	app.router.add_route('*', '/c/msg/alerts.html', handle_chat_alertad)
 	app.router.add_static('/c/msg/chat_img', YAHOO_TMPL_DIR + '/c/msg/chat_img')
 	app.router.add_static('/c/msg/ad_img', YAHOO_TMPL_DIR + '/c/msg/ad_img')
 	
@@ -55,21 +56,30 @@ async def handle_insider(req):
 	tmpl = req.app['jinja_env_yahoo'].get_template('Yinsider/Yinsider_content/insider_content.html')
 	
 	return render(req, 'Yinsider/Yinsider.html', {
-		'insidercontent': Markup(tmpl.render())
+		'insidercontent': Markup(tmpl.render()),
 	})
 
 async def handle_chat_banad(req):
 	query = req.query
 	
 	return render(req, 'c/msg/banad.html', {
-		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid'))
+		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
 	})
 
 async def handle_chat_tabad(req):
 	query = req.query
 	
-	return render(req, 'c/msg/tabs.html', {
-		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid'))
+	return render(req, 'c/msg/adsmall.html', {
+		'adtitle': 'banner ad',
+		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
+	})
+
+async def handle_chat_alertad(req):
+	query = req.query
+	
+	return render(req, 'c/msg/adsmall.html', {
+		'adtitle': 'alert ad usmsgr',
+		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
 	})
 
 async def handle_chat_notice(req):
