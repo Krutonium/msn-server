@@ -45,7 +45,6 @@ class Backend:
 		self._user_by_uuid = {}
 		self._unsynced_db = {}
 		self._runners = []
-		self._dev = None
 		
 		loop.create_task(self._sync_db())
 		loop.create_task(self._clean_sessions())
