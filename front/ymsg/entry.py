@@ -1,18 +1,19 @@
 from typing import Optional, Callable
-
 import asyncio
 import struct
 
+from aiohttp import web
 from core.backend import Backend
 from util.misc import Logger
 
 from .ymsg_ctrl import YMSGCtrlBase
 
-def register(loop, backend):
+def register(loop: asyncio.AbstractEventLoop, backend: Backend, http_app: web.Application) -> None:
 	from util.misc import ProtocolRunner
-	from .pager import YMSGCtrlPager
+	from . import pager, http
 	
-	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, YMSGCtrlPager]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	http.register(http_app)
 
 class ListenerYMSG(asyncio.Protocol):
 	logger: Logger

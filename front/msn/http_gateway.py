@@ -6,7 +6,7 @@ from aiohttp import web
 from util.misc import Logger, gen_uuid
 from front.msn.msnp import MSNPCtrl
 
-def register(loop, app):
+def register(loop: asyncio.AbstractEventLoop, app: web.Application) -> None:
 	gateway_sessions = {} # type: Dict[str, GatewaySession]
 	app['gateway_sessions'] = gateway_sessions
 	app.router.add_route('OPTIONS', '/gateway/gateway.dll', handle_http_gateway_options)

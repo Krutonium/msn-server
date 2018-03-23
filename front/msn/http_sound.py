@@ -1,6 +1,3 @@
-# TODO: This should be in its own frontend, but putting it in `front/msn`
-# until it's possible for each frontend to have its own http stuff.
-
 """
 	Messenger Plus sound server implementation
 	
@@ -11,14 +8,14 @@
 	POST /esnd/snd/put[?uf=1] -> put
 """
 
-from aiohttp.web import Response
+from aiohttp import web
 from os import path, makedirs
 from collections import namedtuple
 from random import randrange
 
-from db import Sound, Session
+from core.db import Sound, Session
 
-def register(app):
+def register(app: web.Application):
 	app.router.add_get('/esnd/snd/builtin', builtin)
 	app.router.add_get('/esnd/snd/check', check)
 	app.router.add_get('/esnd/snd/get', get)
@@ -45,9 +42,9 @@ def builtin(request):
 	
 	try:
 		with open(file_path, 'rb') as file:
-			return Response(status = 200, content_type = 'audio/mpeg', body = file.read())
+			return web.Response(status = 200, content_type = 'audio/mpeg', body = file.read())
 	except FileNotFoundError:
-		return Response(status = 200, body = '0')
+		return web.Response(status = 200, body = '0')
 
 def check(request):
 	"""
@@ -63,7 +60,7 @@ def check(request):
 	
 	result = int(path.exists(_get_file_path(file_hash)))
 	
-	return Response(status = 200, body = str(result))
+	return web.Response(status = 200, body = str(result))
 
 async def put(request):
 	"""
@@ -93,7 +90,7 @@ async def put(request):
 			if request.rel_url.query.get('uf') == 1:
 				output = open(file_path, 'wb')
 			else:
-				return Response(status = 200, body = '0')
+				return web.Response(status = 200, body = '0')
 		
 		f.seek(0)
 		
@@ -105,7 +102,7 @@ async def put(request):
 	with Session() as session:
 		session.merge(Sound(**metadata._asdict()))
 	
-	return Response(status = 200, body = '1')
+	return web.Response(status = 200, body = '1')
 
 def get(request):
 	"""
@@ -121,9 +118,9 @@ def get(request):
 	
 	try:
 		with open(_get_file_path(file_hash), 'rb') as f:
-			return Response(status = 200, content_type = 'audio/mpeg', body = f.read())
+			return web.Response(status = 200, content_type = 'audio/mpeg', body = f.read())
 	except FileNotFoundError:
-		return Response(status = 200, body = '0')
+		return web.Response(status = 200, body = '0')
 
 def random(request):
 	"""
@@ -150,7 +147,7 @@ def random(request):
 		try:
 			offset = randrange(0, query.count())
 		except ValueError:
-			return Response(status = 200, body = '0')
+			return web.Response(status = 200, body = '0')
 		
 		sound = query.offset(offset).limit(1).one()
 		
@@ -159,9 +156,9 @@ def random(request):
 		assert path.exists(file_path)
 		
 		with open(file_path, 'rb') as f:
-			return Response(status = 200, content_type = 'audio/mpeg', body = f.read())
+			return web.Response(status = 200, content_type = 'audio/mpeg', body = f.read())
 
-def _get_file_path(file_hash):
+def _get_file_path(file_hash: str) -> str:
 	"""
 		Get file path by hash.
 		Uses first 3 symbols for subdirectories e.g. 12345 -> 1/2/3/12345.mp3
@@ -171,7 +168,7 @@ def _get_file_path(file_hash):
 	"""
 	return path.join(PATH_USERS, *file_hash[:3], file_hash + '.mp3')
 
-def _parse_metadata(raw_data):
+def _parse_metadata(raw_data: bytes) -> Metadata:
 	"""
 		Parse raw metadata
 		

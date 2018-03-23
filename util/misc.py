@@ -2,8 +2,11 @@ from typing import FrozenSet, Any, Iterable, Optional, TypeVar
 from abc import ABCMeta, abstractmethod
 import asyncio
 import functools
+import itertools
 import traceback
 from uuid import uuid4
+import jinja2
+from aiohttp import web
 
 EMPTY_SET = frozenset() # type: FrozenSet[Any]
 
@@ -22,9 +25,9 @@ class Runner(metaclass = ABCMeta):
 		self.ssl_context = ssl
 	
 	@abstractmethod
-	def setup(self, loop): pass
+	def create_servers(self, loop: asyncio.AbstractEventLoop) -> List[Any]: pass
 	
-	def teardown(self, loop):
+	def teardown(self, loop: asyncio.AbstractEventLoop) -> Any:
 		pass
 
 class ProtocolRunner(Runner):
@@ -34,24 +37,31 @@ class ProtocolRunner(Runner):
 			protocol = functools.partial(protocol, *args)
 		self._protocol = protocol
 	
-	def setup(self, loop):
-		return self._protocol
+	def create_servers(self, loop: asyncio.AbstractEventLoop) -> List[Any]:
+		return [loop.create_server(self._protocol, self.host, self.port, ssl = self.ssl_context)]
 
 class AIOHTTPRunner(Runner):
 	def __init__(self, host, port, app, *, ssl = None):
 		super().__init__(host, port, ssl = ssl)
 		self.app = app
-		self.handler = None
+		self._handler = None
 	
-	def setup(self, loop):
-		from aiohttp.log import access_logger
-		self.handler = self.app.make_handler(loop = loop, access_log = access_logger)
+	def create_servers(self, loop: asyncio.AbstractEventLoop) -> List[Any]:
+		assert self._handler is None
+		self._handler = self.app.make_handler(loop = loop)
 		loop.run_until_complete(self.app.startup())
-		return self.handler
+		
+		ret = [loop.create_server(self._handler, self.host, self.port, ssl = None)]
+		if self.ssl_context is not None:
+			ret.append(loop.create_server(self._handler, self.host, 443, ssl = self.ssl_context))
+		return ret
 	
 	def teardown(self, loop):
+		handler = self._handler
+		assert handler is not None
+		self._handler = None
 		loop.run_until_complete(self.app.shutdown())
-		loop.run_until_complete(self.handler.shutdown(60))
+		loop.run_until_complete(handler.shutdown(60))
 		loop.run_until_complete(self.app.cleanup())
 
 class Logger:
@@ -79,10 +89,10 @@ def run_loop(loop, runners) -> None:
 	
 	task = loop.create_task(_windows_ctrl_c_workaround())
 	
-	servers = loop.run_until_complete(asyncio.gather(*(
-		loop.create_server(runner.setup(loop), runner.host, runner.port, ssl = runner.ssl_context)
-		for runner in runners
-	)))
+	foos = itertools.chain(*(
+		runner.create_servers(loop) for runner in runners
+	))
+	servers = loop.run_until_complete(asyncio.gather(*foos))
 	
 	try:
 		loop.run_forever()
@@ -109,12 +119,8 @@ async def _windows_ctrl_c_workaround():
 	while True:
 		await asyncio.sleep(0.1)
 
-def create_jinja_env(tmpl_dir, globals = None):
-	import jinja2
-	jinja_env = jinja2.Environment(
-		loader = jinja2.FileSystemLoader(tmpl_dir),
-		autoescape = jinja2.select_autoescape(default = True),
-	)
+def add_to_jinja_env(app: web.Application, prefix: str, tmpl_dir: str, *, globals: Optional[Dict[str, Any]] = None) -> None:
+	jinja_env = app['jinja_env']
+	jinja_env.loader.mapping[prefix] = jinja2.FileSystemLoader(tmpl_dir)
 	if globals:
 		jinja_env.globals.update(globals)
-	return jinja_env
