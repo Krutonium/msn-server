@@ -1,13 +1,17 @@
 import io
 from abc import ABCMeta, abstractmethod
 import asyncio
-from typing import Dict, List, Tuple, Any, Optional, Callable
+from typing import Dict, List, Tuple, Any, Optional, Callable, Iterable
 from multidict import MultiDict
 import binascii
 import struct
 import time
 
 from util.misc import Logger
+
+from .misc import YMSGStatus, YMSGService
+
+KVS = Dict[str, str]
 
 class YMSGCtrlBase(metaclass = ABCMeta):
 	__slots__ = ('logger', 'decoder', 'encoder', 'peername', 'closed', 'close_callback', 'transport')
@@ -31,21 +35,18 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
 		
-		self.logger.info('>>>', data)
+		#self.logger.info('>>>', data)
 		
-		if find_count_PRE(data) > 1:
-			pkt_list = sep_cluster(data, find_count_PRE(data) - 1)
-			for pack in pkt_list:
+		n = find_count_PRE(data)
+		if n > 1:
+			for pack in sep_cluster(data, n - 1):
 				self.receive_event(pack)
 		else:
 			self.receive_event(data)
 	
-	def receive_event(self, pkt):
+	def receive_event(self, pkt: bytes) -> None:
 		for y in self.decoder.data_received(pkt):
-			
-			# Escargot's MSN and Yahoo functions have similar name structures
-			# MSN: "_m_CMD"
-			# Yahoo: "_y_[hex version of service; a bit nicer than using the service number]"
+			self.logger.info('>>>', y[0], y[3], y[4], y[5])
 			
 			try:
 				# check version and vendorId
@@ -56,15 +57,8 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 			except Exception as ex:
 				self.logger.error(ex)
 	
-	def send_reply(self, *y) -> None:
-		self.encoder.encode(y)
-		transport = self.transport
-		if transport is not None:
-			transport.write(self.flush())
-	
-	def send_reply_multiple(self, *y_lists) -> None:
-		for y_list in y_lists:
-			self.encoder.encode(y_list[0:])
+	def send_reply(self, service: YMSGService, status: YMSGStatus, session_id: int, kvs: Optional[KVS] = None) -> None:
+		self.encoder.encode(service, status, session_id, kvs)
 		transport = self.transport
 		if transport is not None:
 			transport.write(self.flush())
@@ -72,73 +66,81 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	def flush(self) -> bytes:
 		return self.encoder.flush()
 	
-	def close(self, duplicate = False) -> None:
+	def close(self) -> None:
 		if self.closed: return
 		self.closed = True
 		
 		if self.close_callback:
 			self.close_callback()
-		if not duplicate:
-			self._on_close()
+		self._on_close()
 	
 	@abstractmethod
 	def _on_close(self) -> None: pass
 
 class YMSGEncoder:
-	def __init__(self, logger) -> None:
+	__slots__ = ('_logger', '_buf')
+	
+	_logger: Logger
+	_buf: io.BytesIO
+	
+	def __init__(self, logger: Logger) -> None:
 		self._logger = logger
 		self._buf = io.BytesIO()
 	
-	def encode(self, y):
-		y = list(y)
-		# y = List[service, status, session_id, kvs]
-		
+	def encode(self, service: YMSGService, status: YMSGStatus, session_id: int, kvs: Optional[KVS] = None) -> None:
 		w = self._buf.write
 		w(PRE)
 		# version number and vendor id are replaced with 0x00000000
 		w(b'\x00\x00\x00\x00')
 		
-		payload_list = []
-		kvs = y[3]
+		self._logger.info('<<<', service, status, session_id, kvs)
 		
-		if kvs:
+		payload_list = []
+		if kvs is not None:
 			for k, v in kvs.items():
 				payload_list.extend([str(k).encode('utf-8'), SEP, str(v).encode('utf-8'), SEP])
 		payload = b''.join(payload_list)
-		w(struct.pack('!HHII', len(payload), y[0], y[1], y[2]))
+		# Have to call `int` on these because they might be an IntEnum, which
+		# get `repr`'d to `EnumName.ValueName`. Grr.
+		w(struct.pack('!HHII', len(payload), int(service), int(status), session_id))
 		w(payload)
 	
-	def flush(self):
+	def flush(self) -> bytes:
 		data = self._buf.getvalue()
-		self._logger.info('<<<', data)
 		if data:
+			#self._logger.info('<<<', data)
 			self._buf = io.BytesIO()
 		return data
 
+DecodedYMSG = Tuple[int, int, YMSGService, YMSGStatus, int, KVS]
+
 class YMSGDecoder:
-	def __init__(self):
+	__slots__ = ('_data')
+	
+	_data: bytes
+	
+	def __init__(self) -> None:
 		self._data = b''
 	
-	def data_received(self, data):
+	def data_received(self, data: bytes) -> Iterable[DecodedYMSG]:
+		# TODO: Shouldn't this +=?
 		self._data = data
 		
 		y = self._ymsg_read()
 		if y is None: return
 		yield y
 	
-	def _ymsg_read(self):
+	def _ymsg_read(self) -> Optional[DecodedYMSG]:
 		try:
-			(version, vendor_id, service, status, session_id, kvs) = _decode_ymsg(self._data)
+			y= _decode_ymsg(self._data)
 		except AssertionError:
 			return None
 		except Exception:
-				print("ERR _ymsg_read", self._data)
-				raise
-		
-		y = [service, version, vendor_id, status, session_id, kvs]
+			print("ERR _ymsg_read", self._data)
+			raise
 		return y
 
-def _decode_ymsg(data) -> Tuple[int, int, int, int, int, Dict[str, Optional[str]]]:
+def _decode_ymsg(data: bytes) -> DecodedYMSG:
 	assert data[:4] == PRE
 	assert len(data) >= 20
 	header = data[4:20]
@@ -155,9 +157,9 @@ def _decode_ymsg(data) -> Tuple[int, int, int, int, int, Dict[str, Optional[str]
 	kvs = MultiDict()
 	for i in range(1, len(parts), 2):
 		kvs.add(str(parts[i-1].decode()), parts[i].decode('utf-8'))
-	return version, vendor_id, service, status, session_id, kvs
+	return YMSGService(service), version, vendor_id, YMSGStatus(status), session_id, kvs
 
-def sep_cluster(data, length):
+def sep_cluster(data: bytes, length: int) -> List[bytes]:
 	pos = 0
 	cluster_pack = []
 	
@@ -171,7 +173,7 @@ def sep_cluster(data, length):
 PRE = b'YMSG'
 SEP = b'\xC0\x80'
 
-def find_count_PRE(source):
+def find_count_PRE(source: bytes) -> int:
 	how_many = 0
 	pos = 0
 	
@@ -179,12 +181,8 @@ def find_count_PRE(source):
 		pos = source.find(PRE, pos)
 		if pos == -1:
 			break
-		else:
-			how_many += 1
-			length = struct.unpack('!H', source[(pos + 8):(pos + 10)])[0]
-			pos += (20 + length)
+		how_many += 1
+		length = struct.unpack('!H', source[(pos + 8):(pos + 10)])[0]
+		pos += (20 + length)
 	
-	if how_many == 0:
-		return -1
-	else:
-		return how_many
+	return how_many or -1

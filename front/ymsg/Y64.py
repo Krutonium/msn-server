@@ -1,12 +1,12 @@
 import binascii
 
-Y64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._"
+Y64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._'
 
-def Y64Encode(string_encode):
+def Y64Encode(string_encode: bytes) -> str:
 	string_hex = binascii.hexlify(string_encode)
 	limit = len(string_encode) - (len(string_encode) % 3)
 	pos = 0
-	out = ""
+	out = ''
 	buff = [0] * len(string_encode)
 	i = 0
 	hex_start = 0

@@ -1,24 +1,16 @@
 from typing import Dict
 from datetime import datetime
 
-from db import Session, User as DBUser
 from util.hash import hasher, hasher_md5, hasher_md5crypt
 
-from .models import User, UserYahoo, Contact, YahooContact, UserStatus, UserYahooStatus, UserDetail, UserYahooDetail, Group
+from .db import Session, User as DBUser
+from .models import User, Contact, UserStatus, UserDetail, Group
 
 class UserService:
 	def __init__(self):
 		self._cache_by_uuid = {} # type: Dict[str, User]
 		self._yahoo_cache_by_uuid = {} # type: Dict[str, UserYahoo]
 	
-	def verify_user_db_entry_yahoo(self, email):
-		# Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
-		if email.find('@') == -1: email += '@yahoo.com'
-		
-		with Session() as sess:
-			dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.email == email).one_or_none()
-			if dbuser is None: return None
-			return dbuser.uuid
 	
 	def login(self, email, pwd):
 		with Session() as sess:
@@ -27,23 +19,14 @@ class UserService:
 			if not hasher.verify(pwd, dbuser.password): return None
 			return dbuser.uuid
 	
-	def login_msn_md5(self, email, md5_hash):
+	def msn_login_md5(self, email: str, md5_hash: str) -> Optional[str]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
 			if dbuser is None: return None
 			if not hasher_md5.verify_hash(md5_hash, dbuser.get_front_data('msn', 'pw_md5') or ''): return None
 			return dbuser.uuid
 	
-	def get_md5_password_yahoo(self, email):
-		# Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
-		if '@' not in email: email += '@yahoo.com'
-		
-		with Session() as sess:
-			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
-			if dbuser is None: return None
-			return _extract_hash(hasher_md5, dbuser.get_front_data('ymsg', 'pw_md5_unsalted') or '')
-	
-	def get_msn_md5_salt(self, email):
+	def msn_get_md5_salt(self, email: str) -> Optional[str]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
 			if dbuser is None: return None
@@ -51,16 +34,19 @@ class UserService:
 		if pw_md5 is None: return None
 		return hasher.extract_salt(pw_md5)
 	
-	def get_md5crypt_password_yahoo(self, email):
-		# Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
-		if '@' not in email: email += '@yahoo.com'
-		
+	def yahoo_get_md5_password(self, uuid: str) -> Optional[bytes]:
 		with Session() as sess:
-			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
+			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
 			if dbuser is None: return None
-			return _extract_hash(hasher_md5crypt, dbuser.get_front_data('ymsg', 'pw_md5crypt') or '')
+			return hasher_md5.extract_hash(dbuser.get_front_data('ymsg', 'pw_md5_unsalted') or '')
 	
 	def update_date_login(self, uuid):
+	def yahoo_get_md5crypt_password(self, uuid: str) -> Optional[bytes]:
+		with Session() as sess:
+			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
+			if dbuser is None: return None
+			return hasher_md5crypt.extract_hash(dbuser.get_front_data('ymsg', 'pw_md5crypt') or '')
+	
 		with Session() as sess:
 			sess.query(DBUser).filter(DBUser.uuid == uuid).update({
 				'date_login': datetime.utcnow(),
@@ -71,25 +57,11 @@ class UserService:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
 			return tmp and tmp[0]
 	
-	def get_uuid_yahoo(self, email):
-		# Yahoo! clients tend to remove "@yahoo.com" if a user logs in, but it might not check for other domains; double check for that
-		if email.find('@') == -1: email += '@yahoo.com'
-		
-		with Session() as sess:
-			tmp = sess.query(DBUserYahoo.uuid).filter(DBUserYahoo.email == email).one_or_none()
-			return tmp and tmp[0]
-	
 	def get(self, uuid):
 		if uuid is None: return None
 		if uuid not in self._cache_by_uuid:
 			self._cache_by_uuid[uuid] = self._get_uncached(uuid)
 		return self._cache_by_uuid[uuid]
-	
-	def yahoo_get(self, uuid):
-		if uuid is None: return None
-		if uuid not in self._yahoo_cache_by_uuid:
-			self._yahoo_cache_by_uuid[uuid] = self._get_yahoo_uncached(uuid)
-		return self._yahoo_cache_by_uuid[uuid]
 	
 	def _get_uncached(self, uuid):
 		with Session() as sess:
@@ -97,13 +69,6 @@ class UserService:
 			if dbuser is None: return None
 			status = UserStatus(dbuser.name, dbuser.message)
 			return User(dbuser.uuid, dbuser.email, dbuser.verified, status, dbuser.date_created)
-	
-	def _get_yahoo_uncached(self, uuid):
-		with Session() as sess:
-			dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == uuid).one_or_none()
-			if dbuser is None: return None
-			yahoo_status = UserYahooStatus()
-			return UserYahoo(dbuser.uuid, dbuser.email, dbuser.yahoo_id, dbuser.verified, yahoo_status, dbuser.date_created)
 	
 	def get_detail(self, uuid):
 		with Session() as sess:

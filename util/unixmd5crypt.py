@@ -43,27 +43,16 @@ apache_md5_crypt() provides a function compatible with Apache's
 
 """
 
-MAGIC = '$1$'			# Magic string
-ITOA64 = "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
 from hashlib import md5
 import binascii
 
-def to64 (v, n):
-	ret = ''
-	while (n - 1 >= 0):
-		n = n - 1
-		ret = ret + ITOA64[v & 0x3f]
-		v = v >> 6
-	
-	return ret
+MAGIC = '$1$' # Magic string
+ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
-def unix_md5_crypt(pw, salt):
-	
+def unix_md5_crypt(pw: str, salt: str) -> bytes:
 	# Take care of the magic string if present
 	if salt[:len(MAGIC)] == MAGIC:
 		salt = salt[len(MAGIC):]
-		
 	
 	# salt can have up to 8 characters:
 	salt = salt.split('$', 1)[0]
@@ -74,11 +63,11 @@ def unix_md5_crypt(pw, salt):
 	ctx.update(MAGIC.encode())
 	ctx.update(salt.encode())
 	
-	final = md5()
-	final.update(pw.encode())
-	final.update(salt.encode())
-	final.update(pw.encode())
-	final = final.digest()
+	tmp = md5()
+	tmp.update(pw.encode())
+	tmp.update(salt.encode())
+	tmp.update(pw.encode())
+	final = tmp.digest()
 	
 	for pl in range(len(pw),0,-16):
 		if pl > 16:
@@ -86,13 +75,13 @@ def unix_md5_crypt(pw, salt):
 		else:
 			ctx.update(final[:pl])
 	
-	
 	# Now the 'weird' xform (??)
 	
 	i = len(pw)
 	while i:
 		if i & 1:
-			ctx.update(b'\x00')  #if ($i & 1) { $ctx->add(pack("C", 0)); }
+			#if ($i & 1) { $ctx->add(pack("C", 0)); }
+			ctx.update(b'\x00')
 		else:
 			ctx.update(pw[0].encode())
 		i = i >> 1
@@ -121,7 +110,6 @@ def unix_md5_crypt(pw, salt):
 			ctx1.update(final[:16])
 		else:
 			ctx1.update(pw.encode())
-			
 		
 		final = ctx1.digest()
 	
@@ -131,27 +119,44 @@ def unix_md5_crypt(pw, salt):
 	
 	passwd = ''
 	
-	passwd = passwd + to64((int(final_hex[0:2], 16) << 16)
-							|(int(final_hex[12:14], 16) << 8)
-							|(int(final_hex[24:26], 16)),4)
+	passwd = passwd + to64(
+		(int(final_hex[0:2], 16) << 16)
+		| (int(final_hex[12:14], 16) << 8)
+		| (int(final_hex[24:26], 16)), 4
+	)
 	
-	passwd = passwd + to64((int(final_hex[2:4], 16) << 16)
-							|(int(final_hex[14:16], 16) << 8)
-							|(int(final_hex[26:28], 16)), 4)
+	passwd = passwd + to64(
+		(int(final_hex[2:4], 16) << 16)
+		| (int(final_hex[14:16], 16) << 8)
+		| (int(final_hex[26:28], 16)), 4
+	)
 	
-	passwd = passwd + to64((int(final_hex[4:6], 16) << 16)
-							|(int(final_hex[16:18], 16) << 8)
-							|(int(final_hex[28:30], 16)), 4)
+	passwd = passwd + to64(
+		(int(final_hex[4:6], 16) << 16)
+		| (int(final_hex[16:18], 16) << 8)
+		| (int(final_hex[28:30], 16)), 4
+	)
 	
-	passwd = passwd + to64((int(final_hex[6:8], 16) << 16)
-							|(int(final_hex[18:20], 16) << 8)
-							|(int(final_hex[30:32], 16)), 4)
+	passwd = passwd + to64(
+		(int(final_hex[6:8], 16) << 16)
+		| (int(final_hex[18:20], 16) << 8)
+		| (int(final_hex[30:32], 16)), 4
+	)
 	
-	passwd = passwd + to64((int(final_hex[8:10], 16) << 16)
-							|(int(final_hex[20:22], 16) << 8)
-							|(int(final_hex[10:12], 16)), 4)
+	passwd = passwd + to64(
+		(int(final_hex[8:10], 16) << 16)
+		| (int(final_hex[20:22], 16) << 8)
+		| (int(final_hex[10:12], 16)), 4
+	)
 	
 	passwd = passwd + to64((int(final_hex[22:24], 16)), 2)
 	
-	
 	return (MAGIC + salt + '$' + passwd).encode('utf-8')
+
+def to64(v: int, n: int) -> str:
+	ret = ''
+	while (n - 1 >= 0):
+		n = n - 1
+		ret = ret + ITOA64[v & 0x3f]
+		v = v >> 6
+	return ret
