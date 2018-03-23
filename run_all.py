@@ -1,4 +1,8 @@
+import sys
+
 def main(*, devmode: bool = False) -> None:
+	sys.excepthook = _excepthook
+	
 	import asyncio
 	from core.backend import Backend
 	from core import http
@@ -26,6 +30,10 @@ def main(*, devmode: bool = False) -> None:
 			front.devbots.register(loop, backend)
 	
 	backend.run_forever()
+
+def _excepthook(type, value, traceback):
+	# TODO: Something useful
+	sys.__excepthook__(type, value, traceback)
 
 if __name__ == '__main__':
 	main()
