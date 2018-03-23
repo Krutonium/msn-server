@@ -1,7 +1,8 @@
-import db
+from typing import Optional
 from datetime import datetime, timedelta
+from core import db
 
-def main(arg = None):
+def main(arg: Optional[str] = None) -> None:
 	verbose = False
 	online_since = None
 	if arg is not None:

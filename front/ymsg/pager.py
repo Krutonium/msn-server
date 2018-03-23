@@ -59,7 +59,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.client = Client('yahoo', 'YMSG' + str(args[0]), self.client.via)
 		self.dialect = int(args[0])
 		self.send_reply(YMSGService.Handshake, YMSGStatus.BRB, 0, None)
-		return
 	
 	def _y_0057(self, *args) -> None:
 		# SERVICE_AUTH (0x57); send a challenge string for the client to craft two response strings with
@@ -97,7 +96,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_0054(self, *args) -> None:
 		# SERVICE_AUTHRESP (0x54); verify response strings for successful authentication
 		
-		status = YMSGStatus(args[2])
+		status = args[2]
 		if status is YMSGStatus.WebLogin:
 			status = YMSGStatus.Available
 		

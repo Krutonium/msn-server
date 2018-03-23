@@ -544,7 +544,6 @@ class ChatSession(Session):
 			if ctc.status.is_offlineish(): raise error.ContactNotOnline()
 			invitee = ctc.head
 		ctc_sessions = self.bs.backend.util_get_sessions_by_user(invitee)
-		if not ctc_sessions: raise error.ContactNotOnline()
 		for ctc_sess in ctc_sessions:
 			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg, roster = roster, voice_chat = voice_chat, existing = existing)
 	

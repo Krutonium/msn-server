@@ -17,7 +17,8 @@
 	ENABLE_FRONT_YMSG = True
 	```
 - run `python script/dbcreate.py`; if you get `ModuleNotFoundError: No module named '...'`, add `export PYTHONPATH=".;$PYTHONPATH"` in your `.bashrc`
-- run `python script/dummydata.py` (creates a few dummy accounts, check the file to see what they are/their passwords; MSN only, for now)
+- run `python script/dummydata.py` (creates a few dummy accounts, passwords are all "123456")
+
 - to create users, run `python script/user.py -h` for instructions
 
 ## MSN
@@ -37,17 +38,16 @@
 
 ## Yahoo!
 
-- for version 5.5, use a **clean** install and patch the following registry value:
+- for version 5.5, use a **clean** install (specifically, of [build 1244](http://www.oldversion.com/windows/yahoo-messenger-5-5-0-1244)) and patch the following registry values:
 	```
 	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> `127.0.0.1,127.0.0.1`
+	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\socket server -> `localhost`
 	```
 
 - and also, in your `HOSTS`, add:
 	```
-	127.0.0.1 scs.yahoo.com
-	127.0.0.1 scsa.yahoo.com
-	127.0.0.1 scsb.yahoo.com
-	127.0.0.1 scsc.yahoo.com
+	127.0.0.1 scs.msg.yahoo.com
+	127.0.0.1 rd.yahoo.com
 	127.0.0.1 insider.msg.yahoo.com
 	127.0.0.1 chat.yahoo.com
 	```

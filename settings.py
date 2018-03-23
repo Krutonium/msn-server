@@ -1,4 +1,4 @@
-DB = 'sqlite:///db.sqlite'
+DB = 'sqlite:///escargot.sqlite'
 STATS_DB = 'sqlite:///stats.sqlite'
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
 STORAGE_HOST = LOGIN_HOST

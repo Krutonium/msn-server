@@ -139,7 +139,6 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	if xfer_dict.get('28') is not None: ft_dict.add('28', xfer_dict.get('28'))
 	if xfer_dict.get('20') is not None: ft_dict.add('20', xfer_dict.get('20'))
 	if xfer_dict.get('14') is not None: ft_dict.add('14', xfer_dict.get('14'))
-	if str(xfer_dict.get('13')) == '1': ft_dict.add('38', 86400)
 	if xfer_dict.get('53') is not None: ft_dict.add('53', xfer_dict.get('53'))
 	ft_dict.add('49', xfer_dict.get('49'))
 	

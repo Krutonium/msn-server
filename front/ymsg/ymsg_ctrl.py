@@ -39,7 +39,7 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 		
 		n = find_count_PRE(data)
 		if n > 1:
-			for pack in sep_cluster(data, n - 1):
+			for pack in sep_cluster(data, n):
 				self.receive_event(pack)
 		else:
 			self.receive_event(data)
@@ -132,7 +132,7 @@ class YMSGDecoder:
 	
 	def _ymsg_read(self) -> Optional[DecodedYMSG]:
 		try:
-			y= _decode_ymsg(self._data)
+			y = _decode_ymsg(self._data)
 		except AssertionError:
 			return None
 		except Exception:
@@ -164,7 +164,7 @@ def sep_cluster(data: bytes, length: int) -> List[bytes]:
 	cluster_pack = []
 	
 	for i in range(0, length):
-		length_post_PRE = 20 + struct.unpack('!H', data[(pos + 8):(pos + 10)])[0]
+		length_post_PRE = pos + (20 + struct.unpack('!H', data[(pos + 8):(pos + 10)])[0])
 		cluster_pack.append(data[pos:length_post_PRE])
 		pos = length_post_PRE
 	
