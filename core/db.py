@@ -58,7 +58,7 @@ class User(Base):
 		if not fd: return None
 		return fd.get(key)
 
-def _simplify_json_data(data):
+def _simplify_json_data(data: Any) -> Any:
 	if isinstance(data, dict):
 		d = {}
 		for k, v in data.items():
