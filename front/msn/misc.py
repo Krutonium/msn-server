@@ -52,10 +52,10 @@ def build_msnp_presence_notif(trid: Optional[str], ctc: Contact, dialect: int, b
 	elif dialect >= 11:
 		yield ('UBX', head.email, networkid, ubx_payload)
 
-def encode_email_networkid(email, networkid):
+def encode_email_networkid(email: str, networkid: Optional[int]) -> str:
 	return '{}:{}'.format(networkid or 1, email)
 
-def encode_msnobj(msnobj):
+def encode_msnobj(msnobj: Optional[str]) -> Optional[str]:
 	if msnobj is None: return None
 	return quote(msnobj, safe = '')
 
@@ -75,7 +75,7 @@ class Err:
 	AuthFail = 911
 	
 	@classmethod
-	def GetCodeForException(cls, exc):
+	def GetCodeForException(cls, exc: Exception) -> int:
 		if isinstance(exc, error.GroupNameTooLong):
 			return cls.GroupNameTooLong
 		if isinstance(exc, error.GroupDoesNotExist):

@@ -1,20 +1,27 @@
-from typing import Dict, List
+from typing import Dict, List, Any, Optional
 import bisect
 from time import time as time_builtin
 from functools import total_ordering
 from util.hash import gen_salt
 
 class AuthService:
-	def __init__(self, *, time = None):
+	__slots__ = ('_time', '_ordered', '_bytoken', '_idxbase')
+	
+	_time: Any
+	# Ordered by TokenData.expiry
+	_ordered: List['TokenData']
+	_bytoken: Dict[str, int]
+	_idxbase: int
+	
+	def __init__(self, *, time: Optional[Any] = None) -> None:
 		if time is None:
 			time = time_builtin
 		self._time = time
-		# Ordered by TokenData.expiry
-		self._ordered = [] # type: List[TokenData]
-		self._bytoken = {} # type: Dict[str, int]
+		self._ordered = []
+		self._bytoken = {}
 		self._idxbase = 0
 	
-	def create_token(self, purpose, data, *, lifetime = 30):
+	def create_token(self, purpose: str, data: Any, *, lifetime: int = 30) -> str:
 		self._remove_expired()
 		td = TokenData(purpose, data, self._time() + lifetime)
 		assert td.token not in self._bytoken
@@ -23,7 +30,7 @@ class AuthService:
 		self._bytoken[td.token] = idx + self._idxbase
 		return td.token
 	
-	def pop_token(self, purpose, token):
+	def pop_token(self, purpose: str, token: str) -> Optional[Any]:
 		self._remove_expired()
 		idx = self._bytoken.pop(token, None)
 		if idx is None: return None
@@ -32,9 +39,9 @@ class AuthService:
 		if not td.validate(purpose, token, self._time()): return None
 		return td.data
 	
-	def _remove_expired(self):
+	def _remove_expired(self) -> None:
 		if not self._ordered: return
-		dummy = TokenData(None, None, self._time())
+		dummy = TokenData('', None, self._time())
 		idx = bisect.bisect(self._ordered, dummy)
 		if idx < 1: return
 		self._idxbase += idx
@@ -44,16 +51,23 @@ class AuthService:
 
 @total_ordering
 class TokenData:
-	def __init__(self, purpose, data, expiry):
+	__slots__ = ('token', 'purpose', 'data', 'expiry')
+	
+	token: str
+	purpose: str
+	data: Any
+	expiry: int
+	
+	def __init__(self, purpose: str, data: Any, expiry: int) -> None:
 		self.token = gen_salt(20)
 		self.purpose = purpose
 		self.expiry = expiry
 		self.data = data
 	
-	def __le__(self, other):
+	def __le__(self, other: 'TokenData') -> bool:
 		return self.expiry <= other.expiry
 	
-	def validate(self, purpose, token, now):
+	def validate(self, purpose: str, token: str, now: int) -> bool:
 		if self.expiry <= now: return False
 		if self.purpose != purpose: return False
 		if self.token != token: return False

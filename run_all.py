@@ -1,4 +1,4 @@
-def main(*, devmode = False):
+def main(*, devmode: bool = False) -> None:
 	import asyncio
 	from core.backend import Backend
 	from core import http

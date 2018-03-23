@@ -1,14 +1,15 @@
-from typing import FrozenSet, Any, Iterable, Optional, TypeVar
+from typing import FrozenSet, Any, Iterable, Optional, TypeVar, List, Dict
 from abc import ABCMeta, abstractmethod
 import asyncio
 import functools
 import itertools
 import traceback
 from uuid import uuid4
+import ssl
 import jinja2
 from aiohttp import web
 
-EMPTY_SET = frozenset() # type: FrozenSet[Any]
+EMPTY_SET: FrozenSet[Any] = frozenset()
 
 def gen_uuid() -> str:
 	return str(uuid4())
@@ -19,10 +20,16 @@ def first_in_iterable(iterable: Iterable[T]) -> Optional[T]:
 	return None
 
 class Runner(metaclass = ABCMeta):
-	def __init__(self, host: str, port: int, *, ssl = None) -> None:
+	__slots__ = ('host', 'port', 'ssl_context')
+	
+	host: str
+	port: int
+	ssl_context: Optional[ssl.SSLContext]
+	
+	def __init__(self, host: str, port: int, *, ssl_context: Optional[ssl.SSLContext] = None) -> None:
 		self.host = host
 		self.port = port
-		self.ssl_context = ssl
+		self.ssl_context = ssl_context
 	
 	@abstractmethod
 	def create_servers(self, loop: asyncio.AbstractEventLoop) -> List[Any]: pass
@@ -31,8 +38,12 @@ class Runner(metaclass = ABCMeta):
 		pass
 
 class ProtocolRunner(Runner):
-	def __init__(self, host, port, protocol, *, args = None, ssl = None):
-		super().__init__(host, port, ssl = ssl)
+	__slots__ = ('_protocol')
+	
+	_protocol: Any
+	
+	def __init__(self, host: str, port: int, protocol, *, args: Optional[List[Any]] = None, ssl_context: Optional[ssl.SSLContext] = None) -> None:
+		super().__init__(host, port, ssl_context = ssl_context)
 		if args:
 			protocol = functools.partial(protocol, *args)
 		self._protocol = protocol
@@ -41,8 +52,13 @@ class ProtocolRunner(Runner):
 		return [loop.create_server(self._protocol, self.host, self.port, ssl = self.ssl_context)]
 
 class AIOHTTPRunner(Runner):
-	def __init__(self, host, port, app, *, ssl = None):
-		super().__init__(host, port, ssl = ssl)
+	__slots__ = ('app', '_handler')
+	
+	app: Any
+	_handler: Optional[Any]
+	
+	def __init__(self, host: str, port: int, app: Any, *, ssl_context: Optional[ssl.SSLContext] = None) -> None:
+		super().__init__(host, port, ssl_context = ssl_context)
 		self.app = app
 		self._handler = None
 	
@@ -56,7 +72,7 @@ class AIOHTTPRunner(Runner):
 			ret.append(loop.create_server(self._handler, self.host, 443, ssl = self.ssl_context))
 		return ret
 	
-	def teardown(self, loop):
+	def teardown(self, loop: asyncio.AbstractEventLoop) -> None:
 		handler = self._handler
 		assert handler is not None
 		self._handler = None
@@ -65,16 +81,21 @@ class AIOHTTPRunner(Runner):
 		loop.run_until_complete(self.app.cleanup())
 
 class Logger:
+	__slots__ = ('prefix', '_log')
+	
+	prefix: str
+	_log: bool
+	
 	def __init__(self, prefix: str, obj: object) -> None:
 		import settings
 		self.prefix = '{}/{:04x}'.format(prefix, hash(obj) % 0xFFFF)
 		self._log = settings.DEBUG and settings.DEBUG_MSNP
 	
-	def info(self, *args) -> None:
+	def info(self, *args: Any) -> None:
 		if self._log:
 			print(self.prefix, *args)
 	
-	def error(self, exc) -> None:
+	def error(self, exc: Exception) -> None:
 		traceback.print_exception(type(exc), exc, exc.__traceback__)
 	
 	def log_connect(self) -> None:
@@ -83,7 +104,7 @@ class Logger:
 	def log_disconnect(self) -> None:
 		self.info("dis")
 
-def run_loop(loop, runners) -> None:
+def run_loop(loop: asyncio.AbstractEventLoop, runners: List[Runner]) -> None:
 	for runner in runners:
 		print("Serving on {}:{}".format(runner.host, runner.port))
 	
@@ -111,7 +132,7 @@ def run_loop(loop, runners) -> None:
 			runner.teardown(loop)
 		loop.close()
 
-async def _windows_ctrl_c_workaround():
+async def _windows_ctrl_c_workaround() -> None:
 	import os
 	if os.name != 'nt': return
 	

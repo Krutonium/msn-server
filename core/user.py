@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional, List, Tuple
 from datetime import datetime
 
 from util.hash import hasher, hasher_md5, hasher_md5crypt
@@ -7,12 +7,12 @@ from .db import Session, User as DBUser
 from .models import User, Contact, UserStatus, UserDetail, Group
 
 class UserService:
-	def __init__(self):
-		self._cache_by_uuid = {} # type: Dict[str, User]
-		self._yahoo_cache_by_uuid = {} # type: Dict[str, UserYahoo]
+	_cache_by_uuid: Dict[str, Optional[User]]
 	
+	def __init__(self) -> None:
+		self._cache_by_uuid = {}
 	
-	def login(self, email, pwd):
+	def login(self, email: str, pwd: str) -> Optional[str]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.email == email).one_or_none()
 			if dbuser is None: return None
@@ -40,37 +40,37 @@ class UserService:
 			if dbuser is None: return None
 			return hasher_md5.extract_hash(dbuser.get_front_data('ymsg', 'pw_md5_unsalted') or '')
 	
-	def update_date_login(self, uuid):
 	def yahoo_get_md5crypt_password(self, uuid: str) -> Optional[bytes]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
 			if dbuser is None: return None
 			return hasher_md5crypt.extract_hash(dbuser.get_front_data('ymsg', 'pw_md5crypt') or '')
 	
+	def update_date_login(self, uuid: str) -> None:
 		with Session() as sess:
 			sess.query(DBUser).filter(DBUser.uuid == uuid).update({
 				'date_login': datetime.utcnow(),
 			})
 	
-	def get_uuid(self, email):
+	def get_uuid(self, email: str) -> Optional[str]:
 		with Session() as sess:
 			tmp = sess.query(DBUser.uuid).filter(DBUser.email == email).one_or_none()
 			return tmp and tmp[0]
 	
-	def get(self, uuid):
+	def get(self, uuid: str) -> Optional[User]:
 		if uuid is None: return None
 		if uuid not in self._cache_by_uuid:
 			self._cache_by_uuid[uuid] = self._get_uncached(uuid)
 		return self._cache_by_uuid[uuid]
 	
-	def _get_uncached(self, uuid):
+	def _get_uncached(self, uuid: str) -> Optional[User]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
 			if dbuser is None: return None
 			status = UserStatus(dbuser.name, dbuser.message)
 			return User(dbuser.uuid, dbuser.email, dbuser.verified, status, dbuser.date_created)
 	
-	def get_detail(self, uuid):
+	def get_detail(self, uuid: str) -> Optional[UserDetail]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
 			if dbuser is None: return None
@@ -89,25 +89,7 @@ class UserService:
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
 	
-	def get_yahoo_detail(self, uuid):
-		with Session() as sess:
-			dbuser_yahoo = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == uuid).one_or_none()
-			if dbuser_yahoo is None: return None
-			detail = UserYahooDetail()
-			for g in dbuser_yahoo.groups:
-				grp = Group(**g)
-				detail.groups[grp.id] = grp
-			for c in dbuser_yahoo.contacts:
-				ctc_head = self.yahoo_get(c['uuid'])
-				if ctc_head is None: continue
-				yahoo_status = UserYahooStatus()
-				ctc = YahooContact(
-					ctc_head, c['yahoo_id'], set(c['groups']), yahoo_status, is_messenger_user = c.get('is_messenger_user'),
-				)
-				detail.contacts[ctc.head.uuid] = ctc
-		return detail
-	
-	def save_batch(self, to_save):
+	def save_batch(self, to_save: List[Tuple[User, UserDetail]]) -> None:
 		with Session() as sess:
 			for user, detail in to_save:
 				dbuser = sess.query(DBUser).filter(DBUser.uuid == user.uuid).one()
@@ -124,25 +106,3 @@ class UserService:
 					'is_messenger_user': c.is_messenger_user,
 				} for c in detail.contacts.values()]
 				sess.add(dbuser)
-	
-	def save_batch_yahoo(self, to_save):
-		with Session() as sess:
-			for user, detail in to_save:
-				dbuser = sess.query(DBUserYahoo).filter(DBUserYahoo.uuid == user.uuid).one()
-				dbuser.groups = [{
-					'id': g.id, 'name': g.name
-				} for g in detail.groups.values()]
-				dbuser.contacts = [{
-					'uuid': c.head.uuid, 'yahoo_id': c.yahoo_id,
-					'groups': list(c.groups),
-					'is_messenger_user': c.is_messenger_user,
-				} for c in detail.contacts.values()]
-				sess.add(dbuser)
-
-def _extract_hash(hasher, encoded):
-	import base64
-	try:
-		(_, _, hash) = encoded.split(hasher.separator)
-	except ValueError:
-		return ''
-	return base64.b64decode(hash).decode('ascii')

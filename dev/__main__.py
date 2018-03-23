@@ -1,4 +1,4 @@
-def main():
+def main() -> None:
 	import run_all
 	run_all.main(devmode = True)
 

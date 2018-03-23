@@ -1,4 +1,4 @@
-from typing import Tuple, Any, Optional
+from typing import Tuple, Any, Optional, List
 from datetime import datetime
 from lxml.objectify import fromstring as parse_xml
 
@@ -6,7 +6,7 @@ from util.misc import Logger
 
 from core import event
 from core.backend import Backend, BackendSession, Chat
-from core.models import Substatus, Lst, User, Contact
+from core.models import Substatus, Lst, User, Contact, TextWithData
 from core.client import Client
 
 from .msnp import MSNPCtrl
@@ -47,7 +47,7 @@ class MSNPCtrlNS(MSNPCtrl):
 	
 	# State = Auth
 	
-	def _m_ver(self, trid, *args) -> None:
+	def _m_ver(self, trid: str, *args) -> None:
 		dialects = [a.upper() for a in args]
 		d = None
 		for d in MSNP_DIALECTS:
@@ -59,19 +59,19 @@ class MSNPCtrlNS(MSNPCtrl):
 		self.dialect = int(d[4:])
 		self.send_reply('VER', trid, d)
 	
-	def _m_cvr(self, trid, *args) -> None:
+	def _m_cvr(self, trid: str, *args) -> None:
 		v = args[5]
 		self.client = Client('msn', v, self.client.via)
 		self.send_reply('CVR', trid, v, v, v, 'https://escargot.log1p.xyz', 'https://escargot.log1p.xyz')
 	
-	def _m_inf(self, trid) -> None:
+	def _m_inf(self, trid: str) -> None:
 		dialect = self.dialect
 		if dialect < 8:
 			self.send_reply('INF', trid, 'MD5')
 		else:
 			self.send_reply(Err.CommandDisabled, trid)
 	
-	def _m_usr(self, trid, authtype, stage, *args) -> None:
+	def _m_usr(self, trid: str, authtype: str, stage: str, *args) -> None:
 		dialect = self.dialect
 		backend = self.backend
 		
@@ -89,7 +89,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				return
 			if stage == 'I':
 				email = args[0]
-				salt = backend.user_service.get_msn_md5_salt(email)
+				salt = backend.user_service.msn_get_md5_salt(email)
 				if salt is None:
 					# Account is not enabled for login via MD5
 					# TODO: Can we pass an informative message to user?
@@ -102,7 +102,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				md5_hash = args[0]
 				usr_email = self.usr_email
 				assert usr_email is not None
-				uuid = backend.user_service.login_msn_md5(usr_email, md5_hash)
+				uuid = backend.user_service.msn_login_md5(usr_email, md5_hash)
 				if uuid is not None:
 					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
 				self._util_usr_final(trid, None)
@@ -137,7 +137,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		self.send_reply(Err.AuthFail, trid)
 	
-	def _util_usr_final(self, trid, token) -> None:
+	def _util_usr_final(self, trid: str, token: Optional[str]) -> None:
 		bs = self.bs
 		
 		if bs is None:
@@ -200,7 +200,7 @@ class MSNPCtrlNS(MSNPCtrl):
 	
 	# State = Live
 	
-	def _m_syn(self, trid, *extra) -> None:
+	def _m_syn(self, trid: str, *extra) -> None:
 		bs = self.bs
 		dialect = self.dialect
 		
@@ -267,13 +267,13 @@ class MSNPCtrlNS(MSNPCtrl):
 					c.lists, (None if dialect < 12 else 1), ','.join(c.groups)
 				)
 	
-	def _m_gcf(self, trid, filename) -> None:
+	def _m_gcf(self, trid: str, filename: str) -> None:
 		self.send_reply('GCF', trid, filename, SHIELDS)
 	
 	def _m_png(self) -> None:
 		self.send_reply('QNG', (60 if self.dialect >= 9 else None))
 	
-	def _m_uux(self, trid, data) -> None:
+	def _m_uux(self, trid: str, data: bytes) -> None:
 		bs = self.bs
 		assert bs is not None
 		
@@ -293,10 +293,10 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		self.send_reply('UUX', trid, 0)
 	
-	def _m_url(self, trid, *ignored) -> None:
+	def _m_url(self, trid: str, *ignored) -> None:
 		self.send_reply('URL', trid, '/unused1', '/unused2', 1)
 	
-	def _m_adg(self, trid, name, ignored = None) -> None:
+	def _m_adg(self, trid: str, name: str, ignored = None) -> None:
 		#>>> ADG 276 New Group
 		bs = self.bs
 		assert bs is not None
@@ -307,7 +307,7 @@ class MSNPCtrlNS(MSNPCtrl):
 			return
 		self.send_reply('ADG', trid, self._ser(), name, group.id, 0)
 	
-	def _m_rmg(self, trid, group_id) -> None:
+	def _m_rmg(self, trid: str, group_id: str) -> None:
 		#>>> RMG 250 00000000-0000-0000-0001-000000000001
 		bs = self.bs
 		assert bs is not None
@@ -330,7 +330,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		self.send_reply('RMG', trid, self._ser() or 1, group_id)
 	
-	def _m_reg(self, trid, group_id, name, ignored = None) -> None:
+	def _m_reg(self, trid: str, group_id: str, name: str, ignored = None) -> None:
 		#>>> REG 275 00000000-0000-0000-0001-000000000001 newname
 		bs = self.bs
 		assert bs is not None
@@ -345,7 +345,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		else:
 			self.send_reply('REG', trid, 1, name, group_id, 0)
 	
-	def _m_adc(self, trid, lst_name, arg1, arg2 = None) -> None:
+	def _m_adc(self, trid: str, lst_name: str, arg1: str, arg2: Optional[str] = None) -> None:
 		if arg1.startswith('N='):
 			#>>> ADC 249 BL N=bob1@hotmail.com
 			#>>> ADC 278 AL N=foo@hotmail.com
@@ -362,19 +362,23 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		self._add_common(trid, lst_name, contact_uuid, name, group_id)
 	
-	def _m_add(self, trid, lst_name, email, name = None, group_id = None) -> None:
+	def _m_add(self, trid: str, lst_name: str, email: str, name: Optional[str] = None, group_id: Optional[str] = None) -> None:
 		#>>> ADD 122 FL email name group
 		contact_uuid = self.backend.util_get_uuid_from_email(email)
 		self._add_common(trid, lst_name, contact_uuid, name, group_id)
 	
-	def _add_common(self, trid, lst_name, contact_uuid, name = None, group_id = None) -> None:
+	def _add_common(self, trid: str, lst_name: str, contact_uuid: Optional[str], name: Optional[str] = None, group_id: Optional[str] = None) -> None:
 		bs = self.bs
 		assert bs is not None
+		
+		if contact_uuid is None:
+			self.send_reply(Err.InvalidUser, trid)
+			return
 		
 		lst = getattr(Lst, lst_name)
 		
 		try:
-			ctc, ctc_head = bs.me_contact_add(contact_uuid, lst, name)
+			ctc, ctc_head = bs.me_contact_add(contact_uuid, lst, name = name)
 			if group_id:
 				bs.me_group_contact_add(group_id, contact_uuid)
 		except Exception as ex:
@@ -392,7 +396,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		else:
 			self.send_reply('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
 	
-	def _m_rem(self, trid, lst_name, usr, group_id = None) -> None:
+	def _m_rem(self, trid: str, lst_name: str, usr: str, group_id: Optional[str] = None) -> None:
 		bs = self.bs
 		assert bs is not None
 		
@@ -423,7 +427,7 @@ class MSNPCtrlNS(MSNPCtrl):
 			return
 		self.send_reply('REM', trid, lst_name, self._ser(), usr, group_id)
 	
-	def _m_gtc(self, trid, value) -> None:
+	def _m_gtc(self, trid: str, value: str) -> None:
 		if self.dialect >= 13:
 			self.send_reply(Err.CommandDisabled, trid)
 			return
@@ -435,7 +439,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		bs.me_update({ 'gtc': value })
 		self.send_reply('GTC', trid, self._ser(), value)
 	
-	def _m_blp(self, trid, value) -> None:
+	def _m_blp(self, trid: str, value: str) -> None:
 		# Check "Only people on my Allow List ..." AL/BL
 		#>>> BLP 143 BL
 		bs = self.bs
@@ -443,7 +447,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		bs.me_update({ 'blp': value })
 		self.send_reply('BLP', trid, self._ser(), value)
 	
-	def _m_chg(self, trid, sts_name, capabilities = None, msnobj = None) -> None:
+	def _m_chg(self, trid: str, sts_name: str, capabilities: Optional[int] = None, msnobj: Optional[str] = None) -> None:
 		#>>> CHG 120 BSY 1073791020 <msnobj .../>
 		bs = self.bs
 		assert bs is not None
@@ -468,7 +472,7 @@ class MSNPCtrlNS(MSNPCtrl):
 			for m in build_msnp_presence_notif(trid, ctc, dialect, self.backend):
 				self.send_reply(*m)
 	
-	def _m_rea(self, trid, email, name) -> None:
+	def _m_rea(self, trid: str, email: str, name: str) -> None:
 		if self.dialect >= 10:
 			self.send_reply(Err.CommandDisabled, trid)
 			return
@@ -480,11 +484,11 @@ class MSNPCtrlNS(MSNPCtrl):
 			bs.me_update({ 'name': name })
 		self.send_reply('REA', trid, self._ser(), email, name)
 	
-	def _m_snd(self, trid, email) -> None:
+	def _m_snd(self, trid: str, email: str) -> None:
 		# Send email about how to use MSN. Ignore it for now.
 		self.send_reply('SND', trid, email)
 	
-	def _m_prp(self, trid, key, value, *rest) -> None:
+	def _m_prp(self, trid: str, key: str, value: str, *rest) -> None:
 		#>>> PRP 115 MFN ~~woot~~
 		bs = self.bs
 		assert bs is not None
@@ -494,12 +498,12 @@ class MSNPCtrlNS(MSNPCtrl):
 		# TODO: Save other settings?
 		self.send_reply('PRP', trid, key, value)
 	
-	def _m_sbp(self, trid, uuid, key, value) -> None:
+	def _m_sbp(self, trid: str, uuid: str, key: str, value: str) -> None:
 		#>>> SBP 153 00000000-0000-0000-0002-000000000002 MFN Bob%201%20New
 		# Can be ignored: core handles syncing contact names
 		self.send_reply('SBP', trid, uuid, key, value)
 	
-	def _m_xfr(self, trid, dest) -> None:
+	def _m_xfr(self, trid: str, dest: str) -> None:
 		bs = self.bs
 		assert bs is not None
 		
@@ -517,13 +521,13 @@ class MSNPCtrlNS(MSNPCtrl):
 		self.send_reply('XFR', trid, dest, 'm1.escargot.log1p.xyz:1864', 'CKI', token, *extra)
 	
 	# These four commands appear to be useless:
-	def _m_adl(self, trid, data) -> None:
+	def _m_adl(self, trid: str, data: bytes) -> None:
 		self.send_reply('ADL', trid, 'OK')
-	def _m_rml(self, trid, data) -> None:
+	def _m_rml(self, trid: str, data: bytes) -> None:
 		self.send_reply('RML', trid, 'OK')
-	def _m_fqy(self, trid, data) -> None:
+	def _m_fqy(self, trid: str, data: bytes) -> None:
 		self.send_reply('FQY', trid, b'')
-	def _m_uun(self, trid, email, arg0, data) -> None:
+	def _m_uun(self, trid: str, email: str, arg0: str, data: bytes) -> None:
 		self.send_reply('UUN', trid, 'OK')
 	
 	def _ser(self) -> Optional[int]:
@@ -540,11 +544,11 @@ class BackendEventHandler(event.BackendEventHandler):
 	def __init__(self, ctrl: MSNPCtrlNS) -> None:
 		self.ctrl = ctrl
 	
-	def on_presence_notification(self, contact: Contact) -> None:
+	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		for m in build_msnp_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
 			self.ctrl.send_reply(*m)
 	
-	def on_chat_invite(self, chat: Chat, inviter: User) -> None:
+	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		extra = () # type: Tuple[Any, ...]
 		dialect = self.ctrl.dialect
 		if dialect >= 13:
@@ -552,17 +556,20 @@ class BackendEventHandler(event.BackendEventHandler):
 		if dialect >= 14:
 			extra += (1,)
 		token = self.ctrl.backend.auth_service.create_token('sb/cal', (self.ctrl.bs, dialect, chat))
-		self.ctrl.send_reply('RNG', chat.id, 'm1.escargot.log1p.xyz:1864', 'CKI', token, inviter.email, inviter.status.name, *extra)
+		self.ctrl.send_reply('RNG', chat.ids['main'], 'm1.escargot.log1p.xyz:1864', 'CKI', token, inviter.email, inviter.status.name, *extra)
 	
-	def on_added_to_list(self, lst: Lst, user: User) -> None:
+	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		email = user.email
 		name = (user.status.name or email)
 		dialect = self.ctrl.dialect
 		if dialect < 10:
-			m = ('ADD', 0, lst.name, email, name)
+			m = ('ADD', 0, Lst.RL.name, email, name)
 		else:
-			m = ('ADC', 0, lst.name, 'N={}'.format(email), 'F={}'.format(name))
+			m = ('ADC', 0, Lst.RL.name, 'N={}'.format(email), 'F={}'.format(name))
 		self.ctrl.send_reply(*m)
+	
+	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
+		pass
 	
 	def on_pop_boot(self) -> None:
 		self.ctrl.send_reply('OUT', 'OTH')
@@ -574,7 +581,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_close(self) -> None:
 		self.ctrl.close()
 
-def _encode_payload(tmpl, **kwargs):
+def _encode_payload(tmpl: str, **kwargs: Any) -> bytes:
 	return tmpl.format(**kwargs).replace('\n', '\r\n').encode('utf-8')
 
 PAYLOAD_MSG_0 = '''Routing: 1.0
@@ -634,9 +641,9 @@ SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
 </config>'''.encode('utf-8')
 TIMESTAMP = '2000-01-01T00:00:00.0-00:00'
 
-def _uuid_to_high_low(u):
+def _uuid_to_high_low(uuid_str: str) -> Tuple[int, int]:
 	import uuid
-	u = uuid.UUID(u)
+	u = uuid.UUID(uuid_str)
 	high = u.time_low % (1<<32)
 	low = u.node % (1<<32)
 	return (high, low)

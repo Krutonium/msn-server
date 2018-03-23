@@ -7,14 +7,21 @@ from sqlalchemy.ext.declarative import declarative_base
 from HLL import HyperLogLog
 
 from core.client import Client
+from core.models import User
 from util.json_type import JSONType
 import settings
 
 class Stats:
-	def __init__(self):
+	__slots__ = ('logged_in', 'by_client', '_client_id_cache')
+	
+	logged_in: int
+	by_client: Dict[int, Dict[str, Any]]
+	_client_id_cache: Optional[Dict[Client, int]]
+	
+	def __init__(self) -> None:
 		self.logged_in = 0
-		self.by_client = {} # type: Dict[int, Dict[str, Any]]
-		self._client_id_cache = None # type: Optional[Dict[Client, int]]
+		self.by_client = {}
+		self._client_id_cache = None
 		
 		hour = _current_hour()
 		with Session() as sess:
@@ -28,22 +35,22 @@ class Stats:
 				for client_id, stats in current.value['by_client'].items()
 			}
 	
-	def on_login(self):
+	def on_login(self) -> None:
 		self.logged_in += 1
 	
-	def on_logout(self):
+	def on_logout(self) -> None:
 		self.logged_in -= 1
 	
-	def on_user_active(self, user, client):
+	def on_user_active(self, user: User, client: Client) -> None:
 		self._collect('users_active', user, client)
 	
-	def on_message_sent(self, user, client):
+	def on_message_sent(self, user: User, client: Client) -> None:
 		self._collect('messages_sent', user, client)
 	
-	def on_message_received(self, user, client):
+	def on_message_received(self, user: User, client: Client) -> None:
 		self._collect('messages_received', user, client)
 	
-	def _collect(self, stat, user, client):
+	def _collect(self, stat: str, user: User, client: Client) -> None:
 		assert user is not None
 		assert client is not None
 		if self.by_client is None:
@@ -62,7 +69,7 @@ class Stats:
 				bhc[stat] = 0
 			bhc[stat] += 1
 	
-	def flush(self):
+	def flush(self) -> None:
 		hour = _current_hour()
 		now = datetime.utcnow()
 		
@@ -87,7 +94,7 @@ class Stats:
 			if cs_hour != hour:
 				self.by_client = {}
 	
-	def _flush_to_hourly(self, sess, hour):
+	def _flush_to_hourly(self, sess: Any, hour: int) -> Dict[str, Any]:
 		for client_id, stats in self.by_client.items():
 			hcs_opt = sess.query(HourlyClientStats).filter(HourlyClientStats.hour == hour, HourlyClientStats.client_id == client_id).one_or_none()
 			if hcs_opt is None:
@@ -109,7 +116,7 @@ class Stats:
 			}
 		}
 	
-	def _get_client_id(self, client):
+	def _get_client_id(self, client: Client) -> int:
 		if self._client_id_cache is None:
 			with Session() as sess:
 				self._client_id_cache = {
@@ -124,7 +131,7 @@ class Stats:
 				self._client_id_cache[client] = dbobj.id
 		return self._client_id_cache[client]
 
-def _stats_to_json(stats):
+def _stats_to_json(stats: Dict[str, Any]) -> Dict[str, Any]:
 	json = {}
 	if 'messages_sent' in stats:
 		json['messages_sent'] = stats['messages_sent']
@@ -134,7 +141,7 @@ def _stats_to_json(stats):
 		json['users_active'] = list(stats['users_active'].registers())
 	return json
 
-def _stats_from_json(json):
+def _stats_from_json(json: Dict[str, Any]) -> Dict[str, Any]:
 	stats = {}
 	if 'messages_sent' in json:
 		stats['messages_sent'] = json['messages_sent']
@@ -146,10 +153,10 @@ def _stats_from_json(json):
 		stats['users_active'] = hll
 	return stats
 
-def _current_hour():
+def _current_hour() -> int:
 	now = datetime.utcnow()
 	ts = now.timestamp()
-	return ts // 3600
+	return int(ts // 3600)
 
 class Base(declarative_base()): # type: ignore
 	__abstract__ = True

@@ -1,11 +1,11 @@
-from typing import cast
+from typing import cast, Optional, List
 import asyncio
 from core.client import Client
-from core.models import Substatus, Lst, Contact, User
+from core.models import Substatus, Lst, Contact, User, TextWithData, MessageData, MessageType
 from core.backend import Backend, BackendSession, Chat, ChatSession
 from core import event
 
-CLIENT = Client('testbot', '0.1')
+CLIENT = Client('testbot', '0.1', 'direct')
 BOT_EMAIL = 'test@bot.log1p.xyz'
 
 def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
@@ -15,6 +15,21 @@ def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	bs = backend.login(uuid, CLIENT, evt)
 	assert bs is not None
 	evt.bs = bs
+	
+	bs.me_update({ 'substatus': Substatus.NLN })
+	print("Bot active:", bs.user.status.name)
+	
+	detail = bs.user.detail
+	assert detail is not None
+	
+	bs.me_update({ 'substatus': Substatus.NLN })
+	uuid = bs.backend.util_get_uuid_from_email('test1@example.com')
+	if uuid is None:
+		return
+	
+	if uuid not in detail.contacts:
+		bs.me_contact_add(uuid, Lst.FL, name = "Test 1")
+		bs.me_contact_add(uuid, Lst.AL, name = "Test 1")
 
 class BackendEventHandler(event.BackendEventHandler):
 	__slots__ = ('bs',)
@@ -22,32 +37,28 @@ class BackendEventHandler(event.BackendEventHandler):
 	bs: BackendSession
 	
 	def __init__(self) -> None:
-		# `bs` is only None temporarily.
-		# TODO: Find a better way.
-		self.bs = cast(BackendSession, None)
-	
-	def on_open(self) -> None:
-		detail = self.bs.user.detail
-		assert detail is not None
-		
-		self.bs.me_update({ 'substatus': Substatus.NLN })
-		uuid = self.bs.backend.util_get_uuid_from_email('test1@example.com')
-		if uuid is None:
-			return
-		
-		if uuid not in detail.contacts:
-			self.bs.me_contact_add(uuid, Lst.FL, "Test 1")
-			self.bs.me_contact_add(uuid, Lst.AL, "Test 1")
-	
-	def on_presence_notification(self, contact: Contact) -> None:
+		# `bs` is assigned shortly after
 		pass
 	
-	def on_chat_invite(self, chat: Chat, inviter: User) -> None:
+	def on_open(self) -> None:
+		# TODO: This is basically unusable right now because
+		# `bs` is assigned after `backend.login`, but `on_open`
+		# gets called during.
+		pass
+	
+	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
+		pass
+	
+	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		evt = ChatEventHandler(self.bs)
 		cs = chat.join(self.bs, evt)
 		evt.cs = cs
+		chat.send_participant_joined(cs)
 	
-	def on_added_to_list(self, lst: Lst, user: User) -> None:
+	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
+		pass
+	
+	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
 		pass
 	
 	def on_pop_boot(self) -> None:
@@ -64,12 +75,14 @@ class ChatEventHandler(event.ChatEventHandler):
 	
 	def __init__(self, bs: BackendSession) -> None:
 		self.bs = bs
-		# `cs` is only None temporarily.
-		# TODO: Find a better way.
-		self.cs = cast(ChatSession, None)
+		# `cs` is assigned shortly after
 	
 	def on_open(self) -> None:
-		self.cs.send_message_to_everyone((MSG_HEADER + "Hello, world!").encode('utf-8'))
+		self.cs.send_message_to_everyone(MessageData(
+			sender = self.cs.user,
+			type = MessageType.Chat,
+			text = "Hello, world!",
+		))
 	
 	def on_participant_joined(self, cs_other: 'ChatSession') -> None:
 		pass
@@ -77,16 +90,18 @@ class ChatEventHandler(event.ChatEventHandler):
 	def on_participant_left(self, cs_other: 'ChatSession') -> None:
 		pass
 	
-	def on_message(self, sender: User, data: bytes) -> None:
-		if b'Content-Type: text/plain' not in data:
+	def on_invite_declined(self, invited_user: User, *, message: Optional[str] = None) -> None:
+		pass
+	
+	def on_message(self, message: MessageData) -> None:
+		if message.type is not MessageType.Chat:
 			return
-		d = data.decode('utf-8').split('\r\n\r\n')[-1]
-		msg = "You, {}, insist that \"{}\".".format(sender.status.name, d)
-		self.cs.send_message_to_everyone((MSG_HEADER + msg).encode('utf-8'))
-
-MSG_HEADER = '''
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-X-MMS-IM-Format: FN=MS%20Shell%20Dlg; EF=; CO=0; CS=0; PF=0
-
-'''.replace('\n', '\r\n')
+		
+		sender = message.sender
+		text = message.text
+		msg = "You, {}, insist that \"{}\".".format(sender.status.name, text)
+		self.cs.send_message_to_everyone(MessageData(
+			sender = self.cs.user,
+			type = MessageType.Chat,
+			text = msg,
+		))

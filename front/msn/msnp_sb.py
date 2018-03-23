@@ -1,7 +1,7 @@
 from typing import Tuple, Any, Optional, List, Set
 
 from util.misc import Logger
-from core.models import User
+from core.models import User, MessageData, MessageType
 from core.backend import Backend, BackendSession, ChatSession, Chat
 from core import event, error
 from .misc import Err
@@ -28,7 +28,7 @@ class MSNPCtrlSB(MSNPCtrl):
 	
 	# State = Auth
 	
-	def _m_usr(self, trid, arg, token) -> None:
+	def _m_usr(self, trid: str, arg: str, token: str) -> None:
 		#>>> USR trid email@example.com token (MSNP < 18)
 		#>>> USR trid email@example.com;{00000000-0000-0000-0000-000000000000} token (MSNP >= 18)
 		(email, pop_id) = _decode_email_pop(arg)
@@ -49,7 +49,7 @@ class MSNPCtrlSB(MSNPCtrl):
 		self.cs = cs
 		self.send_reply('USR', trid, 'OK', arg, cs.user.status.name)
 	
-	def _m_ans(self, trid, arg, token, sessid) -> None:
+	def _m_ans(self, trid: str, arg: str, token: str, sessid: str) -> None:
 		#>>> ANS trid email@example.com token sessionid (MSNP < 18)
 		#>>> ANS trid email@example.com;{00000000-0000-0000-0000-000000000000} token sessionid (MSNP >= 18)
 		(email, _) = _decode_email_pop(arg)
@@ -107,7 +107,7 @@ class MSNPCtrlSB(MSNPCtrl):
 	
 	# State = Live
 	
-	def _m_cal(self, trid, invitee_email) -> None:
+	def _m_cal(self, trid: str, invitee_email: str) -> None:
 		#>>> CAL trid email@example.com
 		cs = self.cs
 		assert cs is not None
@@ -123,14 +123,14 @@ class MSNPCtrlSB(MSNPCtrl):
 		except Exception as ex:
 			self.send_reply(Err.GetCodeForException(ex), trid)
 		else:
-			self.send_reply('CAL', trid, 'RINGING', chat.id)
+			self.send_reply('CAL', trid, 'RINGING', chat.ids['main'])
 	
-	def _m_msg(self, trid, ack, data) -> None:
+	def _m_msg(self, trid: str, ack: str, data: bytes) -> None:
 		#>>> MSG trid [UNAD] len
 		cs = self.cs
 		assert cs is not None
 		
-		cs.send_message_to_everyone(data)
+		cs.send_message_to_everyone(messagedata_from_msnp(cs.user, data))
 		
 		# TODO: Implement ACK/NAK
 		if ack == 'U':
@@ -173,11 +173,29 @@ class ChatEventHandler(event.ChatEventHandler):
 		# Just sending "BYE" seems to imply ALL PoPs of that email left.
 		self.ctrl.send_reply('BYE', cs_other.user.email)
 	
-	def on_message(self, sender: User, data: bytes) -> None:
-		self.ctrl.send_reply('MSG', sender.email, sender.status.name, data)
+	def on_invite_declined(self, invited_user: User, *, message: Optional[str] = None) -> None:
+		pass
+	
+	def on_message(self, data: MessageData) -> None:
+		self.ctrl.send_reply('MSG', data.sender.email, data.sender.status.name, messagedata_to_msnp(data))
 	
 	def on_close(self):
 		self.ctrl.close()
+
+def messagedata_from_msnp(sender: User, data: bytes) -> MessageData:
+	# TODO: Parse `data` to get these
+	type = MessageType.Chat
+	text = ''
+	
+	message = MessageData(sender = sender, type = type, text = text)
+	message.front_cache['msnp'] = data
+	return message
+
+def messagedata_to_msnp(data: MessageData) -> bytes:
+	if 'msnp' not in data.front_cache:
+		# TODO
+		data.front_cache['msnp'] = b''
+	return data.front_cache['msnp']
 
 def _decode_email_pop(s: str) -> Tuple[str, Optional[str]]:
 	# Split `foo@email.com;{uuid}` into (email, pop_id)
