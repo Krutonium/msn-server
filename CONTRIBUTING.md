@@ -77,9 +77,10 @@ All generated certificates expire after 30 days for "security" purposes (i.e. I 
 set it to a long period of time so as to not open anyone up to... vulnerabilities...
 if they forget to uninstall the root certificate).
 
-## mypy
+## Typechecking/MyPy
 
-Take advantage of [mypy](https://mypy-lang.org) by adding type annotations. Run `mypy dev` to typecheck.
+Take advantage of [mypy](https://mypy-lang.org) by adding type annotations.
+Run `mypy dev` to typecheck, and do your best to ensure your commits contain no typechecking errors.
 
 ## Testing
 
