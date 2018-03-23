@@ -19,6 +19,12 @@ def main(*, devmode = False):
 	if settings.ENABLE_FRONT_BOT:
 		import front.bot
 		front.bot.register(loop, backend)
+	
+	if devmode:
+		if settings.ENABLE_FRONT_DEVBOTS:
+			import front.devbots
+			front.devbots.register(loop, backend)
+	
 	backend.run_forever()
 
 if __name__ == '__main__':
