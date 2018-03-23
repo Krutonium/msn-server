@@ -6,7 +6,7 @@ http://*.log1p.xyz/gateway/gateway.dll {
 	proxy /gateway/gateway.dll 127.0.0.1:8081 {
 		transparent
 	}
-	root /var/www/msn-server
+	root /var/www/escargot/server
 }
 
 m1.escargot.log1p.xyz,
@@ -23,5 +23,5 @@ m00000001.escargot.log1p.xyz {
 	proxy / 127.0.0.1:8081 {
 		transparent
 	}
-	root /var/www/msn-server
+	root /var/www/escargot/server
 }
