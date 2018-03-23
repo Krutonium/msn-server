@@ -872,9 +872,10 @@ def messagedata_from_ymsg(sender: User, data: Dict[str, Any], *, notify_type: Op
 
 def messagedata_to_ymsg(data: MessageData) -> Dict[str, Any]:
 	if 'ymsg' not in data.front_cache:
-		# TODO: Serialize message data to YMSG format
 		data.front_cache['ymsg'] = MultiDict([
 			('14', data.text),
+			('63', ';0'),
+			('64', '0'),
 		])
 	return data.front_cache['ymsg']
 
