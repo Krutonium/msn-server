@@ -43,7 +43,7 @@ class MSNPCtrlSB(MSNPCtrl):
 			return
 		chat = self.backend.chat_create()
 		
-		cs = chat.join(bs, ChatEventHandler(self))
+		cs = chat.join('msn', bs, ChatEventHandler(self))
 		self.dialect = dialect
 		self.bs = bs
 		self.cs = cs
