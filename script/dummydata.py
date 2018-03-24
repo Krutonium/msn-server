@@ -4,7 +4,7 @@ from uuid import uuid4
 from core.models import Lst
 from core.db import Base, Session, User, engine
 
-from cmd.user import set_passwords
+from script.user import set_passwords
 
 def main() -> None:
 	U = []
