@@ -481,8 +481,8 @@ class Chat:
 		self.ids[scope] = id
 		self.backend._chats_by_id[(scope, id)] = self
 	
-	def join(self, bs: BackendSession, evt: event.ChatEventHandler) -> 'ChatSession':
-		cs = ChatSession(bs, self, evt)
+	def join(self, origin: str, bs: BackendSession, evt: event.ChatEventHandler) -> 'ChatSession':
+		cs = ChatSession(origin, bs, self, evt)
 		self._users_by_sess[cs] = cs.user
 		cs.evt.on_open()
 		return cs
@@ -496,7 +496,7 @@ class Chat:
 	def send_participant_joined(self, cs: 'ChatSession') -> None:
 		for cs_other in self.get_roster():
 			# TODO: This next line is only for Yahoo!
-			#if cs_other is cs: continue
+			if cs_other is cs and cs.origin is 'yahoo': continue
 			cs_other.evt.on_participant_joined(cs)
 	
 	def on_leave(self, sess: 'ChatSession') -> None:
@@ -514,15 +514,17 @@ class Chat:
 			sess1.evt.on_participant_left(sess)
 
 class ChatSession(Session):
-	__slots__ = ('user', 'chat', 'bs', 'evt')
+	__slots__ = ('origin', 'user', 'chat', 'bs', 'evt')
 	
+	origin: Optional[str]
 	user: User
 	chat: Chat
 	bs: BackendSession
 	evt: event.ChatEventHandler
 	
-	def __init__(self, bs: BackendSession, chat: Chat, evt: event.ChatEventHandler) -> None:
+	def __init__(self, origin: str, bs: BackendSession, chat: Chat, evt: event.ChatEventHandler) -> None:
 		super().__init__()
+		self.origin = origin
 		self.user = bs.user
 		self.chat = chat
 		self.bs = bs
