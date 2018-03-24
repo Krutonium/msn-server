@@ -576,13 +576,14 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	# Other functions
 	
 	def yahoo_id_to_uuid(self, yahoo_id: str) -> Optional[str]:
+		email = None
+		
 		if '@' in yahoo_id:
 			email = yahoo_id # type: Optional[str]
 		elif self.bs:
 			detail = self.bs.user.detail
 			assert detail is not None
 			pre = yahoo_id + '@'
-			email = None
 			for ctc in detail.contacts.values():
 				if ctc.head.email.startswith(pre):
 					email = ctc.head.email
@@ -601,7 +602,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			
 			# `user` joins
 			evt = ChatEventHandler(self)
-			cs = chat.join(self.bs, evt)
+			cs = chat.join('yahoo', self.bs, evt)
 			evt.cs = cs
 			
 			self.private_chats[other_user_uuid] = cs
@@ -618,7 +619,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _get_chat_session(self, chat: Chat, *, create: bool = False) -> Optional[ChatSession]:
 		assert self.bs is not None
 		evt = ChatEventHandler(self)
-		cs = chat.join(self.bs, evt)
+		cs = chat.join('yahoo', self.bs, evt)
 		evt.cs = cs
 		chat.send_participant_joined(cs)
 		return cs
@@ -736,7 +737,8 @@ def add_contact_status_to_data(data: Any, status: UserStatus, contact_yahoo_id: 
 	data.add('7', contact_yahoo_id)
 	
 	if is_offlineish or not status.message:
-		data.add('10', int(misc.convert_from_substatus(status.substatus)))
+		int_status = int(misc.convert_from_substatus(status.substatus))
+		data.add('10', (YMSGStatus.Available if is_offlineish else int_status))
 	else:
 		data.add('10', int(YMSGStatus.Custom))
 		data.add('19', status.message)
@@ -787,7 +789,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
 			evt = ChatEventHandler(self.ctrl)
-			cs = chat.join(self.bs, evt)
+			cs = chat.join('yahoo', self.bs, evt)
 			evt.cs = cs
 			chat.send_participant_joined(cs)
 			self.ctrl.private_chats[inviter.uuid] = cs
@@ -872,11 +874,13 @@ def messagedata_from_ymsg(sender: User, data: Dict[str, Any], *, notify_type: Op
 
 def messagedata_to_ymsg(data: MessageData) -> Dict[str, Any]:
 	if 'ymsg' not in data.front_cache:
-		data.front_cache['ymsg'] = MultiDict([
+		new_front_cache = MultiDict([
 			('14', data.text),
-			('63', ';0'),
-			('64', '0'),
+			('63', data.front_cache['ymsg'].get('63') or ';0'),
+			('64', data.front_cache['ymsg'].get('64') or 0),
 		])
+		if data.front_cache['ymsg'].get('97') is not None: new_front_cache.add('97', data.front_cache['ymsg'].get('97') or 0)
+		data.front_cache['ymsg'] = new_front_cache
 	return data.front_cache['ymsg']
 
 def me_status_update(bs: BackendSession, status_new: YMSGStatus, *, message: str = '', is_away_message: bool = False) -> None:
