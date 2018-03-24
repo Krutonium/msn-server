@@ -403,7 +403,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_008a(self, *args) -> None:
 		# SERVICE_PING (0x8a); send a response ping after the client pings
 		
-		self.send_reply(YMSGService.Ping, YMSGStatus.Available, self.sess_id, None)
+		self.send_reply(YMSGService.Ping, YMSGStatus.Available, self.sess_id, MultiDict([
+			('1', self.yahoo_id),
+		]))
 	
 	def _y_004f(self, *args) -> None:
 		# SERVICE_PEERTOPEER (0x4f); possibly to either see if P2P file transfer or if P2P messaging was possible; dig into this later
@@ -874,13 +876,12 @@ def messagedata_from_ymsg(sender: User, data: Dict[str, Any], *, notify_type: Op
 
 def messagedata_to_ymsg(data: MessageData) -> Dict[str, Any]:
 	if 'ymsg' not in data.front_cache:
-		new_front_cache = MultiDict([
+		data.front_cache['ymsg'] = MultiDict([
 			('14', data.text),
-			('63', data.front_cache['ymsg'].get('63') or ';0'),
-			('64', data.front_cache['ymsg'].get('64') or 0),
+			('63', ';0'),
+			('64', 0),
+			('97', 1),
 		])
-		if data.front_cache['ymsg'].get('97') is not None: new_front_cache.add('97', data.front_cache['ymsg'].get('97') or 0)
-		data.front_cache['ymsg'] = new_front_cache
 	return data.front_cache['ymsg']
 
 def me_status_update(bs: BackendSession, status_new: YMSGStatus, *, message: str = '', is_away_message: bool = False) -> None:
