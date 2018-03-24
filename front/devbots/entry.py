@@ -37,7 +37,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		evt = ChatEventHandler(self.bs)
-		cs = chat.join(self.bs, evt)
+		cs = chat.join('testbot', self.bs, evt)
 		evt.cs = cs
 		chat.send_participant_joined(cs)
 	
