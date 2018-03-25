@@ -403,6 +403,15 @@ class BackendSession(Session):
 			del contacts[ctc_head.uuid]
 		self.backend._mark_modified(user, detail = detail)
 	
+	def me_contact_notify_oim(self, uuid: str, oim_uuid: str) -> None:
+		ctc_head = self.backend._load_user_record(uuid)
+		if ctc_head is None:
+			raise error.UserDoesNotExist()
+		
+		for sess_notify in self.backend._sc.get_sessions_by_user(ctc_head):
+			if sess_notify is self: continue
+			sess_added.evt.on_oim_sent(oim_uuid)
+	
 	def me_pop_boot_others(self) -> None:
 		for sess_other in self.backend._sc.get_sessions_by_user(self.user):
 			if self is sess_other: continue
