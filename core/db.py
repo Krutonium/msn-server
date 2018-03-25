@@ -72,6 +72,18 @@ def _simplify_json_data(data: Any) -> Any:
 		return [_simplify_json_data(x) for x in data]
 	return data
 
+class OIM(Base):
+	__tablename__ = 't_oim'
+	
+	run_id = sa.Column(sa.String, nullable = False, unique = True, primary_key = True)
+	oim_num = sa.Column(sa.Integer, nullable = False)
+	from_member_name = sa.Column(sa.String, nullable = False)
+	from_member_friendly = sa.Column(sa.String, nullable = False)
+	to_member_name = sa.Column(sa.String, nullable = False)
+	oim_sent = sa.Column(sa.DateTime, nullable = False)
+	content = sa.Column(sa.String, nullable = False)
+	is_read = sa.Column(sa.Integer, nullable = False)
+
 class Sound(Base):
 	__tablename__ = 't_sound'
 	
