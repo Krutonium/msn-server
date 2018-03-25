@@ -1,5 +1,6 @@
 from typing import Optional, Any, Dict, Tuple
 from datetime import datetime, timedelta
+from pytz import timezone
 from urllib.parse import unquote
 import lxml
 import secrets
@@ -13,6 +14,7 @@ import settings
 from core import models
 from core.http import render
 from core.backend import Backend, BackendSession
+from .misc import gen_mail_data
 import util.misc
 
 LOGIN_PATH = '/login'
@@ -49,6 +51,8 @@ def register(app: web.Application) -> None:
 	app.router.add_post('/storageservice/SchematizedStore.asmx', handle_storageservice)
 	app.router.add_get('/storage/usertile/{uuid}/static', handle_usertile)
 	app.router.add_get('/storage/usertile/{uuid}/small', lambda req: handle_usertile(req, small = True))
+	app.router.add_post('/rsi/rsi.asmx', handle_rsi)
+	app.router.add_post('/OimWS/oim.asmx', handle_oim)
 	
 	# Misc
 	app.router.add_get('/etc/debug', handle_debug)
@@ -247,6 +251,123 @@ async def handle_storageservice(req):
 		return _unknown_soap(req, header, action, expected = True)
 	return _unknown_soap(req, header, action)
 
+async def handle_rsi(req: web.Request) -> web.Response:
+	header, action, ns_sess, token = await _preprocess_soap_rsi(req)
+	# Since valtron's MSIDCRL solution does not supply the ticket ('t='/'p='), we can't go any further with authentication or action supplication.
+	# Keep the code for when we can get the original MSIDCRL DLL modified for Escargot use.
+	# 
+	# if token is None or ns_sess is None:
+	# 	return render(req, 'msn:oim/Fault.validation.xml', status = 500)
+	action_str = _get_tag_localname(action)
+	# user = ns_sess.user
+	# 
+	# backend = req.app['backend']
+	# 
+	# 
+	# 
+	# if action_str == 'GetMetadata':
+	# 	return render(req, 'msn:oim/GetMetadataResponse.xml', {
+	# 		'md': gen_mail_data(user, backend, on_ns = False, e_node = False).decode('utf-8'),
+	# 	})
+	# if action_str == 'GetMessage':
+	# 	oim_uuid = _find_element(action, 'messageId')
+	# 	oim_markAsRead = _find_element(action, 'alsoMarkAsRead')
+	# 	
+	# 	oim_message = backend.user_service.get_oim_message_by_uuid(user.email, oim_uuid, oim_markAsRead)
+	# 	
+	# 	return render(req, 'msn:oim/GetMessageResponse.xml', {
+	# 		'oim_data': message,
+	# 	})
+	# if action_str == 'DeleteMessages':
+	# 	messageIds = action.findall('.//{*}messageId/{*}messageIds')
+	# 	for messageId in messageIds:
+	# 		isValidDeletion = backend.user_service.delete_oim(messageId)
+	# 		if not isValidDeletion:
+	# 			return render(req, 'msn:oim/Fault.validation.xml', status = 500)
+	# 	
+	# 	
+	# 	ns_sess.evt.on_oim_deletion()
+	# 	
+	# 	return render(req, 'msn:oim/DeleteMessagesResponse.xml')
+	# 
+	# Return 'Fault.unsupported.xml' for now.
+	
+	return render(req, 'msn:Fault.unsupported.xml', { 'faultactor': action_str })
+
+async def handle_oim(req: web.Request) -> web.Response:
+	# However, the ticket is present when this service is used. Odd.
+	
+	header, body_msgtype, body_content, ns_sess, token = await _preprocess_soap_oimws(req)
+	soapaction = req.headers.get('SOAPAction').strip('"')
+	
+	lockkey_result = header.find('.//{*}Ticket').get('lockkey')
+	
+	if ns_sess is None or lockkey_result == '':
+		return render(req, 'msn:oim/Fault.authfailed.xml', {
+			'owsns': ('http://messenger.msn.com/ws/2004/09/oim/' if soapaction.startswith('http://messenger.msn.com/ws/2004/09/oim/') else 'http://messenger.live.com/ws/2006/09/oim/'),
+			'authTypeNode': (Markup('<TweenerChallenge xmlns="http://messenger.msn.com/ws/2004/09/oim/">ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1</TweenerChallenge>') if soapaction.startswith('http://messenger.msn.com/ws/2004/09/') else Markup('<SSOChallenge xmlns="http://messenger.live.com/ws/2006/09/oim/">?MBI_KEY_OLD</SSOChallenge>')),
+		}, status = 500)
+	
+	backend = req.app['backend']
+	user = ns_sess.user
+	detail = user.detail
+	
+	friendlyname = header.find('.//{*}From').get('friendlyName')
+	email = header.find('.//{*}From').get('memberName')
+	recipient = header.find('.//{*}To').get('memberName')
+	
+	recipient_uuid = backend.util_get_uuid_from_email(recipient)
+	
+	if email != user.email or recipient_uuid is None or not _is_on_al(recipient_uuid, detail):
+		return render(req, 'msn:oim/Fault.unavailable.xml', {
+			'owsns': ('http://messenger.msn.com/ws/2004/09/oim/' if soapaction.startswith('http://messenger.msn.com/ws/2004/09/oim/') else 'http://messenger.live.com/ws/2006/09/oim/'),
+		}, status = 500)
+	
+	peername = req.transport.get_extra_info('peername')
+	if peername:
+		host = peername[0]
+	else:
+		host = '127.0.0.1'
+	
+	oim_msg_seq = _find_element(header, 'Sequence/MessageNumber')
+	
+	oim_sent_date = datetime.utcnow()
+	oim_sent_date_email = oim_sent_date.astimezone(timezone('US/Pacific'))
+	
+	oim_content = body_content.strip().replace('\n', '\r\n')
+	
+	oim_run_id_start = (oim_content.find('X-OIM-Run-Id: ') + 15)
+	oim_run_id_stop = oim_run_id_start + 36
+	oim_run_id = oim_content[oim_run_id_start:oim_run_id_stop]
+	
+	oim_header_body = oim_content.split('\r\n\r\n')
+	oim_header_body[0] = OIM_HEADER_PRE.format(
+		pst1 = oim_sent_date_email.strftime('%a, %d %b %Y %H:%M:%S -0800'), friendly = friendlyname,
+		sender = user.email, recipient = recipient, ip = host,
+	) + oim_header_body[0]
+	oim_header_body[0] += OIM_HEADER_REST.format(
+		utc = oim_sent_date.strftime('%d %b %Y %H:%M:%S.%f')[:25] + ' (UTC)', ft = _datetime_to_filetime(oim_sent_date),
+		pst2 = oim_sent_date_email.strftime('%d %b %Y %H:%M:%S -0800'),
+	)
+	
+	oim_content = '\r\n\r\n'.join(oim_header_body)
+	
+	backend.user_service.save_oim(oim_run_id, int(oim_msg_seq), oim_content, user.email, friendlyname, recipient, oim_sent_date)
+	ns_sess.me_contact_notify_oim(recipient_uuid, oim_run_id)
+	
+	return render(req, 'msn:oim/StoreResponse.xml', {
+		'seq': oim_msg_seq,
+		'owsns': ('http://messenger.msn.com/ws/2004/09/oim/' if soapaction.startswith('http://messenger.msn.com/ws/2004/09/oim/') else 'http://messenger.live.com/ws/2006/09/oim/'),
+	})
+
+def _is_on_al(uuid: str, detail: models.UserDetail):
+	contact = detail.contacts.get(uuid)
+	if detail.settings.get('BLP', 'AL') is 'AL' and (contact is None or contact.lists != models.Lst.BL):
+		return True
+	elif detail.settings.get('BLP', 'AL') is 'BL' and contact is not None and contact.lists != models.Lst.BL:
+		return True
+	return False
+
 def _unknown_soap(req: web.Request, header: Any, action: Any, *, expected: bool = False) -> web.Response:
 	action_str = _get_tag_localname(action)
 	if not expected and settings.DEBUG:
@@ -254,6 +375,20 @@ def _unknown_soap(req: web.Request, header: Any, action: Any, *, expected: bool 
 		print(_xml_to_string(header))
 		print(_xml_to_string(action))
 	return render(req, 'msn:Fault.unsupported.xml', { 'faultactor': action_str })
+
+def _datetime_to_filetime(dt_time: datetime) -> str:
+	filetime_result = round(((dt_time.timestamp() * 10000000) + 116444736000000000) + (dt_time.microsecond * 10))
+	
+	# (DWORD)ll
+	filetime_high = filetime_result & 0xFFFFFFFF
+	filetime_low = filetime_result >> 32
+	
+	filetime_high_hex = hex(filetime_high)[2:]
+	filetime_high_hex = '0' * (8 % len(filetime_high_hex)) + filetime_high_hex
+	filetime_low_hex = hex(filetime_low)[2:]
+	filetime_low_hex = '0' * (8 % len(filetime_low_hex)) + filetime_low_hex
+	
+	return filetime_high_hex.upper() + ':' + filetime_low_hex.upper()
 
 def _xml_to_string(xml: Any) -> str:
 	return lxml.etree.tostring(xml, pretty_print = True).decode('utf-8')
@@ -274,6 +409,46 @@ async def _preprocess_soap(req: web.Request) -> Tuple[Any, Any, Optional[Backend
 	action = _find_element(root, 'Body/*[1]')
 	
 	return header, action, backend_sess, token
+
+async def _preprocess_soap_rsi(req: web.Request) -> Tuple[Any, Any, Optional[BackendSession], str]:
+	from lxml.objectify import fromstring as parse_xml
+	
+	body = await req.read()
+	root = parse_xml(body)
+	
+	token_tag = root.find('.//{*}PassportCookie/{*}*[1]')
+	if _get_tag_localname(token_tag) is not 't':
+		token = None
+	# TODO: Due to valtron's MSIDCRL DLL not supplying the ticket on certain SOAP services, ignore ticket for now.
+	# Also, either implement the functions for those services or patch the original MSIDCRL.
+	token = token_tag.text
+	if token is not None and token[0:2] == 't=':
+		token = token[2:22]
+	
+	backend_sess = req.app['backend'].util_get_sess_by_token(token)
+	
+	header = _find_element(root, 'Header')
+	action = _find_element(root, 'Body/*[1]')
+	
+	return header, action, backend_sess, token
+
+async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Optional[BackendSession], str]:
+	from lxml.objectify import fromstring as parse_xml
+	
+	body = await req.read()
+	root = parse_xml(body)
+	
+	token = root.find('.//{*}Ticket').get('passport')
+	if token[0:2] == 't=':
+		token = token[2:22]
+	
+	backend_sess = req.app['backend'].util_get_sess_by_token(token)
+	
+	header = _find_element(root, 'Header')
+	body_msgtype = _find_element(root, 'Body/MessageType')
+	body_content = _find_element(root, 'Body/Content')
+	
+	return header, body_msgtype, body_content, backend_sess, token
 
 def _get_tag_localname(elm: Any) -> str:
 	return lxml.etree.QName(elm.tag).localname
@@ -513,3 +688,21 @@ def _contact_is_favorite(user_detail: models.UserDetail, ctc: models.Contact) ->
 		if group_id not in groups: continue
 		if groups[group_id].is_favorite: return True
 	return False
+
+OIM_HEADER_PRE = '''X-Message-Info: cwRBnLifKNE8dVZlNj6AiX8142B67OTjG9BFMLMyzuui1H4Xx7m3NQ==
+Received: from OIM-SSI02.phx.gbl ([65.54.237.206]) by oim1-f1.hotmail.com with Microsoft SMTPSVC(6.0.3790.211);
+	 {pst1}
+Received: from mail pickup service by OIM-SSI02.phx.gbl with Microsoft SMTPSVC;
+	 {pst1}
+From: {friendly} <{sender}>
+To: {recipient}
+Subject: 
+X-OIM-originatingSource: {ip}
+X-OIMProxy: MSNMSGR
+'''
+
+OIM_HEADER_REST = '''
+Message-ID: <OIM-SSI02zDv60gxapz00061a8b@OIM-SSI02.phx.gbl>
+X-OriginalArrivalTime: {utc} FILETIME=[{ft}]
+Date: {pst2}
+Return-Path: ndr@oim.messenger.msn.com'''
