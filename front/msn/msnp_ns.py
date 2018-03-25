@@ -10,7 +10,7 @@ from core.models import Substatus, Lst, User, Contact, TextWithData
 from core.client import Client
 
 from .msnp import MSNPCtrl
-from .misc import build_msnp_presence_notif, encode_msnobj, Err
+from .misc import build_msnp_presence_notif, encode_msnobj, gen_mail_data, Err
 
 MSNP_DIALECTS = ['MSNP{}'.format(d) for d in (
 	# Actually supported
@@ -118,6 +118,7 @@ class MSNPCtrlNS(MSNPCtrl):
 					extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',) # type: Tuple[Any, ...]
 				else:
 					# https://web.archive.org/web/20100819015007/http://msnpiki.msnfanatic.com/index.php/MSNP15:SSO
+					# TODO: Implement challenge string generation function (isn't mandatory, but will notch up security).
 					extra = ('MBI_KEY_OLD', '8CLhG/xfgYZ7TyRQ/jIAWyDmd/w4R4GF2yKLS6tYrnjzi4cFag/Nr+hxsfg5zlCf')
 				self.send_reply('USR', trid, authtype, 'S', *extra)
 				return
@@ -195,7 +196,9 @@ class MSNPCtrlNS(MSNPCtrl):
 		)
 		self.send_reply('MSG', 'Hotmail', 'Hotmail', msg1)
 		
-		msg2 = _encode_payload(PAYLOAD_MSG_2)
+		msg2 = _encode_payload(PAYLOAD_MSG_2,
+			md = gen_mail_data(user, self.backend),
+		)
 		self.send_reply('MSG', 'Hotmail', 'Hotmail', msg2)
 	
 	# State = Live
@@ -571,6 +574,14 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
 		pass
 	
+	def on_oim_sent(self, oim_uuid: str) -> None:
+		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', _encode_payload(PAYLOAD_MSG_3,
+			md = gen_mail_data(self.ctrl.bs.user, self.ctrl.backend, oim_uuid = oim_uuid, just_sent = True, e_node = False, q_node = False)
+		))
+	
+	def on_oim_deletion(self) -> None:
+		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', _encode_payload(PAYLOAD_MSG_4))
+	
 	def on_pop_boot(self) -> None:
 		self.ctrl.send_reply('OUT', 'OTH')
 	
@@ -628,10 +639,24 @@ MPOPEnabled: 1
 PAYLOAD_MSG_2 = '''MIME-Version: 1.0
 Content-Type: text/x-msmsgsinitialmdatanotification; charset=UTF-8
 
-Mail-Data: <MD><E><I>0</I><IU>0</IU><O>0</O><OU>0</OU></E><Q><QTM>409600</QTM><QNM>204800</QNM></Q></MD>
+Mail-Data: {md}
 Inbox-URL: /cgi-bin/HoTMaiL
 Folders-URL: /cgi-bin/folders
 Post-URL: http://www.hotmail.com
+'''
+
+PAYLOAD_MSG_3 = '''MIME-Version: 1.0
+Content-Type: text/x-msmsgsoimnotification; charset=UTF-8
+
+Mail-Data: {md}
+'''
+
+PAYLOAD_MSG_4 = '''MIME-Version: 1.0
+Content-Type: text/x-msmsgsactivemailnotification; charset=UTF-8
+
+Src-Folder: .!!OIM
+Dest-Folder: .!!trAsH
+Message-Delta: 1
 '''
 
 SHIELDS = '''<?xml version="1.0" encoding="utf-8" ?>
