@@ -4,7 +4,7 @@
 		<soap:Fault>
 			<faultcode>soap:Client</faultcode>
 			<faultstring>Schema validation error</faultstring>
-			<faultactor>https://rsi.hotmail.com/rsi/rsi.asmx</faultactor>
+			<faultactor>https://ersih.log1p.xyz/rsi/rsi.asmx</faultactor>
 			<detail />
 		</soap:Fault>
 	</soap:Body>

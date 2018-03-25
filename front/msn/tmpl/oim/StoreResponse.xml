@@ -3,11 +3,11 @@
 	<soap:Header>
 		<SequenceAcknowledgment xmlns="http://schemas.xmlsoap.org/ws/2003/03/rm">
 			<Identifier xmlns="http://schemas.xmlsoap.org/ws/2002/07/utility">http://messenger.msn.com</Identifier>
-			<AcknowledgmentRange Upper="1" Lower="1" />
+			<AcknowledgmentRange Upper="{{ seq }}" Lower="{{ seq }}" />
 		</SequenceAcknowledgment>
 	</soap:Header>
 	<soap:Body>
-		<StoreResponse xmlns="http://messenger.msn.com/ws/2004/09/oim/">
+		<StoreResponse xmlns="{{ owsns }}">
 			<PointsConsumed>0</PointsConsumed>
 		</StoreResponse>
 	</soap:Body>
