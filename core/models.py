@@ -128,6 +128,26 @@ class TextWithData:
 		self.text = text
 		self.yahoo_utf8 = yahoo_utf8
 
+class OIMMetadata:
+	__slots__ = ('run_id', 'oim_num', 'from_member_name', 'from_member_friendly', 'to_member_name', 'last_oim_sent', 'oim_content_length')
+	
+	run_id: str
+	oim_num: int
+	from_member_name: str
+	from_member_friendly: str
+	to_member_name: str
+	last_oim_sent: datetime
+	oim_content_length: int
+	
+	def __init__(self, run_id: str, oim_num: int, from_member_name: str, from_member_friendly: str, to_member_name: str, last_oim_sent: datetime, oim_content_length: int):
+		self.run_id = run_id
+		self.oim_num = oim_num
+		self.from_member_name = from_member_name
+		self.from_member_friendly = from_member_friendly
+		self.to_member_name = to_member_name
+		self.last_oim_sent = last_oim_sent
+		self.oim_content_length = oim_content_length
+
 T = TypeVar('T')
 def _default_if_none(x: Optional[T], default: T) -> T:
 	if x is None: return default
