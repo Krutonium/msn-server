@@ -48,7 +48,7 @@ class MSNPCtrl(metaclass = ABCMeta):
 	def _m_out(self) -> None:
 		self.close()
 	
-	def close(self) -> None:
+	def close(self, hard = False) -> None:
 		if self.closed: return
 		self.closed = True
 		self.send_reply('OUT')
