@@ -49,12 +49,16 @@ class MSNPCtrlNS(MSNPCtrl):
 	
 	def _m_ver(self, trid: str, *args) -> None:
 		dialects = [a.upper() for a in args]
+		try:
+			t = int(trid)
+		except ValueError:
+			self.close(hard = True)
 		d = None
 		for d in MSNP_DIALECTS:
 			if d in dialects: break
 		if d not in dialects:
-			self.send_reply('VER', trid, 0, *MSNP_DIALECTS)
-			return
+			self.send_reply('VER', trid, 0)
+			self.close(hard = True)
 		self.client = Client('msn', d, self.client.via)
 		self.dialect = int(d[4:])
 		self.send_reply('VER', trid, d)
