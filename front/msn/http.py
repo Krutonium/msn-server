@@ -58,14 +58,14 @@ def register(app: web.Application) -> None:
 	app.router.add_get('/etc/debug', handle_debug)
 
 async def handle_abservice(req: web.Request) -> web.Response:
-	header, action, ns_sess, token = await _preprocess_soap(req)
-	if ns_sess is None:
+	header, action, bs, token = await _preprocess_soap(req)
+	if bs is None:
 		return web.Response(status = 403, text = '')
 	action_str = _get_tag_localname(action)
 	if _find_element(action, 'deltasOnly'):
 		return render(req, 'msn:abservice/Fault.fullsync.xml', { 'faultactor': action_str })
 	now_str = datetime.utcnow().isoformat()[0:19] + 'Z'
-	user = ns_sess.user
+	user = bs.user
 	detail = user.detail
 	cachekey = secrets.token_urlsafe(172)
 	
@@ -86,7 +86,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
 			email = _find_element(action, 'PassportName')
 			contact_uuid = backend.util_get_uuid_from_email(email)
-			backend.me_contact_add(ns_sess, contact_uuid, lst, email)
+			backend.me_contact_add(bs, contact_uuid, lst, email)
 			return render(req, 'msn:sharing/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
@@ -95,7 +95,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 				contact_uuid = backend.util_get_uuid_from_email(email)
 			else:
 				contact_uuid = str(_find_element(action, 'MembershipId')).split('/')[1]
-			backend.me_contact_remove(ns_sess, contact_uuid, lst)
+			backend.me_contact_remove(bs, contact_uuid, lst)
 			return render(req, 'msn:sharing/DeleteMemberResponse.xml')
 		
 		if action_str == 'ABFindAll':
@@ -121,14 +121,14 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
 			contact_uuid = backend.util_get_uuid_from_email(email)
-			backend.me_contact_add(ns_sess, contact_uuid, models.Lst.FL, email)
+			backend.me_contact_add(bs, contact_uuid, models.Lst.FL, email)
 			return render(req, 'msn:abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_contact_remove(ns_sess, contact_uuid, models.Lst.FL)
+			backend.me_contact_remove(bs, contact_uuid, models.Lst.FL)
 			return render(req, 'msn:abservice/ABContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -136,7 +136,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABContactUpdate':
 			contact_uuid = _find_element(action, 'contactId')
 			is_messenger_user = _find_element(action, 'isMessengerUser')
-			backend.me_contact_edit(ns_sess, contact_uuid, is_messenger_user = is_messenger_user)
+			backend.me_contact_edit(bs, contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'msn:abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -144,7 +144,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
 			is_favorite = _find_element(action, 'IsFavorite')
-			group = backend.me_group_add(ns_sess, name, is_favorite = is_favorite)
+			group = backend.me_group_add(bs, name, is_favorite = is_favorite)
 			return render(req, 'msn:abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -154,14 +154,14 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
 			is_favorite = _find_element(action, 'IsFavorite')
-			backend.me_group_edit(ns_sess, group_id, name, is_favorite = is_favorite)
+			backend.me_group_edit(bs, group_id, name, is_favorite = is_favorite)
 			return render(req, 'msn:abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupDelete':
 			group_id = str(_find_element(action, 'guid'))
-			backend.me_group_remove(ns_sess, group_id)
+			backend.me_group_remove(bs, group_id)
 			return render(req, 'msn:abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -169,7 +169,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupContactAdd':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_group_contact_add(ns_sess, group_id, contact_uuid)
+			backend.me_group_contact_add(bs, group_id, contact_uuid)
 			return render(req, 'msn:abservice/ABGroupContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -178,7 +178,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupContactDelete':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_group_contact_remove(ns_sess, group_id, contact_uuid)
+			backend.me_group_contact_remove(bs, group_id, contact_uuid)
 			return render(req, 'msn:abservice/ABGroupContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -252,64 +252,59 @@ async def handle_storageservice(req):
 	return _unknown_soap(req, header, action)
 
 async def handle_rsi(req: web.Request) -> web.Response:
-	header, action, ns_sess, token = await _preprocess_soap_rsi(req)
+	header, action, bs, token = await _preprocess_soap_rsi(req)
+	
+	if token is None or bs is None:
+		return render(req, 'msn:oim/Fault.validation.xml', status = 500)
+	action_str = _get_tag_localname(action)
+	
 	# Since valtron's MSIDCRL solution does not supply the ticket ('t='/'p='), we can't go any further with authentication or action supplication.
 	# Keep the code for when we can get the original MSIDCRL DLL modified for Escargot use.
-	# 
-	# if token is None or ns_sess is None:
-	# 	return render(req, 'msn:oim/Fault.validation.xml', status = 500)
-	action_str = _get_tag_localname(action)
-	# user = ns_sess.user
-	# 
-	# backend = req.app['backend']
-	# 
-	# 
-	# 
-	# if action_str == 'GetMetadata':
-	# 	return render(req, 'msn:oim/GetMetadataResponse.xml', {
-	# 		'md': gen_mail_data(user, backend, on_ns = False, e_node = False).decode('utf-8'),
-	# 	})
-	# if action_str == 'GetMessage':
-	# 	oim_uuid = _find_element(action, 'messageId')
-	# 	oim_markAsRead = _find_element(action, 'alsoMarkAsRead')
-	# 	
-	# 	oim_message = backend.user_service.get_oim_message_by_uuid(user.email, oim_uuid, oim_markAsRead)
-	# 	
-	# 	return render(req, 'msn:oim/GetMessageResponse.xml', {
-	# 		'oim_data': message,
-	# 	})
-	# if action_str == 'DeleteMessages':
-	# 	messageIds = action.findall('.//{*}messageId/{*}messageIds')
-	# 	for messageId in messageIds:
-	# 		isValidDeletion = backend.user_service.delete_oim(messageId)
-	# 		if not isValidDeletion:
-	# 			return render(req, 'msn:oim/Fault.validation.xml', status = 500)
-	# 	
-	# 	
-	# 	ns_sess.evt.on_oim_deletion()
-	# 	
-	# 	return render(req, 'msn:oim/DeleteMessagesResponse.xml')
-	# 
 	# Return 'Fault.unsupported.xml' for now.
+	return render(req, 'msn:Fault.unsupported.xml', { 'faultactor': action_str })
+	
+	user = bs.user
+	
+	backend = req.app['backend']
+	
+	if action_str == 'GetMetadata':
+		return render(req, 'msn:oim/GetMetadataResponse.xml', {
+			'md': gen_mail_data(user, backend, on_ns = False, e_node = False).decode('utf-8'),
+		})
+	if action_str == 'GetMessage':
+		oim_uuid = _find_element(action, 'messageId')
+		oim_markAsRead = _find_element(action, 'alsoMarkAsRead')
+		oim_message = backend.user_service.get_oim_message_by_uuid(user.email, oim_uuid, oim_markAsRead is True)
+		return render(req, 'msn:oim/GetMessageResponse.xml', {
+			'oim_data': oim_message,
+		})
+	if action_str == 'DeleteMessages':
+		messageIds = action.findall('.//{*}messageId/{*}messageIds')
+		for messageId in messageIds:
+			isValidDeletion = backend.user_service.delete_oim(messageId)
+			if not isValidDeletion:
+				return render(req, 'msn:oim/Fault.validation.xml', status = 500)
+		bs.evt.on_oim_deletion()
+		return render(req, 'msn:oim/DeleteMessagesResponse.xml')
 	
 	return render(req, 'msn:Fault.unsupported.xml', { 'faultactor': action_str })
 
 async def handle_oim(req: web.Request) -> web.Response:
 	# However, the ticket is present when this service is used. Odd.
 	
-	header, body_msgtype, body_content, ns_sess, token = await _preprocess_soap_oimws(req)
+	header, body_msgtype, body_content, bs, token = await _preprocess_soap_oimws(req)
 	soapaction = req.headers.get('SOAPAction').strip('"')
 	
 	lockkey_result = header.find('.//{*}Ticket').get('lockkey')
 	
-	if ns_sess is None or lockkey_result == '':
+	if bs is None or lockkey_result == '':
 		return render(req, 'msn:oim/Fault.authfailed.xml', {
 			'owsns': ('http://messenger.msn.com/ws/2004/09/oim/' if soapaction.startswith('http://messenger.msn.com/ws/2004/09/oim/') else 'http://messenger.live.com/ws/2006/09/oim/'),
 			'authTypeNode': (Markup('<TweenerChallenge xmlns="http://messenger.msn.com/ws/2004/09/oim/">ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1</TweenerChallenge>') if soapaction.startswith('http://messenger.msn.com/ws/2004/09/') else Markup('<SSOChallenge xmlns="http://messenger.live.com/ws/2006/09/oim/">?MBI_KEY_OLD</SSOChallenge>')),
 		}, status = 500)
 	
 	backend = req.app['backend']
-	user = ns_sess.user
+	user = bs.user
 	detail = user.detail
 	assert detail is not None
 	
@@ -354,7 +349,7 @@ async def handle_oim(req: web.Request) -> web.Response:
 	oim_content = '\r\n\r\n'.join(oim_header_body)
 	
 	backend.user_service.save_oim(oim_run_id, int(oim_msg_seq), oim_content, user.email, friendlyname, recipient, oim_sent_date)
-	ns_sess.me_contact_notify_oim(recipient_uuid, oim_run_id)
+	bs.me_contact_notify_oim(recipient_uuid, oim_run_id)
 	
 	return render(req, 'msn:oim/StoreResponse.xml', {
 		'seq': oim_msg_seq,
@@ -426,12 +421,12 @@ async def _preprocess_soap_rsi(req: web.Request) -> Tuple[Any, Any, Optional[Bac
 	if token is not None and token[0:2] == 't=':
 		token = token[2:22]
 	
-	backend_sess = req.app['backend'].util_get_sess_by_token(token)
+	bs = req.app['backend'].util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
 	
-	return header, action, backend_sess, token
+	return header, action, bs, token
 
 async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Any, Optional[BackendSession], str]:
 	from lxml.objectify import fromstring as parse_xml
@@ -443,13 +438,13 @@ async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Any, Optio
 	if token[0:2] == 't=':
 		token = token[2:22]
 	
-	backend_sess = req.app['backend'].util_get_sess_by_token(token)
+	bs = req.app['backend'].util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	body_msgtype = _find_element(root, 'Body/MessageType')
 	body_content = _find_element(root, 'Body/Content')
 	
-	return header, body_msgtype, body_content, backend_sess, token
+	return header, body_msgtype, body_content, bs, token
 
 def _get_tag_localname(elm: Any) -> str:
 	return lxml.etree.QName(elm.tag).localname
