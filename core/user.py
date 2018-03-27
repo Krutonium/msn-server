@@ -136,9 +136,7 @@ class UserService:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.run_id == run_id).one_or_none()
 			if dboim is None: return False
-			
 			sess.delete(dboim)
-			sess.commit()
 		return True
 	
 	def save_batch(self, to_save: List[Tuple[User, UserDetail]]) -> None:
