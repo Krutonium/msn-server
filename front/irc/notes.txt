@@ -1,0 +1,4 @@
+https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands
+https://tools.ietf.org/html/rfc1459
+https://modern.ircdocs.horse
+https://www.alien.net.au/irc/irc2numerics.html
