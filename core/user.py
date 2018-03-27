@@ -89,34 +89,34 @@ class UserService:
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
 	
-	def get_oim_batch(self, to_member_name: str) -> Tuple[OIMMetadata]:
-		tmp_oims = []
+	def get_oim_batch(self, to_member_name: str) -> List[OIMMetadata]:
 		with Session() as sess:
-			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name)
-			if dboim is None: return None
-			for oim in dboim:
-				if not oim.is_read: tmp_oims.append(OIMMetadata(
+			query = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.is_read == False)
+			tmp_oims = [
+				OIMMetadata(
 					oim.run_id, oim.oim_num, oim.from_member_name, oim.from_member_friendly,
 					oim.to_member_name, oim.oim_sent, len(oim.content),
-				))
-		return tuple(tmp_oims)
+				)
+				for oim in query
+			]
+		return tmp_oims
 	
-	def get_oim_single(self, to_member_name: str, run_id: str) -> Tuple[OIMMetadata]:
+	def get_oim_single(self, to_member_name: str, run_id: str) -> List[OIMMetadata]:
 		with Session() as sess:
-			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name).filter(DBOIM.run_id == run_id).one_or_none()
-			if dboim is None: return None
-		return (OIMMetadata(
-					dboim.run_id, dboim.oim_num, dboim.from_member_name, dboim.from_member_friendly,
-					dboim.to_member_name, dboim.oim_sent, len(dboim.content),
-				),)
+			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.run_id == run_id).one_or_none()
+			if dboim is None: return []
+			return [OIMMetadata(
+				dboim.run_id, dboim.oim_num, dboim.from_member_name, dboim.from_member_friendly,
+				dboim.to_member_name, dboim.oim_sent, len(dboim.content),
+			)]
 	
-	def get_oim_message_by_uuid(self, to_member_name: str, run_id: str, markAsRead: Optional[bool] = None) -> str:
+	def get_oim_message_by_uuid(self, to_member_name: str, run_id: str, markAsRead: bool) -> Optional[str]:
 		with Session() as sess:
-			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name).filter(DBOIM.run_id == run_id).one_or_none()
+			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.run_id == run_id).one_or_none()
 			if dboim is None: return None
 			msg_content = dboim.content
-			if isinstance(markAsRead, bool) and markAsRead:
-				dboim.is_read = int(markAsRead)
+			if markAsRead:
+				dboim.is_read = True
 				sess.add(dboim)
 		return msg_content
 	
@@ -124,16 +124,12 @@ class UserService:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.run_id == run_id).one_or_none()
 			if dboim is None:
-				dboim = DBOIM(
-					run_id = run_id, oim_num = seq_num, from_member_name = from_member, from_member_friendly = from_member_friendly,
-					to_member_name = recipient, oim_sent = sent, content = content, is_read = 0,
-				)
-			else:
-				dboim.oim_num = seq_num
-				dboim.from_member_friendly = from_member_friendly
-				dboim.oim_sent = sent
-				dboim.content = content
-				dboim.is_read = 0
+				dboim = DBOIM(run_id = run_id, from_member_name = from_member, to_member_name = recipient)
+			dboim.oim_num = seq_num
+			dboim.from_member_friendly = from_member_friendly
+			dboim.oim_sent = sent
+			dboim.content = content
+			dboim.is_read = False
 			sess.add(dboim)
 	
 	def delete_oim(self, run_id: str) -> bool:

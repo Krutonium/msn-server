@@ -82,7 +82,7 @@ class OIM(Base):
 	to_member_name = sa.Column(sa.String, nullable = False)
 	oim_sent = sa.Column(sa.DateTime, nullable = False)
 	content = sa.Column(sa.String, nullable = False)
-	is_read = sa.Column(sa.Integer, nullable = False)
+	is_read = sa.Column(sa.Boolean, nullable = False)
 
 class Sound(Base):
 	__tablename__ = 't_sound'

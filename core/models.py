@@ -139,7 +139,7 @@ class OIMMetadata:
 	last_oim_sent: datetime
 	oim_content_length: int
 	
-	def __init__(self, run_id: str, oim_num: int, from_member_name: str, from_member_friendly: str, to_member_name: str, last_oim_sent: datetime, oim_content_length: int):
+	def __init__(self, run_id: str, oim_num: int, from_member_name: str, from_member_friendly: str, to_member_name: str, last_oim_sent: datetime, oim_content_length: int) -> None:
 		self.run_id = run_id
 		self.oim_num = oim_num
 		self.from_member_name = from_member_name

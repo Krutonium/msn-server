@@ -578,10 +578,10 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	# Other functions
 	
 	def yahoo_id_to_uuid(self, yahoo_id: str) -> Optional[str]:
-		email = None
+		email = None # type: Optional[str]
 		
 		if '@' in yahoo_id:
-			email = yahoo_id # type: Optional[str]
+			email = yahoo_id
 		elif self.bs:
 			detail = self.bs.user.detail
 			assert detail is not None

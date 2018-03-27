@@ -410,7 +410,7 @@ class BackendSession(Session):
 		
 		for sess_notify in self.backend._sc.get_sessions_by_user(ctc_head):
 			if sess_notify is self: continue
-			sess_added.evt.on_oim_sent(oim_uuid)
+			sess_notify.evt.on_oim_sent(oim_uuid)
 	
 	def me_pop_boot_others(self) -> None:
 		for sess_other in self.backend._sc.get_sessions_by_user(self.user):

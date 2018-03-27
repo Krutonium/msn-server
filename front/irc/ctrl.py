@@ -81,7 +81,7 @@ class IRCCtrl:
 		cs = self._channel_to_chatsession(channel)
 		if cs is None:
 			evt = ChatEventHandler(self)
-			cs = chat.join(self.bs, evt)
+			cs = chat.join('irc', self.bs, evt)
 			evt.cs = cs
 			chat.send_participant_joined(cs)
 			self.chat_sessions[chat] = cs

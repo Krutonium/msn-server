@@ -33,6 +33,10 @@ class BackendEventHandler(metaclass = ABCMeta):
 	
 	@abstractmethod
 	def on_pop_notify(self) -> None: pass
+	
+	# TODO: Leaving as non-abstract for now.
+	def on_oim_sent(self, oim_uuid: str) -> None:
+		pass
 
 class ChatEventHandler(metaclass = ABCMeta):
 	__slots__ = ()

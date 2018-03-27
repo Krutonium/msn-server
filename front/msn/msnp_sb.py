@@ -63,7 +63,7 @@ class MSNPCtrlSB(MSNPCtrl):
 			self.send_reply(Err.AuthFail, trid)
 			return
 		
-		cs = chat.join(bs, ChatEventHandler(self))
+		cs = chat.join('msn', bs, ChatEventHandler(self))
 		self.dialect = dialect
 		self.bs = bs
 		self.cs = cs
@@ -219,7 +219,7 @@ def messagedata_to_msnp(data: MessageData) -> bytes:
 		if data.type is MessageType.Typing:
 			s = 'MIME-Version: 1.0\r\nContent-Type: text/x-msmsgscontrol\r\nTypingUser: {}\r\n\r\n\r\n'.format(data.sender.email)
 		elif data.type is MessageType.Chat:
-			s = 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n' + data.text
+			s = 'MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n' + (data.text or '')
 		else:
 			raise ValueError("unknown message type", data.type)
 		data.front_cache['msnp'] = s.encode('utf-8')

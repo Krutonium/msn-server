@@ -579,6 +579,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		pass
 	
 	def on_oim_sent(self, oim_uuid: str) -> None:
+		assert self.ctrl.bs is not None
 		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', _encode_payload(PAYLOAD_MSG_3,
 			md = gen_mail_data(self.ctrl.bs.user, self.ctrl.backend, oim_uuid = oim_uuid, just_sent = True, e_node = False, q_node = False)
 		))

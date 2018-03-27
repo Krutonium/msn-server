@@ -311,6 +311,7 @@ async def handle_oim(req: web.Request) -> web.Response:
 	backend = req.app['backend']
 	user = ns_sess.user
 	detail = user.detail
+	assert detail is not None
 	
 	friendlyname = header.find('.//{*}From').get('friendlyName')
 	email = header.find('.//{*}From').get('memberName')
@@ -432,7 +433,7 @@ async def _preprocess_soap_rsi(req: web.Request) -> Tuple[Any, Any, Optional[Bac
 	
 	return header, action, backend_sess, token
 
-async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Optional[BackendSession], str]:
+async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Any, Optional[BackendSession], str]:
 	from lxml.objectify import fromstring as parse_xml
 	
 	body = await req.read()
