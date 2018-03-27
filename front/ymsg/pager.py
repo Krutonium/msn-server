@@ -670,9 +670,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			('1', self.yahoo_id),
 			('8', len(cs))
 		])
-		for c in cs:
-			logon_payload.add('11', c.head.uuid[:8].upper())
-			add_contact_status_to_data(logon_payload, c.status, misc.yahoo_id(c.head))
+		
+		for c in cs: add_contact_status_to_data(logon_payload, c.status, misc.yahoo_id(c.head))
 		
 		if after_auth:
 			if self.dialect >= 10:
@@ -741,16 +740,16 @@ def add_contact_status_to_data(data: Any, status: UserStatus, contact_yahoo_id: 
 	if is_offlineish or not status.message:
 		int_status = int(misc.convert_from_substatus(status.substatus))
 		data.add('10', (YMSGStatus.Available if is_offlineish else int_status))
+		data.add('11', contact.head.uuid[:8].upper())
 	else:
 		data.add('10', int(YMSGStatus.Custom))
+		data.add('11', contact.head.uuid[:8].upper())
 		data.add('19', status.message)
 		is_away_message = (status.substatus != Substatus.NLN)
 		data.add('47', is_away_message)
 	
 	data.add('17', 0)
 	data.add('13', (0 if is_offlineish else 1))
-	if is_offlineish:
-		data.add('60', 2)
 
 class BackendEventHandler(event.BackendEventHandler):
 	__slots__ = ('ctrl', 'dialect', 'sess_id', 'bs')
@@ -776,9 +775,9 @@ class BackendEventHandler(event.BackendEventHandler):
 		else:
 			service = YMSGService.IsAway
 		
-		yahoo_data = MultiDict([
-			('11', contact.head.uuid[:8].upper()),
-		])
+		yahoo_data = MultiDict()
+		if service != YMSGService.LogOff: yahoo_data.add('0', self.ctrl.yahoo_id)
+		
 		add_contact_status_to_data(yahoo_data, contact.status, misc.yahoo_id(contact.head))
 		
 		self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
