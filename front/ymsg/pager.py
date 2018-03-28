@@ -120,13 +120,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if uuid is None:
 				is_resp_correct = False
 			else:
-				evt = BackendEventHandler(self)
-				bs = self.backend.login(uuid, self.client, evt, front_needs_self_notify = True)
+				bs = self.backend.login(uuid, self.client, BackendEventHandler(self), front_needs_self_notify = True)
 				if bs is None:
 					is_resp_correct = False
 				else:
 					self.bs = bs
-					evt.bs = bs
 					self._util_authresp_final(status)
 		
 		if not is_resp_correct:
@@ -603,10 +601,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			chat = self.backend.chat_create(twoway_only = True)
 			
 			# `user` joins
-			evt = ChatEventHandler(self)
-			cs = chat.join('yahoo', self.bs, evt)
-			evt.cs = cs
-			
+			cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
 			self.private_chats[other_user_uuid] = cs
 			cs.invite(other_user_uuid)
 		return self.private_chats[other_user_uuid]
@@ -620,9 +615,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	def _get_chat_session(self, chat: Chat, *, create: bool = False) -> Optional[ChatSession]:
 		assert self.bs is not None
-		evt = ChatEventHandler(self)
-		cs = chat.join('yahoo', self.bs, evt)
-		evt.cs = cs
+		cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
 		chat.send_participant_joined(cs)
 		return cs
 	
@@ -763,7 +756,6 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.ctrl = ctrl
 		self.dialect = ctrl.dialect
 		self.sess_id = ctrl.sess_id
-		# `bs` is assigned shortly after
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		if contact.status.is_offlineish():
@@ -789,9 +781,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
-			evt = ChatEventHandler(self.ctrl)
-			cs = chat.join('yahoo', self.bs, evt)
-			evt.cs = cs
+			cs = chat.join('yahoo', self.bs, ChatEventHandler(self.ctrl))
 			chat.send_participant_joined(cs)
 			self.ctrl.private_chats[inviter.uuid] = cs
 		else:
@@ -823,7 +813,6 @@ class ChatEventHandler(event.ChatEventHandler):
 		self.ctrl = ctrl
 		assert ctrl.bs is not None
 		self.bs = ctrl.bs
-		# `cs` is assigned shortly after
 	
 	def on_participant_joined(self, cs_other: ChatSession) -> None:
 		if self.cs.chat.twoway_only:

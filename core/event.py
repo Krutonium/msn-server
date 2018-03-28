@@ -3,10 +3,17 @@ from abc import ABCMeta, abstractmethod
 from .models import User, Contact, Lst, MessageData, TextWithData, Substatus
 
 if TYPE_CHECKING:
-	from .backend import Chat, ChatSession
+	from .backend import BackendSession, Chat, ChatSession
 
 class BackendEventHandler(metaclass = ABCMeta):
-	__slots__ = ()
+	__slots__ = ('bs',)
+	
+	bs: 'BackendSession'
+	
+	# Note to subclassers, regarding `__init__`:
+	# `bs` is assigned in `Backend.login`, before `BackendEventHandler.on_open` is called,
+	# because of circular references.
+	# Therefore, your `__init__` should be conspicuously missing an assignment to `bs`.
 	
 	def on_open(self) -> None:
 		pass
@@ -39,7 +46,14 @@ class BackendEventHandler(metaclass = ABCMeta):
 		pass
 
 class ChatEventHandler(metaclass = ABCMeta):
-	__slots__ = ()
+	__slots__ = ('cs',)
+	
+	cs: 'ChatSession'
+	
+	# Note to subclassers, regarding `__init__`:
+	# `cs` is assigned in `Chat.join`, before `ChatEventHandler.on_open` is called,
+	# because of circular references.
+	# Therefore, your `__init__` should be conspicuously missing an assignment to `cs`.
 	
 	def on_open(self) -> None:
 		pass

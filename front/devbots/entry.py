@@ -12,33 +12,23 @@ def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	for i in range(5):
 		uuid = backend.util_get_uuid_from_email('bot{}@bot.log1p.xyz'.format(i))
 		assert uuid is not None
-		evt = BackendEventHandler()
-		bs = backend.login(uuid, CLIENT, evt)
+		bs = backend.login(uuid, CLIENT, BackendEventHandler())
 		assert bs is not None
-		evt.bs = bs
-		
-		bs.me_update({ 'substatus': Substatus.NLN })
-		print("Bot active:", bs.user.status.name)
 
 class BackendEventHandler(event.BackendEventHandler):
 	__slots__ = ('bs',)
 	
 	bs: BackendSession
 	
-	def __init__(self) -> None:
-		# `bs` is assigned shortly after
-		pass
-	
 	def on_open(self) -> None:
-		pass
+		self.bs.me_update({ 'substatus': Substatus.NLN })
+		print("Bot active:", self.bs.user.status.name)
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		pass
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
-		evt = ChatEventHandler(self.bs)
-		cs = chat.join('testbot', self.bs, evt)
-		evt.cs = cs
+		cs = chat.join('testbot', self.bs, ChatEventHandler(self.bs))
 		chat.send_participant_joined(cs)
 	
 	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
@@ -61,7 +51,6 @@ class ChatEventHandler(event.ChatEventHandler):
 	
 	def __init__(self, bs: BackendSession) -> None:
 		self.bs = bs
-		# `cs` is assigned shortly after
 	
 	def on_open(self) -> None:
 		pass

@@ -75,6 +75,7 @@ class Backend:
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
 		bs = BackendSession(self, user, client, evt, front_needs_self_notify = front_needs_self_notify)
+		bs.evt.bs = bs
 		self._stats.on_login()
 		self._stats.on_user_active(user, client)
 		self._sc.add_session(bs)
@@ -492,6 +493,7 @@ class Chat:
 	
 	def join(self, origin: str, bs: BackendSession, evt: event.ChatEventHandler) -> 'ChatSession':
 		cs = ChatSession(origin, bs, self, evt)
+		cs.evt.cs = cs
 		self._users_by_sess[cs] = cs.user
 		cs.evt.on_open()
 		return cs

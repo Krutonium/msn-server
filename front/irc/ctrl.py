@@ -56,14 +56,12 @@ class IRCCtrl:
 		assert password is not None
 		uuid = self.backend.user_service.login(email, password)
 		if uuid is not None:
-			evt = BackendEventHandler(self)
-			bs = self.backend.login(uuid, self.client, evt)
+			bs = self.backend.login(uuid, self.client, BackendEventHandler(self))
 		else:
 			bs = None
 		if bs is None:
 			self.send_numeric(Err.PasswdMismatch, ':Wrong email/password')
 			return
-		evt.bs = bs
 		self.bs = bs
 		
 		self.bs.me_update({ 'substatus': Substatus.NLN })
@@ -80,9 +78,7 @@ class IRCCtrl:
 			chat.add_id('irc', channel)
 		cs = self._channel_to_chatsession(channel)
 		if cs is None:
-			evt = ChatEventHandler(self)
-			cs = chat.join('irc', self.bs, evt)
-			evt.cs = cs
+			cs = chat.join('irc', self.bs, ChatEventHandler(self))
 			chat.send_participant_joined(cs)
 			self.chat_sessions[chat] = cs
 		

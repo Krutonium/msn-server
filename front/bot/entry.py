@@ -11,48 +11,37 @@ BOT_EMAIL = 'test@bot.log1p.xyz'
 def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	uuid = backend.util_get_uuid_from_email(BOT_EMAIL)
 	assert uuid is not None
-	evt = BackendEventHandler()
-	bs = backend.login(uuid, CLIENT, evt)
+	bs = backend.login(uuid, CLIENT, BackendEventHandler())
 	assert bs is not None
-	evt.bs = bs
-	
-	bs.me_update({ 'substatus': Substatus.NLN })
-	print("Bot active:", bs.user.status.name)
-	
-	detail = bs.user.detail
-	assert detail is not None
-	
-	bs.me_update({ 'substatus': Substatus.NLN })
-	uuid = bs.backend.util_get_uuid_from_email('test1@example.com')
-	if uuid is None:
-		return
-	
-	if uuid not in detail.contacts:
-		bs.me_contact_add(uuid, Lst.FL, name = "Test 1")
-		bs.me_contact_add(uuid, Lst.AL, name = "Test 1")
 
 class BackendEventHandler(event.BackendEventHandler):
 	__slots__ = ('bs',)
 	
 	bs: BackendSession
 	
-	def __init__(self) -> None:
-		# `bs` is assigned shortly after
-		pass
-	
 	def on_open(self) -> None:
-		# TODO: This is basically unusable right now because
-		# `bs` is assigned after `backend.login`, but `on_open`
-		# gets called during.
-		pass
+		bs = self.bs
+		
+		bs.me_update({ 'substatus': Substatus.NLN })
+		print("Bot active:", bs.user.status.name)
+		
+		detail = bs.user.detail
+		assert detail is not None
+		
+		bs.me_update({ 'substatus': Substatus.NLN })
+		uuid = bs.backend.util_get_uuid_from_email('test1@example.com')
+		if uuid is None:
+			return
+		
+		if uuid not in detail.contacts:
+			bs.me_contact_add(uuid, Lst.FL, name = "Test 1")
+			bs.me_contact_add(uuid, Lst.AL, name = "Test 1")
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		pass
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
-		evt = ChatEventHandler(self.bs)
-		cs = chat.join('testbot', self.bs, evt)
-		evt.cs = cs
+		cs = chat.join('testbot', self.bs, ChatEventHandler(self.bs))
 		chat.send_participant_joined(cs)
 	
 	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
@@ -75,7 +64,6 @@ class ChatEventHandler(event.ChatEventHandler):
 	
 	def __init__(self, bs: BackendSession) -> None:
 		self.bs = bs
-		# `cs` is assigned shortly after
 	
 	def on_open(self) -> None:
 		self.cs.send_message_to_everyone(MessageData(

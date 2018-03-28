@@ -153,8 +153,7 @@ class ChatEventHandler(event.ChatEventHandler):
 		ctrl = self.ctrl
 		bs = ctrl.bs
 		assert bs is not None
-		cs = ctrl.cs
-		assert cs is not None
+		cs = self.cs
 		
 		if ctrl.dialect >= 13:
 			extra = (bs.front_data.get('msn_capabilities') or 0,) # type: Tuple[Any, ...]
