@@ -327,6 +327,8 @@ async def handle_oim(req: web.Request) -> web.Response:
 	
 	oim_msg_seq = _find_element(header, 'Sequence/MessageNumber')
 	
+	oim_proxy_string = header.find('.//{*}From').get('proxy')
+	
 	oim_sent_date = datetime.utcnow()
 	oim_sent_date_email = oim_sent_date.astimezone(timezone('US/Pacific'))
 	
@@ -339,7 +341,7 @@ async def handle_oim(req: web.Request) -> web.Response:
 	oim_header_body = oim_content.split('\r\n\r\n')
 	oim_header_body[0] = OIM_HEADER_PRE.format(
 		pst1 = oim_sent_date_email.strftime('%a, %d %b %Y %H:%M:%S -0800'), friendly = friendlyname,
-		sender = user.email, recipient = recipient, ip = host,
+		sender = user.email, recipient = recipient, ip = host, oimproxy = oim_proxy_string,
 	) + oim_header_body[0]
 	oim_header_body[0] += OIM_HEADER_REST.format(
 		utc = oim_sent_date.strftime('%d %b %Y %H:%M:%S.%f')[:25] + ' (UTC)', ft = _datetime_to_filetime(oim_sent_date),
@@ -694,7 +696,7 @@ From: {friendly} <{sender}>
 To: {recipient}
 Subject: 
 X-OIM-originatingSource: {ip}
-X-OIMProxy: MSNMSGR
+X-OIMProxy: {oimproxy}
 '''
 
 OIM_HEADER_REST = '''
