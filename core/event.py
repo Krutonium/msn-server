@@ -35,6 +35,8 @@ class BackendEventHandler(metaclass = ABCMeta):
 	@abstractmethod
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None: pass
 	
+	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None: pass
+	
 	@abstractmethod
 	def on_pop_boot(self) -> None: pass
 	

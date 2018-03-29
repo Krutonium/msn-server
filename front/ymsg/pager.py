@@ -778,6 +778,10 @@ class BackendEventHandler(event.BackendEventHandler):
 		for y in misc.build_contact_deny_notif(user, self.bs, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
+	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
+		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
+			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+	
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
@@ -842,10 +846,6 @@ class ChatEventHandler(event.ChatEventHandler):
 		elif data.type is MessageType.Typing:
 			for y in misc.build_notify_notif(sender, self.bs, yahoo_data):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
-		
-		# TODO: on_xfer_init
-		#for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
-		#	self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 
 def messagedata_from_ymsg(sender: User, data: Dict[str, Any], *, notify_type: Optional[str] = None) -> MessageData:
 	text = data.get('14') or ''
