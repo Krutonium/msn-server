@@ -1,4 +1,5 @@
 from typing import Optional, Tuple, Any, Iterable, Dict, List
+from urllib.parse import quote_plus
 from multidict import MultiDict
 from enum import IntEnum
 import time
@@ -52,7 +53,6 @@ class YMSGService(IntEnum):
 class YMSGStatus(IntEnum):
 	# Available/Client Request
 	Available   = 0x00000000
-	WebLogin    = 0x5a55aa55
 	# BRB/Server Response
 	BRB         = 0x00000001
 	Busy        = 0x00000002
@@ -69,6 +69,8 @@ class YMSGStatus(IntEnum):
 	Locked      = 0x0000000e
 	Typing      = 0x00000016
 	Custom      = 0x00000063
+	Idle        = 0x000003e7
+	WebLogin    = 0x5a55aa55
 	Offline     = 0x5a55aa56
 	LoginError  = 0xffffffff
 
@@ -134,12 +136,21 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 		('4', yahoo_id(user_from))
 	])
 	
-	ft_dict.add('13', xfer_dict.get('13'))
-	if xfer_dict.get('27') is not None: ft_dict.add('27', xfer_dict.get('27'))
-	if xfer_dict.get('28') is not None: ft_dict.add('28', xfer_dict.get('28'))
-	if xfer_dict.get('20') is not None: ft_dict.add('20', xfer_dict.get('20'))
-	if xfer_dict.get('14') is not None: ft_dict.add('14', xfer_dict.get('14'))
-	if xfer_dict.get('53') is not None: ft_dict.add('53', xfer_dict.get('53'))
+	ft_type = xfer_dict.get('13')
+	ft_dict.add('13', ft_type)
+	if ft_type == '1':
+		ft_dict.add('27', xfer_dict.get('27'))
+		ft_dict.add('28', xfer_dict.get('28'))
+		url_filename = xfer_dict.get('53')
+		# When file name in HTTP string is sent to recipient by server, it is unescaped for some reason. Replace it with
+		# `urllib.parse.quote()`'d version!
+		ft_dict.add('20', xfer_dict.get('20').replace(url_filename, quote_plus(url_filename, safe='')))
+		ft_dict.add('53', url_filename)
+		ft_dict.add('14', xfer_dict.get('14'))
+		ft_dict.add('53', xfer_dict.get('53'))
+	if ft_type in ('2','3'):
+		ft_dict.add('27', xfer_dict.get('27'))
+		ft_dict.add('53', xfer_dict.get('53'))
 	ft_dict.add('49', xfer_dict.get('49'))
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
