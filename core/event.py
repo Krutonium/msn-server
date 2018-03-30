@@ -22,7 +22,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 		pass
 	
 	@abstractmethod
-	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None: pass
+	def on_presence_notification(self, contact: Contact, old_status: Any) -> None: pass
 	
 	@abstractmethod
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None: pass
