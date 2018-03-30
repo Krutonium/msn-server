@@ -288,11 +288,10 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		psm = elm.find('PSM')
 		cm = elm.find('CurrentMedia')
-		if psm or cm:
-			bs.me_update({
-				'message': str(elm.find('PSM')),
-				'media': str(elm.find('CurrentMedia')),
-			})
+		bs.me_update({
+			'message': str(psm) if psm else '',
+			'media': str(cm) if cm else None,
+		})
 		
 		mg = elm.find('MachineGuid')
 		if mg:
