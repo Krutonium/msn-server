@@ -67,7 +67,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		arg1 = args[4].get('1')
 		assert isinstance(arg1, str)
-		self.yahoo_id = arg1
+		self.yahoo_id = misc.yahoo_id(arg1)
 		
 		id_uuid = self.yahoo_id_to_uuid(self.yahoo_id)
 		
@@ -590,19 +590,18 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		email = None # type: Optional[str]
 		
 		if '@' in yahoo_id:
-			# From some observations of how Yahoo! treats email addresses and "Yahoo! IDs", IDs are treated as is, and email addresses have
-			# their "@domain.tld" part stripped out to use the username portion as a "Yahoo! ID". Treat these strings as such.
-			return None
+			email = yahoo_id
 		elif self.bs:
 			detail = self.bs.user.detail
 			assert detail is not None
-			pre = yahoo_id + '@'
+			pre = yahoo_id + '@yahoo.com'
 			for ctc in detail.contacts.values():
 				if ctc.head.email.startswith(pre):
 					email = ctc.head.email
 					break
 		
 		if email is None:
+			# Assume that it's an "@yahoo.com" address
 			email = yahoo_id + '@yahoo.com'
 		
 		return self.backend.util_get_uuid_from_email(email)
