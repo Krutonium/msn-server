@@ -22,7 +22,7 @@ from . import misc, Y64
 PRE_SESSION_ID: Dict[str, int] = {}
 
 class YMSGCtrlPager(YMSGCtrlBase):
-	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'bs', 'private_chats', 'client')
+	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'bs', 'private_chats', 'chat_sessions', 'client')
 	
 	backend: Backend
 	dialect: int
@@ -31,6 +31,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	challenge: Optional[str]
 	bs: Optional[BackendSession]
 	private_chats: Dict[str, ChatSession]
+	chat_sessions: Dict[Chat, ChatSession]
 	client: Client
 	
 	def __init__(self, logger: Logger, via: str, backend: Backend) -> None:
@@ -42,6 +43,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.challenge = None
 		self.bs = None
 		self.private_chats = {}
+		self.chat_sessions = {}
 		self.client = Client('yahoo', '?', via)
 	
 	def _on_close(self) -> None:
@@ -470,7 +472,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		chat = self._get_chat_by_id('ymsg/conf', conf_id, create = True)
 		assert chat is not None
-		cs = self._get_chat_session(chat)
+		cs = self._get_chat_session(chat, create = True)
 		assert cs is not None
 		
 		for conf_user_yahoo_id in conf_roster:
@@ -615,8 +617,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	def _get_chat_session(self, chat: Chat, *, create: bool = False) -> Optional[ChatSession]:
 		assert self.bs is not None
-		cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
-		chat.send_participant_joined(cs)
+		cs = self.chat_sessions.get(chat)
+		if cs is None and create:
+			cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
+			self.chat_sessions[chat] = cs
+			chat.send_participant_joined(cs)
 		return cs
 	
 	def _update_buddy_list(self, contacts: Dict[str, Contact], groups: Dict[str, Group], after_auth: bool = False) -> None:
@@ -819,6 +824,9 @@ class ChatEventHandler(event.ChatEventHandler):
 		self.ctrl = ctrl
 		assert ctrl.bs is not None
 		self.bs = ctrl.bs
+	
+	def on_close(self) -> None:
+		self.ctrl.chat_sessions.pop(self.cs.chat, None)
 	
 	def on_participant_joined(self, cs_other: ChatSession) -> None:
 		if self.cs.chat.twoway_only:
