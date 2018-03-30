@@ -136,7 +136,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				assert usr_email is not None
 				uuid = backend.auth_service.pop_token('nb/login', token)
 				if uuid is not None:
-					self.bs = backend.login(uuid, self.client, BackendEventHandler(self), 'msn')
+					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
 				self._util_usr_final(trid, token)
 				return
 		
@@ -550,7 +550,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def __init__(self, ctrl: MSNPCtrlNS) -> None:
 		self.ctrl = ctrl
 	
-	def on_presence_notification(self, contact: Contact, old_status: Any) -> None:
+	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		for m in build_msnp_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
 			self.ctrl.send_reply(*m)
 	

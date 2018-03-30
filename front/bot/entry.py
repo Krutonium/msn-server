@@ -1,4 +1,4 @@
-from typing import cast, Optional, List, Any
+from typing import cast, Optional, List
 import asyncio
 import random
 
@@ -13,7 +13,7 @@ BOT_EMAIL = 'test@bot.log1p.xyz'
 def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	uuid = backend.util_get_uuid_from_email(BOT_EMAIL)
 	assert uuid is not None
-	bs = backend.login(uuid, CLIENT, BackendEventHandler(loop), 'testbot')
+	bs = backend.login(uuid, CLIENT, BackendEventHandler(loop))
 	assert bs is not None
 
 class BackendEventHandler(event.BackendEventHandler):
@@ -43,7 +43,7 @@ class BackendEventHandler(event.BackendEventHandler):
 			bs.me_contact_add(uuid, Lst.FL, name = "Test 1")
 			bs.me_contact_add(uuid, Lst.AL, name = "Test 1")
 	
-	def on_presence_notification(self, contact: Contact, old_status: Any) -> None:
+	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		pass
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:

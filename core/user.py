@@ -70,14 +70,6 @@ class UserService:
 			status = UserStatus(dbuser.name, dbuser.message)
 			return User(dbuser.uuid, dbuser.email, dbuser.verified, status, dbuser.date_created)
 	
-	def get_user_front_type(self, uuid: str, frontend: str) -> Optional[bool]:
-		with Session() as sess:
-			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
-			if dbuser is None: return None
-			if frontend in dbuser._front_data:
-				return True
-			return False
-	
 	def get_detail(self, uuid: str) -> Optional[UserDetail]:
 		with Session() as sess:
 			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()

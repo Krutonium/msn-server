@@ -10,7 +10,7 @@ from .user import UserService
 from .auth import AuthService
 from .stats import Stats
 from .client import Client
-from .models import User, UserDetail, Group, Lst, Contact, UserStatus, TextWithData, MessageData, Substatus, YMSGStatus
+from .models import User, UserDetail, Group, Lst, Contact, UserStatus, TextWithData, MessageData, Substatus
 from . import error, event
 
 class Ack(IntFlag):
@@ -58,7 +58,7 @@ class Backend:
 	
 	def on_leave(self, sess: 'BackendSession') -> None:
 		user = sess.user
-		old_ymsg_status = (sess.front_data.get('ymsg_status') if sess.front_data.get('ymsg_status') is not None else YMSGStatus.Offline)
+		old_substatus = user.status.substatus
 		self._stats.on_logout()
 		self._sc.remove_session(sess)
 		if self._sc.get_sessions_by_user(user):
@@ -68,13 +68,13 @@ class Backend:
 		# User is offline, send notifications
 		user.detail = None
 		self._sync_contact_statuses()
-		self._generic_notify(sess, old_status = old_ymsg_status)
+		self._generic_notify(sess, old_substatus = old_substatus)
 	
-	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, frontend: str, *, front_needs_self_notify: bool = False) -> Optional['BackendSession']:
+	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, *, front_needs_self_notify: bool = False) -> Optional['BackendSession']:
 		user = self._load_user_record(uuid)
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
-		bs = BackendSession(self, user, client, evt, frontend, front_needs_self_notify = front_needs_self_notify)
+		bs = BackendSession(self, user, client, evt, front_needs_self_notify = front_needs_self_notify)
 		bs.evt.bs = bs
 		self._stats.on_login()
 		self._stats.on_user_active(user, client)
@@ -102,20 +102,20 @@ class Backend:
 	def chat_get(self, scope: str, id: str) -> Optional['Chat']:
 		return self._chats_by_id.get((scope, id))
 	
-	def _generic_notify(self, bs: 'BackendSession', *, old_status: Any) -> None:
+	def _generic_notify(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
 		# Notify relevant `BackendSession`s of status, name, message, media
 		user = bs.user
 		detail = self._load_detail(user)
 		for ctc in detail.contacts.values():
 			for bs_other in self._sc.get_sessions_by_user(ctc.head):
-				if bs_other == bs and not bs.front_needs_self_notify: continue
+				if bs_other is bs and not bs.front_needs_self_notify: continue
 				detail_other = bs_other.user.detail
 				if detail_other is None: continue
 				ctc_me = detail_other.contacts.get(user.uuid)
 				# This shouldn't be `None`, since every contact should have
 				# an `RL` contact on the other users' list (at the very least).
 				if ctc_me is None: continue
-				bs_other.evt.on_presence_notification(ctc_me, old_status)
+				bs_other.evt.on_presence_notification(ctc_me, old_substatus)
 	
 	def _sync_contact_statuses(self) -> None:
 		# Recompute all `Contact.status`'s
@@ -207,23 +207,21 @@ class Session(metaclass = ABCMeta):
 	def _on_close(self) -> None: pass
 
 class BackendSession(Session):
-	__slots__ = ('backend', 'user', 'client', 'evt', 'frontend', 'front_data', 'front_needs_self_notify')
+	__slots__ = ('backend', 'user', 'client', 'evt', 'front_data', 'front_needs_self_notify')
 	
 	backend: Backend
 	user: User
 	client: Client
 	evt: event.BackendEventHandler
-	frontend: str
 	front_data: Dict[str, Any]
 	front_needs_self_notify: bool
 	
-	def __init__(self, backend: Backend, user: User, client: Client, evt: event.BackendEventHandler, frontend: str, *, front_needs_self_notify: bool = False) -> None:
+	def __init__(self, backend: Backend, user: User, client: Client, evt: event.BackendEventHandler, *, front_needs_self_notify: bool = False) -> None:
 		super().__init__()
 		self.backend = backend
 		self.user = user
 		self.client = client
 		self.evt = evt
-		self.frontend = frontend
 		self.front_data = {}
 		self.front_needs_self_notify = front_needs_self_notify
 	
@@ -236,7 +234,7 @@ class BackendSession(Session):
 		detail = user.detail
 		assert detail is not None
 		
-		old_ymsg_status = (self.front_data.get('ymsg_status') if self.front_data.get('ymsg_status') is not None else YMSGStatus.Offline)
+		old_substatus = user.status.substatus
 		
 		if 'message' in fields:
 			user.status.message = fields['message']
@@ -250,12 +248,10 @@ class BackendSession(Session):
 			detail.settings['blp'] = fields['blp']
 		if 'substatus' in fields:
 			user.status.substatus = fields['substatus']
-		if 'front_status' in fields:
-			self.front_data[fields['front_status'][0]] = fields['front_status'][1]
 		
 		self.backend._mark_modified(user)
 		self.backend._sync_contact_statuses()
-		self.backend._generic_notify(self, old_status = old_ymsg_status)
+		self.backend._generic_notify(self, old_substatus = old_substatus)
 	
 	def me_group_add(self, name: str, *, is_favorite: Optional[bool] = None) -> Group:
 		if len(name) > MAX_GROUP_NAME_LENGTH:
@@ -343,7 +339,7 @@ class BackendSession(Session):
 				if sess_added is self: continue
 				sess_added.evt.on_added_to_list(user, message = message)
 		backend._sync_contact_statuses()
-		if self.frontend != 'ymsg': backend._generic_notify(self, old_substatus = Substatus.FLN)
+		backend._generic_notify(self, old_substatus = Substatus.FLN)
 		return ctc, ctc_head
 	
 	def me_contact_edit(self, contact_uuid: str, *, is_messenger_user: Optional[bool] = None) -> None:
@@ -510,7 +506,6 @@ class Chat:
 	
 	def send_participant_joined(self, cs: 'ChatSession') -> None:
 		for cs_other in self.get_roster():
-			# TODO: This next line is only for Yahoo!
 			if cs_other is cs and cs.origin is 'yahoo': continue
 			cs_other.evt.on_participant_joined(cs)
 	

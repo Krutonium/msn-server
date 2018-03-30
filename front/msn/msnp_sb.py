@@ -113,7 +113,7 @@ class MSNPCtrlSB(MSNPCtrl):
 		assert cs is not None
 		
 		invitee_uuid = self.backend.util_get_uuid_from_email(invitee_email)
-		if invitee_uuid is None or not self.backend.user_service.get_user_front_type(invitee_uuid, 'msn'):
+		if invitee_uuid is None:
 			self.send_reply(Err.InvalidUser)
 			return
 		

@@ -69,9 +69,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert isinstance(arg1, str)
 		self.yahoo_id = misc.yahoo_id(arg1)
 		
-		id_uuid = self.yahoo_id_to_uuid(self.yahoo_id)
-		
-		if id_uuid is None or not self.backend.user_service.get_user_front_type(id_uuid, 'ymsg'):
+		if self.yahoo_id_to_uuid(self.yahoo_id) is None:
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, 0, MultiDict([
 				('66', int(YMSGStatus.NotAtHome))
 			]))
@@ -125,7 +123,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if uuid is None:
 				is_resp_correct = False
 			else:
-				bs = self.backend.login(uuid, self.client, BackendEventHandler(self), 'ymsg', front_needs_self_notify = True)
+				bs = self.backend.login(uuid, self.client, BackendEventHandler(self), front_needs_self_notify = True)
 				if bs is None:
 					is_resp_correct = False
 				else:
@@ -220,7 +218,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		# Yahoo! Messenger has a function that lets you add people by email address (a.k.a. stripping the "@domain.tld" part of the address and
 		# filling that out in the "Yahoo! ID" section of the contact add dialog). Treat as is.
 		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
-		if contact_uuid is None or not self.backend.user_service.get_user_front_type(contact_uuid, 'ymsg'):
+		if contact_uuid is None:
 			add_request_response.add('66', 3)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			return
@@ -257,7 +255,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			contact_struct = MultiDict([
 				('0', self.yahoo_id),
 			])
-			add_contact_status_to_data(contact_struct, bs, ctc_head.status, ctc_head)
+			add_contact_status_to_data(contact_struct, ctc_head.status, ctc_head)
 		else:
 			contact_struct = None
 		
@@ -679,7 +677,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			('8', len(cs))
 		])
 		
-		for c in cs: add_contact_status_to_data(logon_payload, self.bs, c.status, c.head)
+		for c in cs:
+			add_contact_status_to_data(logon_payload, c.status, c.head)
 		
 		if after_auth:
 			if self.dialect >= 10:
@@ -740,35 +739,22 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		return resp_6 == resp_6_server and resp_96 == resp_96_server
 
-def add_contact_status_to_data(data: Any, bs: BackendSession, status: UserStatus, contact: User) -> None:
+def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> None:
+	is_offlineish = status.is_offlineish()
 	contact_yahoo_id = misc.yahoo_id(contact.email)
 	key_11_val = contact.uuid[:8].upper()
 	
 	data.add('7', contact_yahoo_id)
 	
-	for bs_other in bs.backend._sc.iter_sessions():
-		if bs_other.user.uuid == contact.uuid:
-			break
-	
-	if bs_other.user.uuid != contact.uuid:
-		ymsg_status = YMSGStatus.Offline
-		is_offlineish = True
-		message_dict = None
-	else:
-		ymsg_status = (bs_other.front_data.get('ymsg_status') if bs_other.front_data.get('ymsg_status') is not None else YMSGStatus.Offline)
-		is_offlineish = ymsg_status.is_offlineish()
-		message_dict = (bs_other.front_data.get('ymsg_message_dict') if bs_other.front_data.get('ymsg_message_dict') is not None else None)
-	
-	if is_offlineish or message_dict is None:
-		int_status = int(ymsg_status)
-		data.add('10', (int(YMSGStatus.Available) if is_offlineish else int_status))
+	if is_offlineish or not status.message:
+		data.add('10', int(YMSGStatus.Available if is_offlineish else misc.convert_from_substatus(status.substatus)))
 		data.add('11', key_11_val)
 	else:
 		data.add('10', int(YMSGStatus.Custom))
 		data.add('11', key_11_val)
-		data.add('19', message_dict['message'])
-		is_away_message = int(message_dict['is_away_msg'])
-		data.add('47', is_away_message)
+		data.add('19', status.message)
+		is_away_message = (status.substatus != Substatus.NLN)
+		data.add('47', int(is_away_message))
 	
 	data.add('17', 0)
 	data.add('13', (0 if is_offlineish else 1))
@@ -786,29 +772,21 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.dialect = ctrl.dialect
 		self.sess_id = ctrl.sess_id
 	
-	def on_presence_notification(self, contact: Contact, old_status: Any) -> None:
-		for bs_other in self.bs.backend._sc.iter_sessions():
-			if bs_other.user.uuid == contact.head.uuid:
-				break
-		if bs_other.user.uuid != contact.head.uuid:
-			ymsg_status = YMSGStatus.Offline
-		else:
-			ymsg_status = (bs_other.front_data.get('ymsg_status') if bs_other.front_data.get('ymsg_status') is not None else YMSGStatus.Offline)
-		
-		if ymsg_status.is_offlineish() and not old_status.is_offlineish():
+	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
+		if contact.status.is_offlineish():
 			service = YMSGService.LogOff
-		elif not ymsg_status.is_offlineish() and old_status.is_offlineish():
+		elif old_substatus.is_offlineish():
 			service = YMSGService.LogOn
-		elif ymsg_status is YMSGStatus.Available and not old_status.is_offlineish():
+		elif contact.status.substatus is Substatus.NLN:
 			service = YMSGService.IsBack
 		else:
 			service = YMSGService.IsAway
 		
 		yahoo_data = MultiDict()
-		if service != YMSGService.LogOff:
+		if service is not YMSGService.LogOff:
 			yahoo_data.add('0', self.ctrl.yahoo_id)
 		
-		add_contact_status_to_data(yahoo_data, self.bs, contact.status, contact.head)
+		add_contact_status_to_data(yahoo_data, contact.status, contact.head)
 		
 		self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
 	
@@ -842,11 +820,6 @@ class BackendEventHandler(event.BackendEventHandler):
 		pass
 	
 	def on_close(self) -> None:
-		self.bs.front_data['ymsg_message_dict'] = None
-		self.bs.me_update({
-			'substatus': misc.convert_to_substatus(YMSGStatus.Offline),
-			'front_status': ['ymsg_status', YMSGStatus.Offline],
-		})
 		self.ctrl.close()
 
 class ChatEventHandler(event.ChatEventHandler):
@@ -919,16 +892,14 @@ def messagedata_to_ymsg(data: MessageData) -> Dict[str, Any]:
 	return data.front_cache['ymsg']
 
 def me_status_update(bs: BackendSession, status_new: YMSGStatus, *, message: str = '', is_away_message: bool = False) -> None:
+	bs.front_data['ymsg_status'] = status_new
 	if status_new is YMSGStatus.Custom:
-		bs.front_data['ymsg_message_dict'] = {
-			'message': message,
-			'is_away_msg': is_away_message,
-		}
+		substatus = (Substatus.BSY if is_away_message else Substatus.NLN)
 	else:
-		bs.front_data['ymsg_message_dict'] = None
+		substatus = misc.convert_to_substatus(status_new)
 	bs.me_update({
-		'substatus': misc.convert_to_substatus(status_new),
-		'front_status': ['ymsg_status', status_new],
+		'message': message,
+		'substatus': substatus,
 	})
 
 def generate_challenge_v1() -> str:
