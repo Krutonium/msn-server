@@ -37,6 +37,7 @@ class YMSGService(IntEnum):
 	FriendAdd = 0x83
 	FriendRemove = 0x84
 	Ignore = 0x85
+	GroupRename = 0x89
 	Ping = 0x8a
 	
 	# TODO: Figure out these `YMSGService`s
@@ -201,7 +202,11 @@ def build_conf_message_packet(sender: User, cs: ChatSession, message_dict: Dict[
 	yield (YMSGService.ConfMsg, YMSGStatus.BRB, conf_message_dict)
 
 def yahoo_id(email: str) -> str:
-	return email.split('@', 1)[0]
+	email_parts = email.split('@', 1)
+	if len(email_parts) == 2 and email_parts[1].startswith('yahoo.'):
+		return email_parts[0]
+	else:
+		return email
 
 def convert_to_substatus(ymsg_status: YMSGStatus) -> Substatus:
 	if ymsg_status is YMSGStatus.Offline:
