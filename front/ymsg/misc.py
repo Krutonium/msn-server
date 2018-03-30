@@ -78,8 +78,8 @@ EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
 def build_contact_request_notif(user_adder: User, user_added: User, message: Optional[str], utf8: Optional[str]) -> Iterable[EncodedYMSG]:
 	contact_request_data = MultiDict([
-		('1', yahoo_id(user_added)),
-		('3', yahoo_id(user_adder)),
+		('1', yahoo_id(user_added.email)),
+		('3', yahoo_id(user_adder.email)),
 		('14', message),
 	])
 	
@@ -92,8 +92,8 @@ def build_contact_deny_notif(user_denier: User, bs: BackendSession, deny_message
 	user_to = bs.user
 	
 	contact_deny_data = MultiDict([
-		('1', yahoo_id(user_to)),
-		('3', yahoo_id(user_denier)),
+		('1', yahoo_id(user_to.email)),
+		('3', yahoo_id(user_denier.email)),
 		('14', deny_message)
 	])
 	
@@ -103,8 +103,8 @@ def build_notify_notif(user_from: User, bs: BackendSession, notif_dict: Dict[str
 	user_to = bs.user
 	
 	notif_to_dict = MultiDict([
-		('5', yahoo_id(user_to)),
-		('4', yahoo_id(user_from)),
+		('5', yahoo_id(user_to.email)),
+		('4', yahoo_id(user_from.email)),
 		('49', notif_dict.get('49')),
 		('14', notif_dict.get('14')),
 		('13', notif_dict.get('13'))
@@ -116,8 +116,8 @@ def build_message_packet(user_from: User, bs: BackendSession, message_dict: Dict
 	user_to = bs.user
 	
 	message_to_dict = MultiDict([
-		('5', yahoo_id(user_to)),
-		('4', yahoo_id(user_from)),
+		('5', yahoo_id(user_to.email)),
+		('4', yahoo_id(user_from.email)),
 		('14', message_dict.get('14')),
 		('63', message_dict.get('63')),
 		('64', message_dict.get('64'))
@@ -132,8 +132,8 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	user_to = bs.user
 	
 	ft_dict = MultiDict([
-		('5', yahoo_id(user_to)),
-		('4', yahoo_id(user_from))
+		('5', yahoo_id(user_to.email)),
+		('4', yahoo_id(user_from.email))
 	])
 	
 	ft_type = xfer_dict.get('13')
@@ -159,9 +159,9 @@ def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_
 	user_to = bs.user
 	
 	conf_invite_dict = MultiDict([
-		('1', yahoo_id(user_to)),
+		('1', yahoo_id(user_to.email)),
 		('57', conf_id),
-		('50', yahoo_id(user_from)),
+		('50', yahoo_id(user_from.email)),
 		('58', invite_msg)
 	])
 	
@@ -176,9 +176,9 @@ def build_conf_invite_decline(inviter: User, bs: BackendSession, conf_id: str, d
 	user_to = bs.user
 	
 	conf_decline_dict = MultiDict([
-		('1', yahoo_id(user_to)),
+		('1', yahoo_id(user_to.email)),
 		('57', conf_id),
-		('54', yahoo_id(inviter)),
+		('54', yahoo_id(inviter.email)),
 		('14', deny_msg)
 	])
 	
@@ -189,9 +189,9 @@ def build_conf_logon(bs: BackendSession, cs_other: ChatSession) -> Iterable[Enco
 	user_to = bs.user
 	
 	conf_logon_dict = MultiDict([
-		('1', yahoo_id(user_to)),
+		('1', yahoo_id(user_to.email)),
 		('57', cs_other.chat.ids['ymsg/conf']),
-		('53', yahoo_id(user_from))
+		('53', yahoo_id(user_from.email))
 	])
 	
 	yield (YMSGService.ConfLogon, YMSGStatus.BRB, conf_logon_dict)
@@ -201,9 +201,9 @@ def build_conf_logoff(bs: BackendSession, cs_other: ChatSession) -> Iterable[Enc
 	user_to = bs.user
 	
 	conf_logoff_dict = MultiDict([
-		('1', yahoo_id(user_to)),
+		('1', yahoo_id(user_to.email)),
 		('57', cs_other.chat.ids['ymsg/conf']),
-		('56', yahoo_id(user_from))
+		('56', yahoo_id(user_from.email))
 	])
 	
 	yield (YMSGService.ConfLogoff, YMSGStatus.BRB, conf_logoff_dict)
@@ -213,9 +213,9 @@ def build_conf_message_packet(sender: User, cs: ChatSession, message_dict: Dict[
 	user_to = cs.user
 	
 	conf_message_dict = MultiDict([
-		('1', yahoo_id(user_to)),
+		('1', yahoo_id(user_to.email)),
 		('57', cs.chat.ids['ymsg/conf']),
-		('3', yahoo_id(sender)),
+		('3', yahoo_id(sender.email)),
 		('14', message_dict.get('14'))
 	])
 	
@@ -224,8 +224,8 @@ def build_conf_message_packet(sender: User, cs: ChatSession, message_dict: Dict[
 	
 	yield (YMSGService.ConfMsg, YMSGStatus.BRB, conf_message_dict)
 
-def yahoo_id(user: User) -> str:
-	return user.email.split('@', 1)[0]
+def yahoo_id(email: str) -> str:
+	return email.split('@', 1)[0]
 
 def convert_to_substatus(ymsg_status: YMSGStatus) -> Substatus:
 	if ymsg_status is YMSGStatus.Offline:

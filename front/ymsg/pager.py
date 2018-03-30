@@ -26,7 +26,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	backend: Backend
 	dialect: int
-	yahoo_id: Optional[str]
+	yahoo_id: str
 	sess_id: int
 	challenge: Optional[str]
 	bs: Optional[BackendSession]
@@ -38,7 +38,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		super().__init__(logger)
 		self.backend = backend
 		self.dialect = 0
-		self.yahoo_id = None
+		self.yahoo_id = ''
 		self.sess_id = 0
 		self.challenge = None
 		self.bs = None
@@ -65,8 +65,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_0057(self, *args) -> None:
 		# SERVICE_AUTH (0x57); send a challenge string for the client to craft two response strings with
 		
-		self.yahoo_id = args[4].get('1')
-		assert self.yahoo_id is not None
+		arg1 = args[4].get('1')
+		assert isinstance(arg1, str)
+		self.yahoo_id = arg1
 		
 		if self.yahoo_id_to_uuid(self.yahoo_id) is None:
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, 0, MultiDict([
@@ -82,13 +83,13 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		PRE_SESSION_ID[self.yahoo_id] = self.sess_id
 		
 		auth_dict = MultiDict([
-			('1', self.yahoo_id)
+			('1', misc.yahoo_id(self.yahoo_id)),
 		])
 		
-		if self.dialect in (9, 10):
+		if 9 <= self.dialect <= 10:
 			self.challenge = generate_challenge_v1()
 			auth_dict.add('94', self.challenge)
-		elif self.dialect in (11,):
+		elif self.dialect <= 11:
 			# Implement V2 challenge string generation later
 			auth_dict.add('94', '')
 			auth_dict.add('13', 1)
@@ -110,7 +111,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		version = '.'.join(version)
 		self.client = Client('yahoo', version, self.client.via)
 		
-		assert self.yahoo_id is not None
+		assert self.yahoo_id
 		
 		# TODO: Dialect 11 not supported yet?
 		assert 9 <= self.dialect <= 10
@@ -209,7 +210,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		group = None
 		
 		add_request_response = MultiDict([
-			('1', self.yahoo_id),
+			('1', misc.yahoo_id(self.yahoo_id)),
 			('7', contact_yahoo_id),
 			('65', buddy_group)
 		])
@@ -250,7 +251,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		if not ctc_head.status.is_offlineish():
 			contact_struct = MultiDict([
-				('0', self.yahoo_id),
+				('0', misc.yahoo_id(self.yahoo_id)),
 			])
 			add_contact_status_to_data(contact_struct, ctc_head.status, ctc_head)
 		else:
@@ -301,12 +302,12 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_0084(self, *args) -> None:
 		# SERVICE_FRIENDREMOVE (0x84); remove a buddy from your list
 		
-		contact_yahoo_id = args[4].get('7')
+		contact_email = args[4].get('7')
 		buddy_group = args[4].get('65')
 		
 		remove_buddy_response = MultiDict([
-			('1', self.yahoo_id),
-			('7', contact_yahoo_id),
+			('1', misc.yahoo_id(self.yahoo_id)),
+			('7', misc.yahoo_id(contact_email)),
 			('65', buddy_group)
 		])
 		bs = self.bs
@@ -316,7 +317,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert detail is not None
 		
 		contacts = detail.contacts
-		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
+		contact_uuid = self.yahoo_id_to_uuid(contact_email)
 		if contact_uuid is None:
 			remove_buddy_response.add('66', 3)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, remove_buddy_response)
@@ -334,7 +335,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		ignore_mode = args[4].get('13')
 		
 		ignore_reply_response = MultiDict([
-			('0', self.yahoo_id),
+			('0', misc.yahoo_id(self.yahoo_id)),
 			('7', ignored_yahoo_id),
 			('13', ignore_mode)
 		])
@@ -404,7 +405,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		# SERVICE_PING (0x8a); send a response ping after the client pings
 		
 		self.send_reply(YMSGService.Ping, YMSGStatus.Available, self.sess_id, MultiDict([
-			('1', self.yahoo_id),
+			('1', misc.yahoo_id(self.yahoo_id)),
 		]))
 	
 	def _y_004f(self, *args) -> None:
@@ -540,7 +541,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			return
 		
 		for cs in chat.get_roster():
-			if misc.yahoo_id(cs.user) not in inviter_ids:
+			if misc.yahoo_id(cs.user.email) not in inviter_ids:
 				continue
 			cs.evt.on_invite_declined(bs.user, message = deny_msg)
 	
@@ -632,18 +633,18 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			contact_list = []
 			for c in cs:
 				if grp.id in c.groups:
-					contact_list.append(misc.yahoo_id(c.head))
+					contact_list.append(misc.yahoo_id(c.head.email))
 			if contact_list:
 				contact_group_list.append(grp.name + ':' + ','.join(contact_list) + '\n')
 		# Handle contacts that aren't part of any groups
-		contact_list = [misc.yahoo_id(c.head) for c in cs if not c.groups]
+		contact_list = [misc.yahoo_id(c.head.email) for c in cs if not c.groups]
 		if contact_list:
 			contact_group_list.append('(No Group):' + ','.join(contact_list) + '\n')
 		
 		ignore_list = []
 		for c in cs:
 			if c.lists & Lst.BL:
-				ignore_list.append(misc.yahoo_id(c.head))
+				ignore_list.append(misc.yahoo_id(c.head.email))
 		
 		tmp = datetime.datetime.utcnow() + datetime.timedelta(days = 1)
 		expiry = tmp.strftime('%a, %d %b %Y %H:%M:%S GMT')
@@ -651,11 +652,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),
-			('89', self.yahoo_id),
+			('89', misc.yahoo_id(self.yahoo_id)),
 			('59', 'Y\tv=1&n=&l=&p=&r=&lg=&intl=&np=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
 			('59', 'T\tz=&a=&sk=&ks=&kt=&ku=&d=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
 			('59', 'C\tmg=1'),
-			('3', self.yahoo_id),
+			('3', misc.yahoo_id(self.yahoo_id)),
 			('90', '1'),
 			('100', '0'),
 			('101', ''),
@@ -664,8 +665,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		]))
 		
 		logon_payload = MultiDict([
-			('0', self.yahoo_id),
-			('1', self.yahoo_id),
+			('0', misc.yahoo_id(self.yahoo_id)),
+			('1', misc.yahoo_id(self.yahoo_id)),
 			('8', len(cs))
 		])
 		
@@ -732,7 +733,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 
 def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> None:
 	is_offlineish = status.is_offlineish()
-	contact_yahoo_id = misc.yahoo_id(contact)
+	contact_yahoo_id = misc.yahoo_id(contact.email)
 	key_11_val = contact.uuid[:8].upper()
 	
 	data.add('7', contact_yahoo_id)
@@ -775,7 +776,8 @@ class BackendEventHandler(event.BackendEventHandler):
 			service = YMSGService.IsAway
 		
 		yahoo_data = MultiDict()
-		if service != YMSGService.LogOff: yahoo_data.add('0', self.ctrl.yahoo_id)
+		if service != YMSGService.LogOff:
+			yahoo_data.add('0', misc.yahoo_id(self.ctrl.yahoo_id))
 		
 		add_contact_status_to_data(yahoo_data, contact.status, contact.head)
 		
