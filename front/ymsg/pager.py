@@ -85,7 +85,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		PRE_SESSION_ID[self.yahoo_id] = self.sess_id
 		
 		auth_dict = MultiDict([
-			('1', misc.yahoo_id(self.yahoo_id)),
+			('1', self.yahoo_id),
 		])
 		
 		if 9 <= self.dialect <= 10:
@@ -212,11 +212,13 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		group = None
 		
 		add_request_response = MultiDict([
-			('1', misc.yahoo_id(self.yahoo_id)),
+			('1', self.yahoo_id),
 			('7', contact_yahoo_id),
 			('65', buddy_group)
 		])
 		
+		# Yahoo! Messenger has a function that lets you add people by email address (a.k.a. stripping the "@domain.tld" part of the address and
+		# filling that out in the "Yahoo! ID" section of the contact add dialog). Treat as is.
 		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
 		if contact_uuid is None or not self.backend.user_service.get_user_front_type(contact_uuid, 'ymsg'):
 			add_request_response.add('66', 3)
@@ -253,7 +255,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		if not ctc_head.status.is_offlineish():
 			contact_struct = MultiDict([
-				('0', misc.yahoo_id(self.yahoo_id)),
+				('0', self.yahoo_id),
 			])
 			add_contact_status_to_data(contact_struct, bs, ctc_head.status, ctc_head)
 		else:
@@ -304,12 +306,12 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_0084(self, *args) -> None:
 		# SERVICE_FRIENDREMOVE (0x84); remove a buddy from your list
 		
-		contact_email = args[4].get('7')
+		contact_id = args[4].get('7')
 		buddy_group = args[4].get('65')
 		
 		remove_buddy_response = MultiDict([
-			('1', misc.yahoo_id(self.yahoo_id)),
-			('7', misc.yahoo_id(contact_email)),
+			('1', self.yahoo_id),
+			('7', contact_id),
 			('65', buddy_group)
 		])
 		bs = self.bs
@@ -319,7 +321,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert detail is not None
 		
 		contacts = detail.contacts
-		contact_uuid = self.yahoo_id_to_uuid(contact_email)
+		contact_uuid = self.yahoo_id_to_uuid(contact_id)
 		if contact_uuid is None:
 			remove_buddy_response.add('66', 3)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, remove_buddy_response)
@@ -337,7 +339,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		ignore_mode = args[4].get('13')
 		
 		ignore_reply_response = MultiDict([
-			('0', misc.yahoo_id(self.yahoo_id)),
+			('0', self.yahoo_id),
 			('7', ignored_yahoo_id),
 			('13', ignore_mode)
 		])
@@ -351,6 +353,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		ignored_uuid = self.yahoo_id_to_uuid(ignored_yahoo_id)
 		if ignored_uuid is None:
+			ignore_reply_response.add('66', 3)
+			self.send_reply(YMSGService.Ignore, YMSGStatus.BRB, self.sess_id, ignore_reply_response)
 			return
 		
 		if int(ignore_mode) == 1:
@@ -407,7 +411,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		# SERVICE_PING (0x8a); send a response ping after the client pings
 		
 		self.send_reply(YMSGService.Ping, YMSGStatus.Available, self.sess_id, MultiDict([
-			('1', misc.yahoo_id(self.yahoo_id)),
+			('1', self.yahoo_id),
 		]))
 	
 	def _y_004f(self, *args) -> None:
@@ -586,7 +590,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		email = None # type: Optional[str]
 		
 		if '@' in yahoo_id:
-			email = yahoo_id
+			# From some observations of how Yahoo! treats email addresses and "Yahoo! IDs", IDs are treated as is, and email addresses have
+			# their "@domain.tld" part stripped out to use the username portion as a "Yahoo! ID". Treat these strings as such.
+			return None
 		elif self.bs:
 			detail = self.bs.user.detail
 			assert detail is not None
@@ -656,11 +662,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),
-			('89', misc.yahoo_id(self.yahoo_id)),
+			('89', self.yahoo_id),
 			('59', 'Y\tv=1&n=&l=&p=&r=&lg=&intl=&np=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
 			('59', 'T\tz=&a=&sk=&ks=&kt=&ku=&d=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
 			('59', 'C\tmg=1'),
-			('3', misc.yahoo_id(self.yahoo_id)),
+			('3', self.yahoo_id),
 			('90', '1'),
 			('100', '0'),
 			('101', ''),
@@ -669,8 +675,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		]))
 		
 		logon_payload = MultiDict([
-			('0', misc.yahoo_id(self.yahoo_id)),
-			('1', misc.yahoo_id(self.yahoo_id)),
+			('0', self.yahoo_id),
+			('1', self.yahoo_id),
 			('8', len(cs))
 		])
 		
@@ -801,7 +807,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		
 		yahoo_data = MultiDict()
 		if service != YMSGService.LogOff:
-			yahoo_data.add('0', misc.yahoo_id(self.ctrl.yahoo_id))
+			yahoo_data.add('0', self.ctrl.yahoo_id)
 		
 		add_contact_status_to_data(yahoo_data, self.bs, contact.status, contact.head)
 		
