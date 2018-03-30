@@ -141,10 +141,10 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	if ft_type == '1':
 		ft_dict.add('27', xfer_dict.get('27'))
 		ft_dict.add('28', xfer_dict.get('28'))
-		url_filename = xfer_dict.get('53')
-		# When file name in HTTP string is sent to recipient by server, it is unescaped for some reason. Replace it with
-		# `urllib.parse.quote()`'d version!
-		ft_dict.add('20', xfer_dict.get('20').replace(url_filename, quote_plus(url_filename, safe='')))
+		url_filename = xfer_dict.get('53') or ''
+		# When file name in HTTP string is sent to recipient by server, it is unescaped for some reason
+		# Replace it with `urllib.parse.quote()`'d version!
+		ft_dict.add('20', (xfer_dict.get('20') or '').replace(url_filename, quote_plus(url_filename, safe = '')))
 		ft_dict.add('53', url_filename)
 		ft_dict.add('14', xfer_dict.get('14'))
 		ft_dict.add('53', xfer_dict.get('53'))

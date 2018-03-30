@@ -250,7 +250,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			contact_struct = MultiDict([
 				('0', self.yahoo_id),
 			])
-			add_contact_status_to_data(contact_struct, ctc_head.status, contact_yahoo_id)
+			add_contact_status_to_data(contact_struct, ctc_head.status, ctc_head)
 		else:
 			contact_struct = None
 		
@@ -664,7 +664,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			('8', len(cs))
 		])
 		
-		for c in cs: add_contact_status_to_data(logon_payload, c.status, misc.yahoo_id(c.head), c.head.uuid[:8].upper())
+		for c in cs: add_contact_status_to_data(logon_payload, c.status, c.head)
 		
 		if after_auth:
 			if self.dialect >= 10:
@@ -725,8 +725,10 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		return resp_6 == resp_6_server and resp_96 == resp_96_server
 
-def add_contact_status_to_data(data: Any, status: UserStatus, contact_yahoo_id: str, key_11_val: str) -> None:
+def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> None:
 	is_offlineish = status.is_offlineish()
+	contact_yahoo_id = misc.yahoo_id(contact)
+	key_11_val = contact.uuid[:8].upper()
 	
 	data.add('7', contact_yahoo_id)
 	
@@ -770,7 +772,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		yahoo_data = MultiDict()
 		if service != YMSGService.LogOff: yahoo_data.add('0', self.ctrl.yahoo_id)
 		
-		add_contact_status_to_data(yahoo_data, contact.status, misc.yahoo_id(contact.head), contact.head.uuid[:8].upper())
+		add_contact_status_to_data(yahoo_data, contact.status, contact.head)
 		
 		self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
 	
