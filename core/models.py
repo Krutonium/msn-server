@@ -112,7 +112,7 @@ class MessageData:
 	text: Optional[str]
 	front_cache: Dict[str, Any]
 	
-	def __init__(self, *, sender: User, type: MessageType, text: Optional[str]) -> None:
+	def __init__(self, *, sender: User, type: MessageType, text: Optional[str] = None) -> None:
 		self.sender = sender
 		self.type = type
 		self.text = text
