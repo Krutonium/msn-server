@@ -56,7 +56,7 @@ class IRCCtrl:
 		assert password is not None
 		uuid = self.backend.user_service.login(email, password)
 		if uuid is not None:
-			bs = self.backend.login(uuid, self.client, BackendEventHandler(self))
+			bs = self.backend.login(uuid, self.client, BackendEventHandler(self), 'irc')
 		else:
 			bs = None
 		if bs is None:
@@ -183,7 +183,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def __init__(self, ctrl: IRCCtrl) -> None:
 		self.ctrl = ctrl
 	
-	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
+	def on_presence_notification(self, contact: Contact, old_status: Any) -> None:
 		self.ctrl.send_reply('NOTICE', ":{} is now {}".format(contact.head.email, contact.status.substatus))
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
