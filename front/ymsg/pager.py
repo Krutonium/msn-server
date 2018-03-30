@@ -67,9 +67,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		arg1 = args[4].get('1')
 		assert isinstance(arg1, str)
-		self.yahoo_id = misc.yahoo_id(arg1)
+		self.yahoo_id = arg1
 		
-		if self.yahoo_id_to_uuid(self.yahoo_id) is None:
+		if self.yahoo_id_to_uuid(self.yahoo_id) is None or self.yahoo_id.endswith('@yahoo.com'):
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, 0, MultiDict([
 				('66', int(YMSGStatus.NotAtHome))
 			]))
@@ -589,6 +589,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		if '@' in yahoo_id:
 			email = yahoo_id
+		elif '@yahoo.com' in yahoo_id:
+			return None
 		elif self.bs:
 			detail = self.bs.user.detail
 			assert detail is not None
