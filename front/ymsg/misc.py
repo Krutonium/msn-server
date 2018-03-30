@@ -7,7 +7,7 @@ import time
 from util.misc import first_in_iterable
 
 from core.backend import Backend, BackendSession, ChatSession
-from core.models import User, Contact, Substatus
+from core.models import User, Contact, Substatus, YMSGStatus
 
 class YMSGService(IntEnum):
 	LogOn = 0x01
@@ -49,30 +49,6 @@ class YMSGService(IntEnum):
 	# Happened after waiting a long time doing nothing
 	# YMSG \x0a \0\0\0\0 \x14\x00 \xa1\x00 \0\0\0\xb4 D\x8221 09\xc0\x80 t1y@yahoo.com\xc0\x80
 	Unknown_0xa1 = 0xa1
-
-class YMSGStatus(IntEnum):
-	# Available/Client Request
-	Available   = 0x00000000
-	# BRB/Server Response
-	BRB         = 0x00000001
-	Busy        = 0x00000002
-	# "Not at Home"/BadUsername
-	NotAtHome   = 0x00000003
-	NotAtDesk   = 0x00000004
-	NotInOffice = 0x00000005
-	OnPhone     = 0x00000006
-	OnVacation  = 0x00000007
-	OutToLunch  = 0x00000008
-	SteppedOut  = 0x00000009
-	Invisible   = 0x0000000c
-	Bad         = 0x0000000d
-	Locked      = 0x0000000e
-	Typing      = 0x00000016
-	Custom      = 0x00000063
-	Idle        = 0x000003e7
-	WebLogin    = 0x5a55aa55
-	Offline     = 0x5a55aa56
-	LoginError  = 0xffffffff
 
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
@@ -259,24 +235,3 @@ def convert_to_substatus(ymsg_status: YMSGStatus) -> Substatus:
 	if ymsg_status is YMSGStatus.Bad:
 		return Substatus.FLN
 	return Substatus.NLN
-
-def convert_from_substatus(substatus: Substatus) -> YMSGStatus:
-	if substatus is Substatus.FLN:
-		return YMSGStatus.Offline
-	if substatus is Substatus.NLN:
-		return YMSGStatus.Available
-	if substatus is Substatus.BSY:
-		return YMSGStatus.Busy
-	if substatus is Substatus.IDL:
-		return YMSGStatus.NotAtHome
-	if substatus is Substatus.BRB:
-		return YMSGStatus.BRB
-	if substatus is Substatus.AWY:
-		return YMSGStatus.NotAtHome
-	if substatus is Substatus.PHN:
-		return YMSGStatus.OnPhone
-	if substatus is Substatus.LUN:
-		return YMSGStatus.OutToLunch
-	if substatus is Substatus.HDN:
-		return YMSGStatus.Invisible
-	return YMSGStatus.Bad
