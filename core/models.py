@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Dict, Optional, Set, Any, TypeVar
-from enum import Enum, IntFlag
+from enum import Enum, IntEnum, IntFlag
 
 class User:
 	__slots__ = ('uuid', 'email', 'verified', 'status', 'detail', 'date_created')
@@ -166,6 +166,33 @@ class Substatus(Enum):
 	
 	def is_offlineish(self) -> bool:
 		return self is Substatus.FLN or self is Substatus.HDN
+
+class YMSGStatus(IntEnum):
+	# Available/Client Request
+	Available   = 0x00000000
+	# BRB/Server Response
+	BRB         = 0x00000001
+	Busy        = 0x00000002
+	# "Not at Home"/BadUsername
+	NotAtHome   = 0x00000003
+	NotAtDesk   = 0x00000004
+	NotInOffice = 0x00000005
+	OnPhone     = 0x00000006
+	OnVacation  = 0x00000007
+	OutToLunch  = 0x00000008
+	SteppedOut  = 0x00000009
+	Invisible   = 0x0000000C
+	Bad         = 0x0000000D
+	Locked      = 0x0000000E
+	Typing      = 0x00000016
+	Custom      = 0x00000063
+	Idle        = 0x000003E7
+	WebLogin    = 0x5A55AA55
+	Offline     = 0x5A55AA56
+	LoginError  = 0xFFFFFFFF
+	
+	def is_offlineish(self):
+		return self is YMSGStatus.Offline or self is YMSGStatus.Invisible
 
 class Lst(IntFlag):
 	Empty = 0x00
