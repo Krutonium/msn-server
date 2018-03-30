@@ -1,9 +1,9 @@
-from typing import cast, Optional, List
+from typing import cast, Optional, List, Any
 import asyncio
 import random
 
 from core.client import Client
-from core.models import Substatus, Lst, Contact, User, TextWithData, MessageData, MessageType
+from core.models import Substatus, YMSGStatus, Lst, Contact, User, TextWithData, MessageData, MessageType
 from core.backend import Backend, BackendSession, Chat, ChatSession
 from core import event
 
@@ -13,7 +13,7 @@ def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	for i in range(5):
 		uuid = backend.util_get_uuid_from_email('bot{}@bot.log1p.xyz'.format(i))
 		assert uuid is not None
-		bs = backend.login(uuid, CLIENT, BackendEventHandler(loop))
+		bs = backend.login(uuid, CLIENT, BackendEventHandler(loop), 'testbot')
 		assert bs is not None
 
 class BackendEventHandler(event.BackendEventHandler):
@@ -26,10 +26,17 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.loop = loop
 	
 	def on_open(self) -> None:
-		self.bs.me_update({ 'substatus': Substatus.NLN })
+		self.bs.front_data['ymsg_message_dict'] = {
+			'message': self.bs.user.status.message,
+			'is_away_msg': False,
+		}
+		self.bs.me_update({
+			'substatus': Substatus.NLN,
+			'front_status': ['ymsg_status', YMSGStatus.Custom],
+		})
 		print("Bot active:", self.bs.user.status.name)
 	
-	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
+	def on_presence_notification(self, contact: Contact, old_status: Any) -> None:
 		pass
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
