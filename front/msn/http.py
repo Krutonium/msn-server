@@ -661,7 +661,7 @@ def _extract_pp_credentials(auth_str: str) -> Optional[Tuple[str, str]]:
 def _login(req, email: str, pwd: str) -> Optional[str]:
 	backend = req.app['backend'] # type: Backend
 	uuid = backend.user_service.login(email, pwd)
-	if uuid is None: return None
+	if uuid is None or not backend.user_service.get_user_front_type(uuid, 'msn'): return None
 	return backend.auth_service.create_token('nb/login', uuid)
 
 def _date_format(d: Optional[datetime]) -> Optional[str]:
