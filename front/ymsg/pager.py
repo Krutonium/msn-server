@@ -485,17 +485,19 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _y_001c(self, *args) -> None:
 		# SERVICE_CONFADDINVITE (0x1c); send a conference invite to an existing conference to one or more people
 		
-		conf_new_roster = args[4].getall('51', None)
-		if conf_new_roster is None:
+		yahoo_data = args[4]
+		conf_new_roster_str = yahoo_data.get('51')
+		if conf_new_roster_str is None:
 			return
-		conf_roster = args[4].getall('52', None)
+		conf_new_roster = conf_new_roster_str.split(',')
+		conf_roster = yahoo_data.getall('52', None)
 		if conf_roster is None:
-			conf_roster = args[4].getall('53', None)
+			conf_roster = yahoo_data.getall('53', None)
 			if conf_roster is None:
 				conf_roster = []
-		conf_id = args[4].get('57')
-		invite_msg = args[4].get('58')
-		voice_chat = args[4].get('13')
+		conf_id = yahoo_data.get('57')
+		invite_msg = yahoo_data.get('58')
+		voice_chat = yahoo_data.get('13')
 		
 		chat = self._get_chat_by_id('ymsg/conf', conf_id)
 		assert chat is not None
