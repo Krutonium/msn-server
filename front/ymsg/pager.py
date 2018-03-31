@@ -8,7 +8,7 @@ import binascii
 
 from util.misc import Logger
 
-from core import event
+from core import event, error
 from core.backend import Backend, BackendSession, Chat, ChatSession
 from core.models import Substatus, Lst, User, Contact, Group, TextWithData, MessageData, MessageType, UserStatus
 from core.client import Client
@@ -233,7 +233,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		groups = detail.groups
 		
 		contact = contacts.get(contact_uuid)
-		if contact is not None:
+		if contact is not None and contact.lists & Lst.FL:
 			for grp_uuid in contact.groups:
 				if groups[grp_uuid].name == buddy_group:
 					add_request_response.add('66', 2)
@@ -261,7 +261,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		self.send_reply(YMSGService.ContactNew, YMSGStatus.BRB, self.sess_id, contact_struct)
 		
-		if not contact:
+		if not contact or not contact.lists & Lst.FL:
 			add_request_response.add('66', 0)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			
@@ -637,17 +637,18 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	def _update_buddy_list(self, contacts: Dict[str, Contact], groups: Dict[str, Group], after_auth: bool = False) -> None:
 		cs = list(contacts.values())
+		cs_fl = [c for c in cs if c.lists & Lst.FL]
 		
 		contact_group_list = []
 		for grp in groups.values():
 			contact_list = []
-			for c in cs:
+			for c in cs_fl:
 				if grp.id in c.groups:
 					contact_list.append(misc.yahoo_id(c.head.email))
 			if contact_list:
 				contact_group_list.append(grp.name + ':' + ','.join(contact_list) + '\n')
 		# Handle contacts that aren't part of any groups
-		contact_list = [misc.yahoo_id(c.head.email) for c in cs if not c.groups]
+		contact_list = [misc.yahoo_id(c.head.email) for c in cs_fl if not c.groups]
 		if contact_list:
 			contact_group_list.append('(No Group):' + ','.join(contact_list) + '\n')
 		
@@ -677,10 +678,10 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		logon_payload = MultiDict([
 			('0', self.yahoo_id),
 			('1', self.yahoo_id),
-			('8', len(cs))
+			('8', len(cs_fl))
 		])
 		
-		for c in cs:
+		for c in cs_fl:
 			add_contact_status_to_data(logon_payload, c.status, c.head)
 		
 		if after_auth:
