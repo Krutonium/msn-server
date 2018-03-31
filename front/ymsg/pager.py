@@ -819,6 +819,8 @@ class BackendEventHandler(event.BackendEventHandler):
 			self.ctrl.private_chats[inviter.uuid] = (cs, evt)
 		else:
 			# Regular chat
+			if 'ymsg/conf' not in chat.ids:
+				chat.add_id('ymsg/conf', chat.ids['main'])
 			for y in misc.build_conf_invite(inviter, self.bs, chat.ids['ymsg/conf'], invite_msg, roster or [], voice_chat or 0, existing_conf = existing):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
