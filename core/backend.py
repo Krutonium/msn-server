@@ -373,15 +373,12 @@ class BackendSession(Session):
 		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
+		assert lst is not Lst.RL
+		self._remove_from_list(user, ctc.head, lst)
 		if lst is Lst.FL:
-			# Remove from FL
-			self._remove_from_list(user, ctc.head, Lst.FL)
+			ctc.groups = set()
 			# Remove matching RL
 			self._remove_from_list(ctc.head, user, Lst.RL)
-		else:
-			assert lst is not Lst.RL
-			ctc.lists &= ~lst
-		self.backend._mark_modified(user)
 		self.backend._sync_contact_statuses()
 	
 	def me_contact_deny(self, adder_uuid: str, deny_message: Optional[str]):
