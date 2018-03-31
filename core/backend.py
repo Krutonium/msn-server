@@ -21,13 +21,13 @@ class Ack(IntFlag):
 
 class Backend:
 	__slots__ = (
-		'user_service', 'auth_service', '_loop', '_stats', '_sc',
+		'user_service', 'auth_service', 'loop', '_stats', '_sc',
 		'_chats_by_id', '_user_by_uuid', '_unsynced_db', '_runners',
 	)
 	
 	user_service: UserService
 	auth_service: AuthService
-	_loop: asyncio.AbstractEventLoop
+	loop: asyncio.AbstractEventLoop
 	_stats: Stats
 	_sc: '_SessionCollection'
 	_chats_by_id: Dict[Tuple[str, str], 'Chat']
@@ -38,7 +38,7 @@ class Backend:
 	def __init__(self, loop: asyncio.AbstractEventLoop, *, user_service: Optional[UserService] = None, auth_service: Optional[AuthService] = None) -> None:
 		self.user_service = user_service or UserService()
 		self.auth_service = auth_service or AuthService()
-		self._loop = loop
+		self.loop = loop
 		self._stats = Stats()
 		self._sc = _SessionCollection()
 		self._chats_by_id = {}
@@ -54,7 +54,7 @@ class Backend:
 		self._runners.append(runner)
 	
 	def run_forever(self) -> None:
-		run_loop(self._loop, self._runners)
+		run_loop(self.loop, self._runners)
 	
 	def on_leave(self, sess: 'BackendSession') -> None:
 		user = sess.user
@@ -567,6 +567,19 @@ class ChatSession(Session):
 		
 		for cs_other in self.chat._users_by_sess.keys():
 			if cs_other is self: continue
+			cs_other.evt.on_message(data)
+			stats.on_message_received(cs_other.user, client)
+	
+	def send_message_to_user(self, user_uuid: str, data: MessageData) -> None:
+		stats = self.chat._stats
+		client = self.bs.client
+		
+		stats.on_message_sent(self.user, client)
+		stats.on_user_active(self.user, client)
+		
+		for cs_other in self.chat._users_by_sess.keys():
+			if cs_other is self: continue
+			if cs_other.user.uuid != user_uuid: continue
 			cs_other.evt.on_message(data)
 			stats.on_message_received(cs_other.user, client)
 

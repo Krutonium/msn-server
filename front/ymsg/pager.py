@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List, Iterable, Set
+from typing import Optional, Dict, Any, List, Iterable, Set, Tuple
 import secrets
 import datetime
 from multidict import MultiDict
@@ -30,7 +30,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	sess_id: int
 	challenge: Optional[str]
 	bs: Optional[BackendSession]
-	private_chats: Dict[str, ChatSession]
+	private_chats: Dict[str, Tuple[ChatSession, 'ChatEventHandler']]
 	chat_sessions: Dict[Chat, ChatSession]
 	client: Client
 	
@@ -123,7 +123,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if uuid is None:
 				is_resp_correct = False
 			else:
-				bs = self.backend.login(uuid, self.client, BackendEventHandler(self), front_needs_self_notify = True)
+				bs = self.backend.login(uuid, self.client, BackendEventHandler(self.backend.loop, self), front_needs_self_notify = True)
 				if bs is None:
 					is_resp_correct = False
 				else:
@@ -427,7 +427,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if contact_uuid is None:
 			return
 		
-		cs = self._get_private_chat_with(contact_uuid)
+		cs, _ = self._get_private_chat_with(contact_uuid)
 		cs.send_message_to_everyone(messagedata_from_ymsg(cs.user, yahoo_data, notify_type = notify_type))
 	
 	def _y_0006(self, *args) -> None:
@@ -439,8 +439,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if contact_uuid is None:
 			return
 		
-		cs = self._get_private_chat_with(contact_uuid)
-		cs.send_message_to_everyone(messagedata_from_ymsg(cs.user, yahoo_data))
+		cs, evt = self._get_private_chat_with(contact_uuid)
+		evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
 	
 	def _y_004d(self, *args) -> None:
 		# SERVICE_P2PFILEXFER (0x4d); initiate P2P file transfer. Due to this service being present in 3rd-party libraries; we can implement it here
@@ -606,15 +606,16 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		return self.backend.util_get_uuid_from_email(email)
 	
-	def _get_private_chat_with(self, other_user_uuid: str) -> ChatSession:
+	def _get_private_chat_with(self, other_user_uuid: str) -> Tuple[ChatSession, 'ChatEventHandler']:
 		assert self.bs is not None
 		
 		if other_user_uuid not in self.private_chats:
 			chat = self.backend.chat_create(twoway_only = True)
 			
 			# `user` joins
-			cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
-			self.private_chats[other_user_uuid] = cs
+			evt = ChatEventHandler(self.backend.loop, self)
+			cs = chat.join('yahoo', self.bs, evt)
+			self.private_chats[other_user_uuid] = (cs, evt)
 			cs.invite(other_user_uuid)
 		return self.private_chats[other_user_uuid]
 	
@@ -629,7 +630,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert self.bs is not None
 		cs = self.chat_sessions.get(chat)
 		if cs is None and create:
-			cs = chat.join('yahoo', self.bs, ChatEventHandler(self))
+			cs = chat.join('yahoo', self.bs, ChatEventHandler(self.backend.loop, self))
 			self.chat_sessions[chat] = cs
 			chat.send_participant_joined(cs)
 		return cs
@@ -762,14 +763,16 @@ def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> 
 	data.add('13', (0 if is_offlineish else 1))
 
 class BackendEventHandler(event.BackendEventHandler):
-	__slots__ = ('ctrl', 'dialect', 'sess_id', 'bs')
+	__slots__ = ('loop', 'ctrl', 'dialect', 'sess_id', 'bs')
 	
+	loop: asyncio.AbstractEventLoop
 	ctrl: YMSGCtrlPager
 	dialect: int
 	sess_id: int
 	bs: BackendSession
 	
-	def __init__(self, ctrl: YMSGCtrlPager) -> None:
+	def __init__(self, loop: asyncio.AbstractEventLoop, ctrl: YMSGCtrlPager) -> None:
+		self.loop = loop
 		self.ctrl = ctrl
 		self.dialect = ctrl.dialect
 		self.sess_id = ctrl.sess_id
@@ -803,9 +806,10 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
-			cs = chat.join('yahoo', self.bs, ChatEventHandler(self.ctrl))
+			evt = ChatEventHandler(self.loop, self.ctrl)
+			cs = chat.join('yahoo', self.bs, evt)
 			chat.send_participant_joined(cs)
-			self.ctrl.private_chats[inviter.uuid] = cs
+			self.ctrl.private_chats[inviter.uuid] = (cs, evt)
 		else:
 			# Regular chat
 			for y in misc.build_conf_invite(inviter, self.bs, chat.ids['ymsg/conf'], invite_msg, roster or [], voice_chat or 0, existing_conf = existing):
@@ -825,13 +829,15 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.ctrl.close()
 
 class ChatEventHandler(event.ChatEventHandler):
-	__slots__ = ('ctrl', 'bs', 'cs')
+	__slots__ = ('loop', 'ctrl', 'bs', 'cs')
 	
+	loop: asyncio.AbstractEventLoop
 	ctrl: YMSGCtrlPager
 	bs: BackendSession
 	cs: ChatSession
 	
-	def __init__(self, ctrl: YMSGCtrlPager) -> None:
+	def __init__(self, loop: asyncio.AbstractEventLoop, ctrl: YMSGCtrlPager) -> None:
+		self.loop = loop
 		self.ctrl = ctrl
 		assert ctrl.bs is not None
 		self.bs = ctrl.bs
@@ -846,6 +852,9 @@ class ChatEventHandler(event.ChatEventHandler):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_participant_left(self, cs_other: ChatSession) -> None:
+		if 'ymsg/conf' not in cs_other.chat.ids:
+			# Yahoo only receives this event in "conferences"
+			return
 		for y in misc.build_conf_logoff(self.bs, cs_other):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
@@ -867,6 +876,31 @@ class ChatEventHandler(event.ChatEventHandler):
 		elif data.type is MessageType.Typing:
 			for y in misc.build_notify_notif(sender, self.bs, yahoo_data):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+	
+	def _send_when_user_joins(self, user_uuid: str, data: MessageData) -> None:
+		# Send to everyone currently in chat
+		self.cs.send_message_to_everyone(data)
+		
+		if self._user_in_chat(user_uuid):
+			return
+		
+		# If `user_uuid` hasn't joined yet, send it later
+		self.loop.create_task(self._send_delayed(user_uuid, data))
+	
+	async def _send_delayed(self, user_uuid: str, data: MessageData) -> None:
+		delay = 0.1
+		for _ in range(3):
+			await asyncio.sleep(delay)
+			delay *= 3
+			if self._user_in_chat(user_uuid):
+				self.cs.send_message_to_user(user_uuid, data)
+				return
+	
+	def _user_in_chat(self, user_uuid: str) -> bool:
+		for cs_other in self.cs.chat.get_roster():
+			if cs_other.user.uuid == user_uuid:
+				return True
+		return False
 
 def messagedata_from_ymsg(sender: User, data: Dict[str, Any], *, notify_type: Optional[str] = None) -> MessageData:
 	text = data.get('14') or ''
