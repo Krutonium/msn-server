@@ -115,6 +115,7 @@ class Backend:
 				# This shouldn't be `None`, since every contact should have
 				# an `RL` contact on the other users' list (at the very least).
 				if ctc_me is None: continue
+				if not ctc_me.lists & Lst.FL: continue
 				bs_other.evt.on_presence_notification(ctc_me, old_substatus)
 	
 	def _sync_contact_statuses(self) -> None:
