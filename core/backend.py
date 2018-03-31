@@ -353,9 +353,18 @@ class BackendSession(Session):
 		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
+		
+		updated = False
+		
+		orig_is_messenger_user = ctc.is_messenger_user
 		if is_messenger_user is not None:
 			ctc.is_messenger_user = is_messenger_user
-		self.backend._mark_modified(user)
+		
+		if is_messenger_user != orig_is_messenger_user:
+			updated = True
+		
+		if updated:
+			self.backend._mark_modified(user)
 	
 	def me_contact_remove(self, contact_uuid: str, lst: Lst) -> None:
 		user = self.user
@@ -391,10 +400,23 @@ class BackendSession(Session):
 		if ctc_head.uuid not in contacts:
 			contacts[ctc_head.uuid] = Contact(ctc_head, set(), Lst.Empty, UserStatus(name))
 		ctc = contacts[ctc_head.uuid]
+		
+		updated = False
+		
+		orig_name = ctc.status.name
 		if ctc.status.name is None:
 			ctc.status.name = name
-		ctc.lists |= lst
-		self.backend._mark_modified(user, detail = detail)
+		
+		if orig_name != name:
+			updated = True
+		
+		if (ctc.lists & lst) != lst:
+			ctc.lists |= lst
+			updated = True
+		
+		if updated:
+			self.backend._mark_modified(user, detail = detail)
+		
 		return ctc
 	
 	def _remove_from_list(self, user: User, ctc_head: User, lst: Lst) -> None:
@@ -403,10 +425,18 @@ class BackendSession(Session):
 		contacts = detail.contacts
 		ctc = contacts.get(ctc_head.uuid)
 		if ctc is None: return
-		ctc.lists &= ~lst
+		
+		updated = False
+		if ctc.lists & lst:
+			ctc.lists &= ~lst
+			updated = True
+		
 		if not ctc.lists:
 			del contacts[ctc_head.uuid]
-		self.backend._mark_modified(user, detail = detail)
+			updated = True
+		
+		if updated:
+			self.backend._mark_modified(user, detail = detail)
 	
 	def me_contact_notify_oim(self, uuid: str, oim_uuid: str) -> None:
 		ctc_head = self.backend._load_user_record(uuid)
