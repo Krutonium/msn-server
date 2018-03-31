@@ -266,7 +266,13 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			
 			bs.me_contact_add(ctc_head.uuid, Lst.FL, message = (TextWithData(message, utf8) if message is not None else None))
-		bs.me_group_contact_add(group.id, contact_uuid)
+		try:
+			bs.me_group_contact_add(group.id, contact_uuid)
+		except error.ContactAlreadyOnList:
+			# Ignore, because this condition was checked earlier, so the only way this
+			# can happen is if the the contact list gets in an inconsistent state.
+			# (I.e. contact is not on FL, but still part of groups.)
+			pass
 		
 		# Just in case Yahoo! doesn't send a LIST packet
 		self._update_buddy_list(contacts, groups)
