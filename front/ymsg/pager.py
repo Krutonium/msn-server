@@ -795,7 +795,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		
 		self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
 	
-	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
+	def on_contact_request_denied(self, user: User, message: str) -> None:
 		for y in misc.build_contact_deny_notif(user, self.bs, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
@@ -803,7 +803,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
+	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
 			evt = ChatEventHandler(self.loop, self.ctrl)
@@ -816,7 +816,7 @@ class BackendEventHandler(event.BackendEventHandler):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
-		for y in misc.build_contact_request_notif(user, self.bs.user, (None if message is None else message.text), (None if message is None else message.yahoo_utf8)):
+		for y in misc.build_contact_request_notif(user, self.bs.user, ('' if message is None else message.text), (None if message is None else message.yahoo_utf8)):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_pop_boot(self) -> None:
@@ -858,7 +858,7 @@ class ChatEventHandler(event.ChatEventHandler):
 		for y in misc.build_conf_logoff(self.bs, cs_other):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_invite_declined(self, invited_user: User, *, message: Optional[str] = None) -> None:
+	def on_invite_declined(self, invited_user: User, *, message: str = '') -> None:
 		for y in misc.build_conf_invite_decline(invited_user, self.bs, self.cs.chat.ids['ymsg/conf'], message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	

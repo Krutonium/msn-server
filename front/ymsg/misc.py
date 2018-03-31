@@ -120,7 +120,7 @@ _FromSubstatus = DefaultDict(YMSGStatus.Bad, {
 
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
-def build_contact_request_notif(user_adder: User, user_added: User, message: Optional[str], utf8: Optional[str]) -> Iterable[EncodedYMSG]:
+def build_contact_request_notif(user_adder: User, user_added: User, message: str, utf8: Optional[str]) -> Iterable[EncodedYMSG]:
 	contact_request_data = MultiDict([
 		('1', yahoo_id(user_added.email)),
 		('3', yahoo_id(user_adder.email)),
@@ -132,7 +132,7 @@ def build_contact_request_notif(user_adder: User, user_added: User, message: Opt
 	
 	yield (YMSGService.ContactNew, YMSGStatus.NotAtHome, contact_request_data)
 
-def build_contact_deny_notif(user_denier: User, bs: BackendSession, deny_message: Optional[str]) -> Iterable[EncodedYMSG]:
+def build_contact_deny_notif(user_denier: User, bs: BackendSession, deny_message: str) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
 	contact_deny_data = MultiDict([
@@ -199,7 +199,7 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
 
-def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_msg: Optional[str], conf_roster: List[str], voice_chat: int, existing_conf: bool = False) -> Iterable[EncodedYMSG]:
+def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_msg: str, conf_roster: List[str], voice_chat: int, existing_conf: bool = False) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
 	conf_invite_dict = MultiDict([
@@ -216,7 +216,7 @@ def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_
 	
 	yield ((YMSGService.ConfInvite if not existing_conf else YMSGService.ConfAddInvite), YMSGStatus.BRB, conf_invite_dict)
 
-def build_conf_invite_decline(inviter: User, bs: BackendSession, conf_id: str, deny_msg: Optional[str]) -> Iterable[EncodedYMSG]:
+def build_conf_invite_decline(inviter: User, bs: BackendSession, conf_id: str, deny_msg: str) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
 	conf_decline_dict = MultiDict([

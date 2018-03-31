@@ -378,7 +378,7 @@ class BackendSession(Session):
 		user = self.user
 		for sess_adder in self.backend._sc.get_sessions_by_user(user_adder):
 			if sess_adder is self: continue
-			sess_adder.evt.on_contact_request_denied(user, deny_message)
+			sess_adder.evt.on_contact_request_denied(user, deny_message or '')
 	
 	def _add_to_list(self, user: User, ctc_head: User, lst: Lst, name: Optional[str]) -> Contact:
 		# Add `ctc_head` to `user`'s `lst`
@@ -556,7 +556,7 @@ class ChatSession(Session):
 			invitee = ctc.head
 		ctc_sessions = self.bs.backend.util_get_sessions_by_user(invitee)
 		for ctc_sess in ctc_sessions:
-			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg, roster = roster, voice_chat = voice_chat, existing = existing)
+			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg or '', roster = roster, voice_chat = voice_chat, existing = existing)
 	
 	def send_message_to_everyone(self, data: MessageData) -> None:
 		stats = self.chat._stats

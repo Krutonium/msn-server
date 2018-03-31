@@ -25,7 +25,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None: pass
 	
 	@abstractmethod
-	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None: pass
+	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None: pass
 	
 	# `user` added me to their FL, and they're now on my RL.
 	@abstractmethod
@@ -33,7 +33,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	
 	# `user` didn't accept contact request; currently only used on YMSG
 	@abstractmethod
-	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None: pass
+	def on_contact_request_denied(self, user: User, message: str) -> None: pass
 	
 	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None: pass
 	
@@ -70,7 +70,7 @@ class ChatEventHandler(metaclass = ABCMeta):
 	def on_participant_left(self, cs_other: 'ChatSession') -> None: pass
 	
 	@abstractmethod
-	def on_invite_declined(self, invited_user: User, *, message: Optional[str] = None) -> None: pass
+	def on_invite_declined(self, invited_user: User, *, message: str = '') -> None: pass
 	
 	@abstractmethod
 	def on_message(self, data: MessageData) -> None: pass
