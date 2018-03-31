@@ -410,6 +410,11 @@ class BackendSession(Session):
 		if orig_name != name:
 			updated = True
 		
+		# If I add someone to FL, and they're not already blocked,
+		# they should also be added to AL.
+		if lst == Lst.FL and not ctc.lists & Lst.BL:
+			lst = lst | Lst.AL
+		
 		if (ctc.lists & lst) != lst:
 			ctc.lists |= lst
 			updated = True
