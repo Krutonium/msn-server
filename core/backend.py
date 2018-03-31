@@ -342,6 +342,7 @@ class BackendSession(Session):
 					if sess_added is self: continue
 					sess_added.evt.on_added_me(user, message = message)
 		backend._sync_contact_statuses()
+		self.evt.on_presence_notification(ctc, old_substatus = Substatus.Offline)
 		backend._generic_notify(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
 	
