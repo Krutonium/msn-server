@@ -333,11 +333,13 @@ class BackendSession(Session):
 		ctc = self._add_to_list(user, ctc_head, lst, name)
 		if lst is Lst.FL:
 			# FL needs a matching RL on the contact
-			self._add_to_list(ctc_head, user, Lst.RL, user.status.name)
-			# `ctc_head` was added to `user`'s RL
-			for sess_added in backend._sc.get_sessions_by_user(ctc_head):
-				if sess_added is self: continue
-				sess_added.evt.on_added_to_list(user, message = message)
+			ctc_me = self._add_to_list(ctc_head, user, Lst.RL, user.status.name)
+			# If other user hasn't already allowed/blocked me, notify them that I added them to my list.
+			if not ctc_me.lists & (Lst.AL | Lst.BL):
+				# `ctc_head` was added to `user`'s RL
+				for sess_added in backend._sc.get_sessions_by_user(ctc_head):
+					if sess_added is self: continue
+					sess_added.evt.on_added_to_list(user, message = message)
 		backend._sync_contact_statuses()
 		backend._generic_notify(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
