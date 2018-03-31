@@ -322,7 +322,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		contact_uuid = self.yahoo_id_to_uuid(contact_id)
 		if contact_uuid is None:
 			remove_buddy_response.add('66', 3)
-			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, remove_buddy_response)
+			self.send_reply(YMSGService.FriendRemove, YMSGStatus.BRB, self.sess_id, remove_buddy_response)
 			return
 		
 		bs.me_contact_remove(contact_uuid, Lst.FL)
