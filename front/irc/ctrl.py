@@ -64,7 +64,7 @@ class IRCCtrl:
 			return
 		self.bs = bs
 		
-		self.bs.me_update({ 'substatus': Substatus.NLN })
+		self.bs.me_update({ 'substatus': Substatus.Online })
 		
 		self.send_numeric(RPL.Welcome, email, ':Log on successful.')
 	

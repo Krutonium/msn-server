@@ -749,13 +749,13 @@ def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> 
 	data.add('7', contact_yahoo_id)
 	
 	if is_offlineish or not status.message:
-		data.add('10', int(YMSGStatus.Available if is_offlineish else misc.convert_from_substatus(status.substatus)))
+		data.add('10', int(YMSGStatus.Available if is_offlineish else YMSGStatus.FromSubstatus(status.substatus)))
 		data.add('11', key_11_val)
 	else:
 		data.add('10', int(YMSGStatus.Custom))
 		data.add('11', key_11_val)
 		data.add('19', status.message)
-		is_away_message = (status.substatus != Substatus.NLN)
+		is_away_message = (status.substatus is not Substatus.Online)
 		data.add('47', int(is_away_message))
 	
 	data.add('17', 0)
@@ -779,7 +779,7 @@ class BackendEventHandler(event.BackendEventHandler):
 			service = YMSGService.LogOff
 		elif old_substatus.is_offlineish():
 			service = YMSGService.LogOn
-		elif contact.status.substatus is Substatus.NLN:
+		elif contact.status.substatus is Substatus.Online:
 			service = YMSGService.IsBack
 		else:
 			service = YMSGService.IsAway
@@ -896,9 +896,9 @@ def messagedata_to_ymsg(data: MessageData) -> Dict[str, Any]:
 def me_status_update(bs: BackendSession, status_new: YMSGStatus, *, message: str = '', is_away_message: bool = False) -> None:
 	bs.front_data['ymsg_status'] = status_new
 	if status_new is YMSGStatus.Custom:
-		substatus = (Substatus.BSY if is_away_message else Substatus.NLN)
+		substatus = (Substatus.Busy if is_away_message else Substatus.Online)
 	else:
-		substatus = misc.convert_to_substatus(status_new)
+		substatus = YMSGStatus.ToSubstatus(status_new)
 	bs.me_update({
 		'message': message,
 		'substatus': substatus,

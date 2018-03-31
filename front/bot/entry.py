@@ -28,13 +28,12 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_open(self) -> None:
 		bs = self.bs
 		
-		bs.me_update({ 'substatus': Substatus.NLN })
+		bs.me_update({ 'substatus': Substatus.Online })
 		print("Bot active:", bs.user.status.name)
 		
 		detail = bs.user.detail
 		assert detail is not None
 		
-		bs.me_update({ 'substatus': Substatus.NLN })
 		uuid = bs.backend.util_get_uuid_from_email('test1@example.com')
 		if uuid is None:
 			return

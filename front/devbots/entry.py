@@ -26,7 +26,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.loop = loop
 	
 	def on_open(self) -> None:
-		self.bs.me_update({ 'substatus': Substatus.NLN })
+		self.bs.me_update({ 'substatus': Substatus.Online })
 		print("Bot active:", self.bs.user.status.name)
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:

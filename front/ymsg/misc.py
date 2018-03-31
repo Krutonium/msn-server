@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, Any, Iterable, Dict, List
+from typing import Optional, Tuple, Any, Iterable, Dict, List, ClassVar
 from urllib.parse import quote_plus
 from multidict import MultiDict
 from enum import IntEnum
 import time
 
-from util.misc import first_in_iterable
+from util.misc import first_in_iterable, DefaultDict
 
 from core.backend import Backend, BackendSession, ChatSession
 from core.models import User, Contact, Substatus
@@ -74,6 +74,49 @@ class YMSGStatus(IntEnum):
 	WebLogin    = 0x5A55AA55
 	Offline     = 0x5A55AA56
 	LoginError  = 0xFFFFFFFF
+	
+	@classmethod
+	def ToSubstatus(cls, ymsg_status: 'YMSGStatus') -> Substatus:
+		return _ToSubstatus[ymsg_status]
+	
+	@classmethod
+	def FromSubstatus(cls, substatus: Substatus) -> 'YMSGStatus':
+		return _FromSubstatus[substatus]
+
+_ToSubstatus = DefaultDict(Substatus.Busy, {
+	YMSGStatus.Offline: Substatus.Offline,
+	YMSGStatus.Available: Substatus.Online,
+	YMSGStatus.BRB: Substatus.BRB,
+	YMSGStatus.Busy: Substatus.Busy,
+	YMSGStatus.Idle: Substatus.Idle,
+	YMSGStatus.Invisible: Substatus.Invisible,
+	YMSGStatus.NotAtHome: Substatus.NotAtHome,
+	YMSGStatus.NotAtDesk: Substatus.NotAtDesk,
+	YMSGStatus.NotInOffice: Substatus.NotInOffice,
+	YMSGStatus.OnPhone: Substatus.OnPhone,
+	YMSGStatus.OutToLunch: Substatus.OutToLunch,
+	YMSGStatus.SteppedOut: Substatus.SteppedOut,
+	YMSGStatus.OnVacation: Substatus.OnVacation,
+	YMSGStatus.Locked: Substatus.Away,
+	YMSGStatus.LoginError: Substatus.Offline,
+	YMSGStatus.Bad: Substatus.Offline,
+})
+_FromSubstatus = DefaultDict(YMSGStatus.Bad, {
+	Substatus.Offline: YMSGStatus.Offline,
+	Substatus.Online: YMSGStatus.Available,
+	Substatus.Busy: YMSGStatus.Busy,
+	Substatus.Idle: YMSGStatus.Idle,
+	Substatus.BRB: YMSGStatus.BRB,
+	Substatus.Away: YMSGStatus.NotAtHome,
+	Substatus.OnPhone: YMSGStatus.OnPhone,
+	Substatus.OutToLunch: YMSGStatus.OutToLunch,
+	Substatus.Invisible: YMSGStatus.Invisible,
+	Substatus.NotAtHome: YMSGStatus.NotAtHome,
+	Substatus.NotAtDesk: YMSGStatus.NotAtDesk,
+	Substatus.NotInOffice: YMSGStatus.NotInOffice,
+	Substatus.OnVacation: YMSGStatus.OnVacation,
+	Substatus.SteppedOut: YMSGStatus.SteppedOut,
+})
 
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
@@ -231,59 +274,3 @@ def yahoo_id(email: str) -> str:
 		return email_parts[0]
 	else:
 		return email
-
-def convert_to_substatus(ymsg_status: YMSGStatus) -> Substatus:
-	if ymsg_status is YMSGStatus.Offline:
-		return Substatus.FLN
-	if ymsg_status is YMSGStatus.Available:
-		return Substatus.NLN
-	if ymsg_status is YMSGStatus.BRB:
-		return Substatus.BRB
-	if ymsg_status is YMSGStatus.Busy:
-		return Substatus.BSY
-	if ymsg_status is YMSGStatus.Idle:
-		return Substatus.IDL
-	if ymsg_status is YMSGStatus.Invisible:
-		return Substatus.HDN
-	if ymsg_status is YMSGStatus.NotAtHome:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.NotAtDesk:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.NotInOffice:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.OnPhone:
-		return Substatus.PHN
-	if ymsg_status is YMSGStatus.OutToLunch:
-		return Substatus.LUN
-	if ymsg_status is YMSGStatus.SteppedOut:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.OnVacation:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.Locked:
-		return Substatus.AWY
-	if ymsg_status is YMSGStatus.LoginError:
-		return Substatus.FLN
-	if ymsg_status is YMSGStatus.Bad:
-		return Substatus.FLN
-	return Substatus.NLN
-
-def convert_from_substatus(substatus: Substatus) -> YMSGStatus:
-	if substatus is Substatus.FLN:
-		return YMSGStatus.Offline
-	if substatus is Substatus.NLN:
-		return YMSGStatus.Available
-	if substatus is Substatus.BSY:
-		return YMSGStatus.Busy
-	if substatus is Substatus.IDL:
-		return YMSGStatus.Idle
-	if substatus is Substatus.BRB:
-		return YMSGStatus.BRB
-	if substatus is Substatus.AWY:
-		return YMSGStatus.NotAtHome
-	if substatus is Substatus.PHN:
-		return YMSGStatus.OnPhone
-	if substatus is Substatus.LUN:
-		return YMSGStatus.OutToLunch
-	if substatus is Substatus.HDN:
-		return YMSGStatus.Invisible
-	return YMSGStatus.Bad

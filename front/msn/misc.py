@@ -1,12 +1,14 @@
-from typing import Optional, Tuple, Any, Iterable
+from typing import Optional, Tuple, Any, Iterable, ClassVar, Dict
 from urllib.parse import quote
-from util.misc import first_in_iterable
+from enum import Enum
+
+from util.misc import first_in_iterable, DefaultDict
 
 from core import error
 from core.backend import Backend
-from core.models import User, Contact
+from core.models import User, Contact, Substatus
 
-def build_msnp_presence_notif(trid: Optional[str], ctc: Contact, dialect: int, backend: Backend) -> Iterable[Tuple[Any, ...]]:
+def build_presence_notif(trid: Optional[str], ctc: Contact, dialect: int, backend: Backend) -> Iterable[Tuple[Any, ...]]:
 	status = ctc.status
 	is_offlineish = status.is_offlineish()
 	if is_offlineish and trid is not None:
@@ -35,10 +37,12 @@ def build_msnp_presence_notif(trid: Optional[str], ctc: Contact, dialect: int, b
 	if dialect >= 9:
 		rst.append(encode_msnobj(ctc_sess.front_data.get('msn_msnobj') or '<msnobj/>'))
 	
+	msn_status = MSNStatus.FromSubstatus(status.substatus)
+	
 	if dialect >= 18:
-		yield (*frst, status.substatus.name, encode_email_networkid(head.email, networkid), status.name, *rst)
+		yield (*frst, msn_status.name, encode_email_networkid(head.email, networkid), status.name, *rst)
 	else:
-		yield (*frst, status.substatus.name, head.email, networkid, status.name, *rst)
+		yield (*frst, msn_status.name, head.email, networkid, status.name, *rst)
 	
 	if dialect < 11:
 		return
@@ -99,6 +103,53 @@ M_MAIL_DATA_PAYLOAD = '''<M><T>11</T><S>6</S>{rt}<RS>0</RS><SZ>{oimsz}</SZ><E>{f
 RT_M_MAIL_DATA_PAYLOAD = '''<RT>{senttime}</RT>'''
 
 SU_M_MAIL_DATA_PAYLOAD = '''<SU> </SU>'''
+
+class MSNStatus(Enum):
+	FLN = object()
+	NLN = object()
+	BSY = object()
+	IDL = object()
+	BRB = object()
+	AWY = object()
+	PHN = object()
+	LUN = object()
+	HDN = object()
+	
+	@classmethod
+	def ToSubstatus(cls, msn_status: 'MSNStatus') -> Substatus:
+		return _ToSubstatus[msn_status]
+	
+	@classmethod
+	def FromSubstatus(cls, substatus: 'Substatus') -> 'MSNStatus':
+		return _FromSubstatus[substatus]
+
+_ToSubstatus = DefaultDict(Substatus.Busy, {
+	MSNStatus.FLN: Substatus.Offline,
+	MSNStatus.NLN: Substatus.Online,
+	MSNStatus.BSY: Substatus.Busy,
+	MSNStatus.IDL: Substatus.Idle,
+	MSNStatus.BRB: Substatus.BRB,
+	MSNStatus.AWY: Substatus.Away,
+	MSNStatus.PHN: Substatus.OnPhone,
+	MSNStatus.LUN: Substatus.OutToLunch,
+	MSNStatus.HDN: Substatus.Invisible,
+})
+_FromSubstatus = DefaultDict(MSNStatus.BSY, {
+	Substatus.Offline: MSNStatus.FLN,
+	Substatus.Online: MSNStatus.NLN,
+	Substatus.Busy: MSNStatus.BSY,
+	Substatus.Idle: MSNStatus.IDL,
+	Substatus.BRB: MSNStatus.BRB,
+	Substatus.Away: MSNStatus.AWY,
+	Substatus.OnPhone: MSNStatus.PHN,
+	Substatus.OutToLunch: MSNStatus.LUN,
+	Substatus.Invisible: MSNStatus.HDN,
+	Substatus.NotAtHome: MSNStatus.AWY,
+	Substatus.NotAtDesk: MSNStatus.BRB,
+	Substatus.NotInOffice: MSNStatus.AWY,
+	Substatus.OnVacation: MSNStatus.AWY,
+	Substatus.SteppedOut: MSNStatus.BRB,
+})
 
 class Err:
 	InvalidParameter = 201

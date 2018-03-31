@@ -339,7 +339,7 @@ class BackendSession(Session):
 				if sess_added is self: continue
 				sess_added.evt.on_added_to_list(user, message = message)
 		backend._sync_contact_statuses()
-		backend._generic_notify(self, old_substatus = Substatus.FLN)
+		backend._generic_notify(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
 	
 	def me_contact_edit(self, contact_uuid: str, *, is_messenger_user: Optional[bool] = None) -> None:

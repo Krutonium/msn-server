@@ -145,3 +145,18 @@ def add_to_jinja_env(app: web.Application, prefix: str, tmpl_dir: str, *, global
 	jinja_env.loader.mapping[prefix] = jinja2.FileSystemLoader(tmpl_dir)
 	if globals:
 		jinja_env.globals.update(globals)
+
+K = TypeVar('K')
+V = TypeVar('V')
+class DefaultDict(Dict[K, V]):
+	_default: V
+	
+	def __init__(self, default: V, mapping: Dict[K, V]) -> None:
+		super().__init__(mapping)
+		self._default = default
+	
+	def __getitem__(self, key: K) -> V:
+		v = super().__getitem__(key)
+		if v is None:
+			v = self._default
+		return v

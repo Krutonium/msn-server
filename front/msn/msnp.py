@@ -5,7 +5,6 @@ from typing import List, Tuple, Any, Optional, Callable, Iterable, Sequence
 from urllib.parse import unquote
 
 from util.misc import Logger
-from .misc import build_msnp_presence_notif
 
 class MSNPCtrl(metaclass = ABCMeta):
 	__slots__ = ('logger', 'reader', 'writer', 'peername', 'closed', 'close_callback', 'transport')

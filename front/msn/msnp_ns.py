@@ -10,7 +10,7 @@ from core.models import Substatus, Lst, User, Contact, TextWithData
 from core.client import Client
 
 from .msnp import MSNPCtrl
-from .misc import build_msnp_presence_notif, encode_msnobj, gen_mail_data, Err
+from .misc import build_presence_notif, encode_msnobj, gen_mail_data, Err, MSNStatus
 
 MSNP_DIALECTS = ['MSNP{}'.format(d) for d in (
 	# Actually supported
@@ -460,7 +460,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		
 		capabilities = capabilities or 0
 		bs.me_update({
-			'substatus': getattr(Substatus, sts_name),
+			'substatus': MSNStatus.ToSubstatus(getattr(MSNStatus, sts_name)),
 		})
 		bs.front_data['msn_capabilities'] = capabilities
 		bs.front_data['msn_msnobj'] = msnobj
@@ -475,7 +475,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		assert detail is not None
 		dialect = self.dialect
 		for ctc in detail.contacts.values():
-			for m in build_msnp_presence_notif(trid, ctc, dialect, self.backend):
+			for m in build_presence_notif(trid, ctc, dialect, self.backend):
 				self.send_reply(*m)
 	
 	def _m_rea(self, trid: str, email: str, name: str) -> None:
@@ -551,7 +551,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.ctrl = ctrl
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
-		for m in build_msnp_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
+		for m in build_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
 			self.ctrl.send_reply(*m)
 	
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:

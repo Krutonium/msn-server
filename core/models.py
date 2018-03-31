@@ -42,7 +42,7 @@ class Contact:
 		# Set Contact.status based on BLP and Contact.lists
 		# If not blocked, Contact.status == Contact.head.status
 		if self.head.detail is None or _is_blocking(self.head, to_user):
-			self.status.substatus = Substatus.FLN
+			self.status.substatus = Substatus.Offline
 			return
 		true_status = self.head.status
 		self.status.substatus = true_status.substatus
@@ -68,7 +68,7 @@ class UserStatus:
 	media: Optional[Any]
 	
 	def __init__(self, name: Optional[str], message: Optional[str] = None) -> None:
-		self.substatus = Substatus.FLN
+		self.substatus = Substatus.Offline
 		self.name = name
 		self.message = message
 		self.media = None
@@ -154,18 +154,23 @@ def _default_if_none(x: Optional[T], default: T) -> T:
 	return x
 
 class Substatus(Enum):
-	FLN = object()
-	NLN = object()
-	BSY = object()
-	IDL = object()
+	Offline = object()
+	Online = object()
+	Busy = object()
+	Idle = object()
 	BRB = object()
-	AWY = object()
-	PHN = object()
-	LUN = object()
-	HDN = object()
+	Away = object()
+	OnPhone = object()
+	OutToLunch = object()
+	Invisible = object()
+	NotAtHome = object()
+	NotAtDesk = object()
+	NotInOffice = object()
+	OnVacation = object()
+	SteppedOut = object()
 	
 	def is_offlineish(self) -> bool:
-		return self is Substatus.FLN or self is Substatus.HDN
+		return self is Substatus.Offline or self is Substatus.Invisible
 
 class Lst(IntFlag):
 	Empty = 0x00
