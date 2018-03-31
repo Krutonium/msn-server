@@ -189,7 +189,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		self.ctrl.send_reply('INVITE', self.bs.user.email, chat.ids['irc'], source = inviter.email)
 	
-	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
+	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		self.ctrl.send_reply('NOTICE', ":{} added you to their friend list".format(user.email), source = user.email)
 		if message:
 			self.ctrl.send_reply('NOTICE', ":\"{}\"".format(message), source = user.email)

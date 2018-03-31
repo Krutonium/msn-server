@@ -49,7 +49,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		cs = chat.join('testbot', self.bs, ChatEventHandler(self.loop, self.bs))
 		chat.send_participant_joined(cs)
 	
-	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
+	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		pass
 	
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:

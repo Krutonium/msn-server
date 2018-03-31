@@ -340,7 +340,7 @@ class BackendSession(Session):
 				# `ctc_head` was added to `user`'s RL
 				for sess_added in backend._sc.get_sessions_by_user(ctc_head):
 					if sess_added is self: continue
-					sess_added.evt.on_added_to_list(user, message = message)
+					sess_added.evt.on_added_me(user, message = message)
 		backend._sync_contact_statuses()
 		backend._generic_notify(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head

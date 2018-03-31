@@ -822,7 +822,7 @@ class BackendEventHandler(event.BackendEventHandler):
 			for y in misc.build_conf_invite(inviter, self.bs, chat.ids['ymsg/conf'], invite_msg, roster or [], voice_chat or 0, existing_conf = existing):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
+	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		for y in misc.build_contact_request_notif(user, self.bs.user, ('' if message is None else message.text), (None if message is None else message.yahoo_utf8)):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	

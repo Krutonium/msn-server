@@ -564,7 +564,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		token = self.ctrl.backend.auth_service.create_token('sb/cal', (self.ctrl.bs, dialect, chat))
 		self.ctrl.send_reply('RNG', chat.ids['main'], 'm1.escargot.log1p.xyz:1864', 'CKI', token, inviter.email, inviter.status.name, *extra)
 	
-	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None:
+	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		email = user.email
 		name = (user.status.name or email)
 		dialect = self.ctrl.dialect

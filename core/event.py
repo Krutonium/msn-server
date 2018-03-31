@@ -29,7 +29,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	
 	# `user` added me to their FL, and they're now on my RL.
 	@abstractmethod
-	def on_added_to_list(self, user: User, *, message: Optional[TextWithData] = None) -> None: pass
+	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None: pass
 	
 	# `user` didn't accept contact request; currently only used on YMSG
 	@abstractmethod
