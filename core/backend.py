@@ -103,6 +103,8 @@ class Backend:
 		return self._chats_by_id.get((scope, id))
 	
 	def _generic_notify(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
+		# TODO: This should be done async, with a slight delay, to reduce unnecessary traffic.
+		# (Similar to how `_unsynced_db` works.)
 		# Notify relevant `BackendSession`s of status, name, message, media
 		user = bs.user
 		detail = self._load_detail(user)
@@ -119,6 +121,8 @@ class Backend:
 				bs_other.evt.on_presence_notification(ctc_me, old_substatus)
 	
 	def _sync_contact_statuses(self) -> None:
+		# TODO: This should be done async, with a slight delay, to reduce unnecessary traffic.
+		# (Similar to how `_unsynced_db` works.)
 		# Recompute all `Contact.status`'s
 		for user in self._user_by_uuid.values():
 			detail = user.detail
