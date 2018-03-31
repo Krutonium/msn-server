@@ -241,6 +241,8 @@ def convert_to_substatus(ymsg_status: YMSGStatus) -> Substatus:
 		return Substatus.BRB
 	if ymsg_status is YMSGStatus.Busy:
 		return Substatus.BSY
+	if ymsg_status is YMSGStatus.Idle:
+		return Substatus.IDL
 	if ymsg_status is YMSGStatus.Invisible:
 		return Substatus.HDN
 	if ymsg_status is YMSGStatus.NotAtHome:
@@ -273,7 +275,7 @@ def convert_from_substatus(substatus: Substatus) -> YMSGStatus:
 	if substatus is Substatus.BSY:
 		return YMSGStatus.Busy
 	if substatus is Substatus.IDL:
-		return YMSGStatus.NotAtHome
+		return YMSGStatus.Idle
 	if substatus is Substatus.BRB:
 		return YMSGStatus.BRB
 	if substatus is Substatus.AWY:
