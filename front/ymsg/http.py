@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from aiohttp import web
 import asyncio
 from markupsafe import Markup
-from urllib.parse import quote_plus
+from urllib.parse import unquote_plus
 import os
 import shutil
 
@@ -165,12 +165,7 @@ async def handle_ft_http(req) -> web.Response:
 	
 	file_tmp_path = '{path}/{file}'.format(
 		path = path,
-		file = filename,
-	)
-	
-	file_tmp_path_quoted = '{path}/{file}'.format(
-		path = path,
-		file = quote_plus(filename, safe = ''),
+		file = unquote_plus(filename),
 	)
 	
 	f = open(file_tmp_path, 'wb')
@@ -184,13 +179,15 @@ async def handle_ft_http(req) -> web.Response:
 	
 	for bs_other in bs.backend._sc.iter_sessions():
 		if bs_other.user.uuid == recipient_uuid:
-			bs_other.evt.on_sent_ft_http(yahoo_id_sender, file_tmp_path_quoted[12:], message)
+			bs_other.evt.on_sent_ft_http(yahoo_id_sender, file_tmp_path[12:], message)
 	
 	raise web.HTTPOk
 
 async def _store_tmp_file_until_expiry(file_storage_path) -> None:
 	await asyncio.sleep(86400)
-	shutil.rmtree(file_storage_path, ignore_errors = True)
+	# When a day passes, delete the file unless it has already been deleted from downloading it
+	if os.path.exists(file_storage_path):
+		shutil.rmtree(file_storage_path, ignore_errors = True)
 
 async def handle_yahoo_filedl(req) -> web.Response:
 	file_uuid = req.match_info['file_uuid']
@@ -198,12 +195,15 @@ async def handle_yahoo_filedl(req) -> web.Response:
 	
 	try:
 		filename = req.match_info['filename']
-		file_path = os.path.join(file_storage_path, filename)
+		file_path = os.path.join(file_storage_path, unquote_plus(filename))
 		
 		with open(file_path, 'rb') as file:
-			return web.Response(status = 200, body = file.read())
+			file_stream = file.read()
+			file.close()
+			shutil.rmtree(file_storage_path, ignore_errors = True)
+			return web.Response(status = 200, body = file_stream)
 	except FileNotFoundError:
-		return web.HTTPNotFound
+		raise web.HTTPNotFound
 
 def _get_tmp_file_storage_path(uuid: Optional[str] = None) -> str:
 	return 'storage/yfs/{}'.format((util.misc.gen_uuid() if uuid is None else uuid))
@@ -215,11 +215,8 @@ def _parse_cookies(req: web.Request, backend: Backend, yahoo_id: str) -> Optiona
 	
 	y = _find_substr_in_array(cookie_array, 'Y=').strip() + ';'
 	t = _find_substr_in_array(cookie_array, 'T=').strip() + ';'
-	print(y)
-	print(t)
 	
 	yahoo_id_user = backend.auth_service.pop_token('ymsg/service', y)
-	print(yahoo_id_user)
 	if yahoo_id_user != yahoo_id or not yahoo_id_to_uuid(None, backend, yahoo_id): return None
 	
 	bs_dict = backend.auth_service.pop_token('ymsg/service', t)
