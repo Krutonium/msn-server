@@ -22,7 +22,7 @@ from . import misc, Y64
 PRE_SESSION_ID: Dict[str, int] = {}
 
 class YMSGCtrlPager(YMSGCtrlBase):
-	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'cached_y_cookie', 'cached_t_cookie', 'bs', 'private_chats', 'chat_sessions', 'client')
+	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'cached_y_cookie', 'cached_t_cookie', 'cached_cookie_expiry', 'bs', 'private_chats', 'chat_sessions', 'client')
 	
 	backend: Backend
 	dialect: int
@@ -31,6 +31,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	challenge: Optional[str]
 	cached_y_cookie: Optional[str]
 	cached_t_cookie: Optional[str]
+	cached_cookie_expiry: Optional[str]
 	bs: Optional[BackendSession]
 	private_chats: Dict[str, Tuple[ChatSession, 'ChatEventHandler']]
 	chat_sessions: Dict[Chat, ChatSession]
@@ -45,6 +46,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.challenge = None
 		self.cached_y_cookie = None
 		self.cached_t_cookie = None
+		self.cached_cookie_expiry = None
 		self.bs = None
 		self.private_chats = {}
 		self.chat_sessions = {}
@@ -645,27 +647,26 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if c.lists & Lst.BL:
 				ignore_list.append(misc.yahoo_id(c.head.email))
 		
-		if self.backend.auth_service.pop_token('ymsg/service', self.cached_y_cookie) is None and self.backend.auth_service.pop_token('ymsg/service', self.cached_t_cookie) is None:
-			tmp = time.time()
-			expiry = (datetime.datetime.utcfromtimestamp(tmp) + datetime.timedelta(days = 1)).strftime('%a, %d %b %Y %H:%M:%S GMT')
-			
-			y = self.backend.auth_service.create_token('ymsg/service', self.yahoo_id, predefined_token = misc.Y_COOKIE_TEMPLATE.format(
-				encodedname = misc.encode_yahoo_id(self.yahoo_id),
-			), predefined_time = tmp, persistent = True, lifetime = 86400)
-			t = self.backend.auth_service.create_token('ymsg/service', { self.yahoo_id: self.bs }, predefined_token = misc.T_COOKIE_TEMPLATE, predefined_time = tmp, format_token = True, lifetime = 86400)
-			
-			self.cached_y_cookie = y
-			self.cached_t_cookie = t
+		cookie_list = self._get_cookies()
+		
+		if cookie_list is not None:
+			y = cookie_list[0]
+			t = cookie_list[1]
+			expiry = cookie_list[2]
 		else:
 			y = self.cached_y_cookie
 			t = self.cached_t_cookie
+			expiry = self.cached_cookie_expiry
+		
+		print(self.cached_y_cookie)
+		print(self.cached_t_cookie)
 		
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),
 			('89', self.yahoo_id),
-			('59', y.replace('=', '\t', 1) + ' expires=' + expiry + '; path=/; domain=.yahoo.com'),
-			('59', t.replace('=', '\t', 1) + ' expires=' + expiry + '; path=/; domain=.yahoo.com'),
+			('59', (y.replace('=', '\t', 1) + expiry)),
+			('59', (t.replace('=', '\t', 1) + expiry)),
 			('59', 'C\tmg=1'),
 			('3', self.yahoo_id),
 			('90', '1'),
@@ -742,6 +743,27 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		resp_96_server = Y64.Y64Encode(md5(hash_c.encode()).digest())
 		
 		return resp_6 == resp_6_server and resp_96 == resp_96_server
+	
+	def _get_cookies(self) -> Optional[List[str]]:
+		if self.backend.auth_service.pop_token('ymsg/service', self.cached_y_cookie) is None and self.backend.auth_service.pop_token('ymsg/service', self.cached_t_cookie) is None:
+			tmp = time.time()
+			expiry = (datetime.datetime.utcfromtimestamp(tmp + 86400)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+			
+			y = self.backend.auth_service.create_token('ymsg/service', self.yahoo_id, predefined_token = misc.Y_COOKIE_TEMPLATE.format(
+				encodedname = misc.encode_yahoo_id(self.yahoo_id),
+			), predefined_time = tmp, lifetime = 86400)
+			token = self.backend.auth_service.gen_token_for_format()
+			t = self.backend.auth_service.create_token('ymsg/service', { self.yahoo_id: self.bs }, predefined_token = misc.T_COOKIE_TEMPLATE.format(
+				token = token,
+			), predefined_time = tmp, lifetime = 86400)
+			
+			self.cached_y_cookie = y
+			self.cached_t_cookie = t
+			self.cached_cookie_expiry = '; expires=' + expiry + '; path=/; domain=.yahoo.com'
+			
+			return [y, t, '; expires=' + expiry + '; path=/; domain=.yahoo.com']
+		else:
+			return None
 
 def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> None:
 	is_offlineish = status.is_offlineish()
