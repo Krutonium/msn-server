@@ -112,7 +112,7 @@ class YMSGEncoder:
 			self._buf = io.BytesIO()
 		return data
 
-DecodedYMSG = Tuple[int, int, YMSGService, YMSGStatus, int, KVS]
+DecodedYMSG = Tuple[YMSGService, int, int, YMSGStatus, int, KVS]
 
 class YMSGDecoder:
 	__slots__ = ('_data')

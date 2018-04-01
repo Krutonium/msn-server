@@ -35,16 +35,24 @@ class BackendEventHandler(metaclass = ABCMeta):
 	@abstractmethod
 	def on_contact_request_denied(self, user: User, message: str) -> None: pass
 	
-	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None: pass
-	
 	@abstractmethod
 	def on_pop_boot(self) -> None: pass
 	
 	@abstractmethod
 	def on_pop_notify(self) -> None: pass
 	
-	# TODO: Leaving as non-abstract for now.
-	def on_oim_sent(self, oim_uuid: str) -> None:
+	# TODO: Make these non-frontend-specific to allow interop
+	
+	def msn_on_oim_sent(self, oim_uuid: str) -> None:
+		pass
+	
+	def ymsg_on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
+		pass
+	
+	def ymsg_on_upload_file_ft(self, yahoo_id_recipient: str, message: str) -> None:
+		pass
+		
+	def ymsg_on_sent_ft_http(self, yahoo_id_sender: str, file_tmp_path: str, message: str) -> None:
 		pass
 
 class ChatEventHandler(metaclass = ABCMeta):

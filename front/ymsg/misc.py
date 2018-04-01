@@ -304,7 +304,7 @@ def yahoo_id(email: str) -> str:
 	else:
 		return email
 
-def yahoo_id_to_uuid(bs: BackendSession, backend: Backend, yahoo_id: str) -> Optional[str]:
+def yahoo_id_to_uuid(bs: Optional[BackendSession], backend: Backend, yahoo_id: str) -> Optional[str]:
 	email = None # type: Optional[str]
 	
 	if '@' in yahoo_id:

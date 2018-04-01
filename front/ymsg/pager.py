@@ -13,6 +13,7 @@ from core.backend import Backend, BackendSession, Chat, ChatSession
 from core.models import Substatus, Lst, User, Contact, Group, TextWithData, MessageData, MessageType, UserStatus
 from core.client import Client
 from core.user import UserService
+from core.auth import AuthService
 
 from .ymsg_ctrl import YMSGCtrlBase
 from .misc import YMSGService, YMSGStatus, yahoo_id_to_uuid
@@ -467,7 +468,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		for bs_other in bs.backend._sc.iter_sessions():
 			if bs_other.user.uuid == contact_uuid:
-				bs_other.evt.on_xfer_init(bs.user, yahoo_data)
+				bs_other.evt.ymsg_on_xfer_init(bs.user, yahoo_data)
 	
 	def _y_0018(self, *args) -> None:
 		# SERVICE_CONFINVITE (0x18); send a conference invite to one or more people
@@ -654,9 +655,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			t = cookie_list[1]
 			expiry = cookie_list[2]
 		else:
-			y = self.cached_y_cookie
-			t = self.cached_t_cookie
-			expiry = self.cached_cookie_expiry
+			y = self.cached_y_cookie or ''
+			t = self.cached_t_cookie or ''
+			expiry = self.cached_cookie_expiry or ''
 		
 		print(self.cached_y_cookie)
 		print(self.cached_t_cookie)
@@ -744,26 +745,30 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		return resp_6 == resp_6_server and resp_96 == resp_96_server
 	
-	def _get_cookies(self) -> Optional[List[str]]:
-		if self.backend.auth_service.pop_token('ymsg/service', self.cached_y_cookie) is None and self.backend.auth_service.pop_token('ymsg/service', self.cached_t_cookie) is None:
-			tmp = time.time()
-			expiry = (datetime.datetime.utcfromtimestamp(tmp + 86400)).strftime('%a, %d %b %Y %H:%M:%S GMT')
-			
-			y = self.backend.auth_service.create_token('ymsg/service', self.yahoo_id, predefined_token = misc.Y_COOKIE_TEMPLATE.format(
-				encodedname = misc.encode_yahoo_id(self.yahoo_id),
-			), predefined_time = tmp, lifetime = 86400)
-			token = self.backend.auth_service.gen_token_for_format()
-			t = self.backend.auth_service.create_token('ymsg/service', { self.yahoo_id: self.bs }, predefined_token = misc.T_COOKIE_TEMPLATE.format(
-				token = token,
-			), predefined_time = tmp, lifetime = 86400)
-			
-			self.cached_y_cookie = y
-			self.cached_t_cookie = t
-			self.cached_cookie_expiry = '; expires=' + expiry + '; path=/; domain=.yahoo.com'
-			
-			return [y, t, '; expires=' + expiry + '; path=/; domain=.yahoo.com']
-		else:
+	def _get_cookies(self) -> Optional[Tuple[str, str, str]]:
+		auth_service = self.backend.auth_service
+		
+		y_token = auth_service.pop_token('ymsg/service', self.cached_y_cookie or '')
+		t_token = auth_service.pop_token('ymsg/service', self.cached_t_cookie or '')
+		
+		if y_token or t_token:
 			return None
+		
+		timestamp = int(time.time())
+		expiry = datetime.datetime.utcfromtimestamp(timestamp + 86400).strftime('%a, %d %b %Y %H:%M:%S GMT')
+		
+		y = auth_service.create_token('ymsg/service', self.yahoo_id, token = misc.Y_COOKIE_TEMPLATE.format(
+			encodedname = misc.encode_yahoo_id(self.yahoo_id),
+		), lifetime = 86400)
+		t = auth_service.create_token('ymsg/service', { self.yahoo_id: self.bs }, token = misc.T_COOKIE_TEMPLATE.format(
+			token = AuthService.GenTokenStr(),
+		), lifetime = 86400)
+		
+		self.cached_y_cookie = y
+		self.cached_t_cookie = t
+		self.cached_cookie_expiry = '; expires=' + expiry + '; path=/; domain=.yahoo.com'
+		
+		return (y, t, '; expires=' + expiry + '; path=/; domain=.yahoo.com')
 
 def add_contact_status_to_data(data: Any, status: UserStatus, contact: User) -> None:
 	is_offlineish = status.is_offlineish()

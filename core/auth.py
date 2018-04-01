@@ -13,6 +13,10 @@ class AuthService:
 	_bytoken: Dict[str, int]
 	_idxbase: int
 	
+	@classmethod
+	def GenTokenStr(cls) -> str:
+		return gen_salt(20)
+	
 	def __init__(self, *, time: Optional[Any] = None) -> None:
 		if time is None:
 			time = time_builtin
@@ -21,9 +25,9 @@ class AuthService:
 		self._bytoken = {}
 		self._idxbase = 0
 	
-	def create_token(self, purpose: str, data: Any, *, predefined_token: Optional[str] = None, predefined_time: Optional[int] = None, lifetime: int = 30) -> str:
+	def create_token(self, purpose: str, data: Any, *, token: Optional[str] = None, lifetime: int = 30) -> str:
 		self._remove_expired()
-		td = TokenData(purpose, data, (predefined_time or self._time()) + lifetime, token = predefined_token)
+		td = TokenData(purpose, data, self._time() + lifetime, token = AuthService.GenTokenStr() if token is None else token)
 		assert td.token not in self._bytoken
 		idx = bisect.bisect_left(self._ordered, td)
 		self._ordered.insert(idx, td)
@@ -39,13 +43,9 @@ class AuthService:
 		if not td.validate(purpose, token, self._time()): return None
 		return td.data
 	
-	def gen_token_for_format(self):
-		td = TokenData('', None, self._time())
-		return td.token
-	
 	def _remove_expired(self) -> None:
 		if not self._ordered: return
-		dummy = TokenData('', None, self._time())
+		dummy = TokenData('', None, self._time(), '')
 		idx = bisect.bisect(self._ordered, dummy)
 		if idx < 1: return
 		self._idxbase += idx
@@ -62,8 +62,8 @@ class TokenData:
 	data: Any
 	expiry: int
 	
-	def __init__(self, purpose: str, data: Any, expiry: int, token: Optional[str] = None) -> None:
-		self.token = (gen_salt(20) if token is None else token)
+	def __init__(self, purpose: str, data: Any, expiry: int, token: str) -> None:
+		self.token = token
 		self.purpose = purpose
 		self.expiry = expiry
 		self.data = data
