@@ -204,29 +204,18 @@ async def handle_yahoo_filedl(req: web.Request) -> web.Response:
 		raise web.HTTPNotFound
 
 def _get_tmp_file_storage_path(uuid: Optional[str] = None) -> str:
-	return 'storage/yfs/{}'.format((util.misc.gen_uuid() if uuid is None else uuid))
+	return 'storage/yfs/{}'.format(util.misc.gen_uuid() if uuid is None else uuid)
 
 def _parse_cookies(req: web.Request, backend: Backend, yahoo_id: str) -> Optional[BackendSession]:
-	auth_cookies = req.headers.get('Cookie')
+	cookies = req.cookies
 	
-	cookie_array = auth_cookies.split(';')
+	y_cookie = cookies.get('Y') or ''
+	t_cookie = cookies.get('T') or ''
 	
-	y = _find_substr_in_array(cookie_array, 'Y=').strip()
-	t = _find_substr_in_array(cookie_array, 'T=').strip()
-	
-	yahoo_id_user = backend.auth_service.pop_token('ymsg/service', y)
+	yahoo_id_user = backend.auth_service.get_token('ymsg/cookie', y_cookie)
 	if yahoo_id_user != yahoo_id or not yahoo_id_to_uuid(None, backend, yahoo_id): return None
 	
-	bs_dict = backend.auth_service.pop_token('ymsg/service', t)
-	if bs_dict is None:
-		return None
-	
-	return bs_dict.get(yahoo_id)
-
-def _find_substr_in_array(array: List[str], substr: str) -> str:
-	for element in array:
-		if substr in element: return element
-	return ''
+	return backend.auth_service.get_token('ymsg/cookie', t_cookie)
 
 def render(req: web.Request, tmpl_name: str, ctxt: Optional[Dict[str, Any]] = None, status: int = 200) -> web.Response:
 	if tmpl_name.endswith('.xml'):

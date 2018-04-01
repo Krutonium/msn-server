@@ -121,9 +121,6 @@ _FromSubstatus = DefaultDict(YMSGStatus.Bad, {
 	Substatus.SteppedOut: YMSGStatus.SteppedOut,
 })
 
-Y_COOKIE_TEMPLATE = 'Y=v=1&n=&l={encodedname}&p=&r=&lg=&intl=&np='
-T_COOKIE_TEMPLATE = 'T=z={token}&a=&sk={token}&ks={token}&kt=&ku=&d={token}'
-
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
 def build_contact_request_notif(user_adder: User, user_added: User, message: str, utf8: Optional[str]) -> Iterable[EncodedYMSG]:
@@ -325,48 +322,3 @@ def yahoo_id_to_uuid(bs: Optional[BackendSession], backend: Backend, yahoo_id: s
 		email = yahoo_id + '@yahoo.com'
 	
 	return backend.util_get_uuid_from_email(email)
-
-def encode_yahoo_id(yahoo_id: str):
-	translate_dict = {
-		'k': 'a',
-		'l': 'b',
-		'm': 'c',
-		'n': 'd',
-		'o': 'e',
-		'p': 'f',
-		'q': 'g',
-		'r': 'h',
-		's': 'i',
-		't': 'j',
-		'u': 'k',
-		'v': 'l',
-		'w': 'm',
-		'x': 'n',
-		'y': 'o',
-		'z': 'p',
-		'0': 'q',
-		'1': 'r',
-		'2': 's',
-		'3': 't',
-		'4': 'u',
-		'5': 'v',
-		'7': 'x',
-		'8': 'y',
-		'9': 'z',
-		'6': 'w',
-		'a': '0',
-		'b': '1',
-		'c': '2',
-		'd': '3',
-		'e': '4',
-		'f': '5',
-		'g': '6',
-		'h': '7',
-		'i': '8',
-		'j': '9',
-	}
-	encoded_id = ''
-	
-	for char in yahoo_id:
-		encoded_id += (translate_dict.get(char) or char)
-	return encoded_id

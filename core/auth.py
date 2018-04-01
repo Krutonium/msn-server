@@ -43,6 +43,15 @@ class AuthService:
 		if not td.validate(purpose, token, self._time()): return None
 		return td.data
 	
+	def get_token(self, purpose: str, token: str) -> Optional[Any]:
+		self._remove_expired()
+		idx = self._bytoken.get(token)
+		if idx is None: return None
+		idx -= self._idxbase
+		td = self._ordered[idx]
+		if not td.validate(purpose, token, self._time()): return None
+		return td.data
+	
 	def _remove_expired(self) -> None:
 		if not self._ordered: return
 		dummy = TokenData('', None, self._time(), '')
