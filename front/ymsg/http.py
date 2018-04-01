@@ -1,8 +1,15 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from aiohttp import web
+import asyncio
 from markupsafe import Markup
+from urllib.parse import quote_plus
+import os
+import shutil
 
+from core.backend import Backend, BackendSession
 import util.misc
+from .ymsg_ctrl import _decode_ymsg
+from .misc import YMSGService, yahoo_id_to_uuid
 import time
 
 YAHOO_TMPL_DIR = 'front/ymsg/tmpl'
@@ -26,8 +33,12 @@ def register(app: web.Application) -> None:
 	# Yahoo!'s redirect service (rd.yahoo.com)
 	app.router.add_get('/messenger/search/', handle_rd_yahoo)
 	app.router.add_get('/messenger/client/', handle_rd_yahoo)
+	
+	# Yahoo HTTP file transfer fallback
+	app.router.add_post('/notifyft', handle_ft_http)
+	app.router.add_route('*', '/tmp/file/{file_uuid}/{filename}', handle_yahoo_filedl)
 
-async def handle_insider_ycontent(req):
+async def handle_insider_ycontent(req) -> web.Response:
 	config_xml = []
 	for query_xml in req.query.keys():
 		# Ignore any `chatroom_##########` requests for now
@@ -52,21 +63,21 @@ UNUSED_QUERIES = {
 	'ee', 'ow', 'id',
 }
 
-async def handle_insider(req):
+async def handle_insider(req) -> web.Response:
 	tmpl = req.app['jinja_env'].get_template('ymsg:Yinsider/Yinsider_content/insider_content.html')
 	
 	return render(req, 'ymsg:Yinsider/Yinsider.html', {
 		'insidercontent': Markup(tmpl.render()),
 	})
 
-async def handle_chat_banad(req):
+async def handle_chat_banad(req) -> web.Response:
 	query = req.query
 	
 	return render(req, 'ymsg:c/msg/banad.html', {
 		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
 	})
 
-async def handle_chat_tabad(req):
+async def handle_chat_tabad(req) -> web.Response:
 	query = req.query
 	
 	return render(req, 'ymsg:c/msg/adsmall.html', {
@@ -74,7 +85,7 @@ async def handle_chat_tabad(req):
 		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
 	})
 
-async def handle_chat_alertad(req):
+async def handle_chat_alertad(req) -> web.Response:
 	query = req.query
 	
 	return render(req, 'ymsg:c/msg/adsmall.html', {
@@ -82,13 +93,143 @@ async def handle_chat_alertad(req):
 		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
 	})
 
-async def handle_chat_notice(req):
+async def handle_chat_notice(req) -> web.Response:
 	return render(req, 'ymsg:c/msg/chat.html')
 
-async def handle_rd_yahoo(req):
+async def handle_rd_yahoo(req) -> web.Response:
 	return web.Response(status = 302, headers = {
-		'Location': req.query_string,
+		'Location': req.query_string.replace(' ', '+'),
 	})
+
+async def handle_ft_http(req) -> web.Response:
+	body = await req.read()
+	
+	# Look for incomplete key-value field `29`
+	stream_loc = body.find(b'29\xC0\x80')
+	stream = body[(stream_loc + 4):]
+	
+	# Parse the rest of the YMSG packet
+	raw_ymsg_data = body[:stream_loc]
+	
+	# Now change the length field as fit to get the YMSG parser to gobble it up
+	import struct
+	
+	raw_ymsg_part_pre = raw_ymsg_data[0:8]
+	raw_ymsg_part_post = raw_ymsg_data[10:]
+	
+	raw_ymsg_data = raw_ymsg_part_pre + struct.pack('!H', len(raw_ymsg_part_post[10:])) + raw_ymsg_part_post
+	
+	backend = req.app['backend']
+	ymsg_parsed = []
+	
+	try:
+		y_ft_pkt = _decode_ymsg(raw_ymsg_data)
+	except Exception:
+		raise web.HTTPInternalServerError
+	
+	try:
+		# check version and vendorId
+		if y_ft_pkt[1] > 16 or y_ft_pkt[2] not in (0, 100):
+			print('Error! Returning HTTP 500')
+			raise web.HTTPInternalServerError
+		ymsg_parsed = [y_ft_pkt[0], y_ft_pkt[5]]
+	except Exception:
+		raise web.HTTPInternalServerError
+	
+	if ymsg_parsed[0] is not YMSGService.FileTransfer:
+		raise web.HTTPInternalServerError
+	
+	yahoo_id_sender = ymsg_parsed[1].get('0')
+	yahoo_id_recipient = ymsg_parsed[1].get('5')
+	
+	bs = _parse_cookies(req, backend, yahoo_id_sender)
+	recipient_uuid = yahoo_id_to_uuid(bs, backend, yahoo_id_recipient)
+	
+	if bs is None or recipient_uuid is None:
+		raise web.HTTPInternalServerError
+	
+	message = ymsg_parsed[1].get('14') or ''
+	
+	file_path = ymsg_parsed[1].get('27')
+	file_len = ymsg_parsed[1].get('28') or 0
+	
+	if file_path is None or len(stream) != int(file_len):
+		raise web.HTTPInternalServerError
+	
+	filename = file_path.split('\\').pop()
+	
+	path = _get_tmp_file_storage_path()
+	
+	if not os.path.exists(path):
+		os.makedirs(path)
+	
+	file_tmp_path = '{path}/{file}'.format(
+		path = path,
+		file = filename,
+	)
+	
+	file_tmp_path_quoted = '{path}/{file}'.format(
+		path = path,
+		file = quote_plus(filename, safe = ''),
+	)
+	
+	f = open(file_tmp_path, 'wb')
+	f.write(stream)
+	f.close()
+	
+	req.app['loop'].create_task(_store_tmp_file_until_expiry(path))
+	
+	# Sending HTTP FT acknowledgement crahes Yahoo! Messenger, and ultimately freezes the computer. Ignore for now.
+	# bs.evt.on_upload_file_ft(yahoo_id_recipient, message)
+	
+	for bs_other in bs.backend._sc.iter_sessions():
+		if bs_other.user.uuid == recipient_uuid:
+			bs_other.evt.on_sent_ft_http(yahoo_id_sender, file_tmp_path_quoted[12:], message)
+	
+	raise web.HTTPOk
+
+async def _store_tmp_file_until_expiry(file_storage_path) -> None:
+	await asyncio.sleep(86400)
+	shutil.rmtree(file_storage_path, ignore_errors = True)
+
+async def handle_yahoo_filedl(req) -> web.Response:
+	file_uuid = req.match_info['file_uuid']
+	file_storage_path = _get_tmp_file_storage_path(uuid = file_uuid)
+	
+	try:
+		filename = req.match_info['filename']
+		file_path = os.path.join(file_storage_path, filename)
+		
+		with open(file_path, 'rb') as file:
+			return web.Response(status = 200, body = file.read())
+	except FileNotFoundError:
+		return web.HTTPNotFound
+
+def _get_tmp_file_storage_path(uuid: Optional[str] = None) -> str:
+	return 'storage/yfs/{}'.format((util.misc.gen_uuid() if uuid is None else uuid))
+
+def _parse_cookies(req: web.Request, backend: Backend, yahoo_id: str) -> Optional[BackendSession]:
+	auth_cookies = req.headers.get('Cookie')
+	
+	cookie_array = auth_cookies.split(';')
+	
+	y = _find_substr_in_array(cookie_array, 'Y=').strip() + ';'
+	t = _find_substr_in_array(cookie_array, 'T=').strip() + ';'
+	print(y)
+	print(t)
+	
+	yahoo_id_user = backend.auth_service.pop_token('ymsg/service', y)
+	print(yahoo_id_user)
+	if yahoo_id_user != yahoo_id or not yahoo_id_to_uuid(None, backend, yahoo_id): return None
+	
+	bs_dict = backend.auth_service.pop_token('ymsg/service', t)
+	
+	return bs_dict.get(yahoo_id)
+
+def _find_substr_in_array(array: List, substr: str) -> Optional[str]:
+	for i, element in enumerate(array):
+		if substr in element: return element
+	return None
 
 def render(req: web.Request, tmpl_name: str, ctxt: Optional[Dict[str, Any]] = None, status: int = 200) -> web.Response:
 	if tmpl_name.endswith('.xml'):

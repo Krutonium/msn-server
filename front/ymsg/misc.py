@@ -9,6 +9,8 @@ from util.misc import first_in_iterable, DefaultDict
 from core.backend import Backend, BackendSession, ChatSession
 from core.models import User, Contact, Substatus
 
+import settings
+
 class YMSGService(IntEnum):
 	LogOn = 0x01
 	LogOff = 0x02
@@ -27,6 +29,7 @@ class YMSGService(IntEnum):
 	ConfLogoff = 0x1b
 	ConfAddInvite = 0x1c
 	ConfMsg = 0x1d
+	FileTransfer = 0x46
 	Notify = 0x4b
 	Handshake = 0x4c
 	P2PFileXfer = 0x4d
@@ -118,6 +121,9 @@ _FromSubstatus = DefaultDict(YMSGStatus.Bad, {
 	Substatus.SteppedOut: YMSGStatus.SteppedOut,
 })
 
+Y_COOKIE_TEMPLATE = 'Y=v=1&n=&l={encodedname}&p=&r=&lg=&intl=&np=;'
+T_COOKIE_TEMPLATE = 'T=z={token}&a=&sk={token}&ks={token}&kt=&ku=&d={token};'
+
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
 def build_contact_request_notif(user_adder: User, user_added: User, message: str, utf8: Optional[str]) -> Iterable[EncodedYMSG]:
@@ -199,6 +205,29 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
 
+def build_http_ft_ack_packet(bs: BackendSession, recipient: str, message: str):
+	user = bs.user
+	
+	yield (YMSGService.FileTransfer, YMSGStatus.BRB, MultiDict([
+		('1', yahoo_id(user.email)),
+		('5', recipient),
+		('4', yahoo_id(user.email)),
+		('14', message),
+	]))
+
+def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message: str):
+	user = bs.user
+	
+	yield (YMSGService.FileTransfer, YMSGStatus.BRB, MultiDict([
+		('1', yahoo_id(user.email)),
+		('5', sender),
+		('4', yahoo_id(user.email)),
+		('14', message),
+		# Uploaded files will only last for a day on the server
+		('38', 86400),
+		('20', settings.YAHOO_FT_DL_HOST + '/tmp/file/' + url_path),
+	]))
+
 def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_msg: str, conf_roster: List[str], voice_chat: int, existing_conf: bool = False) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
@@ -274,3 +303,70 @@ def yahoo_id(email: str) -> str:
 		return email_parts[0]
 	else:
 		return email
+
+def yahoo_id_to_uuid(bs: BackendSession, backend: Backend, yahoo_id: str) -> Optional[str]:
+	email = None # type: Optional[str]
+	
+	if '@' in yahoo_id:
+		email = yahoo_id
+	elif '@yahoo.com' in yahoo_id:
+		return None
+	elif bs:
+		detail = bs.user.detail
+		assert detail is not None
+		pre = yahoo_id + '@yahoo.com'
+		for ctc in detail.contacts.values():
+			if ctc.head.email.startswith(pre):
+				email = ctc.head.email
+				break
+	
+	if email is None:
+		# Assume that it's an "@yahoo.com" address
+		email = yahoo_id + '@yahoo.com'
+	
+	return backend.util_get_uuid_from_email(email)
+
+def encode_yahoo_id(yahoo_id: str):
+	translate_dict = {
+		'k': 'a',
+		'l': 'b',
+		'm': 'c',
+		'n': 'd',
+		'o': 'e',
+		'p': 'f',
+		'q': 'g',
+		'r': 'h',
+		's': 'i',
+		't': 'j',
+		'u': 'k',
+		'v': 'l',
+		'w': 'm',
+		'x': 'n',
+		'y': 'o',
+		'z': 'p',
+		'0': 'q',
+		'1': 'r',
+		'2': 's',
+		'3': 't',
+		'4': 'u',
+		'5': 'v',
+		'7': 'x',
+		'8': 'y',
+		'9': 'z',
+		'6': 'w',
+		'a': '0',
+		'b': '1',
+		'c': '2',
+		'd': '3',
+		'e': '4',
+		'f': '5',
+		'g': '6',
+		'h': '7',
+		'i': '8',
+		'j': '9',
+	}
+	encoded_id = ''
+	
+	for char in yahoo_id:
+		encoded_id += (translate_dict.get(char) or char)
+	return encoded_id
