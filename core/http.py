@@ -26,6 +26,7 @@ def register(loop: asyncio.AbstractEventLoop, backend: Backend, *, devmode: bool
 def create_app(loop: asyncio.AbstractEventLoop, backend: Backend) -> Any:
 	app = web.Application(loop = loop)
 	app['backend'] = backend
+	app['loop'] = loop
 	app['jinja_env'] = jinja2.Environment(
 		loader = jinja2.PrefixLoader({}, delimiter = ':'),
 		autoescape = jinja2.select_autoescape(default = True),
