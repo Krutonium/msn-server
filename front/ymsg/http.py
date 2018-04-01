@@ -173,7 +173,7 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	f.write(stream)
 	f.close()
 	
-	req.app['loop'].create_task(_store_tmp_file_until_expiry(path))
+	req.app.loop.create_task(_store_tmp_file_until_expiry(path))
 	
 	# Sending HTTP FT acknowledgement crahes Yahoo! Messenger, and ultimately freezes the computer. Ignore for now.
 	# bs.evt.ymsg_on_upload_file_ft(yahoo_id_recipient, message)
