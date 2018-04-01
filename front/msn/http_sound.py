@@ -27,51 +27,45 @@ PATH_USERS = path.join('storage', 'sound', 'users')
 
 Metadata = namedtuple('Metadata', ['title', 'hash', 'category', 'language', 'is_public'])
 
-def builtin(request):
+def builtin(request: web.Request) -> web.Response:
 	"""
 		Get builtin sound file
 		
 		(GET) /esnd/snd/builtin?code={code}
 		
-		:type request: aiohttp.web.Request
 		:return file content or 0 if file is not found
-		:rtype: aiohttp.web.Response
 	"""
 	file_name = request.rel_url.query['code'] + '.mp3'
 	file_path = path.join(PATH_BUILTINS, file_name)
 	
 	try:
 		with open(file_path, 'rb') as file:
-			return web.Response(status = 200, content_type = 'audio/mpeg', body = file.read())
+			return web.HTTPOk(content_type = 'audio/mpeg', body = file.read())
 	except FileNotFoundError:
-		return web.Response(status = 200, body = '0')
+		return web.HTTPOk(text = str(0))
 
-def check(request):
+def check(request: web.Request) -> web.Response:
 	"""
 		Check if sound file is available
 		
 		GET /esnd/snd/check?hash={hash}
 		
-		:type request: aiohttp.web.Request
 		:return 1 if file exists 0 otherwise
-		:rtype: aiohttp.web.Response
 	"""
 	file_hash = request.rel_url.query['hash']
 	
 	result = int(path.exists(_get_file_path(file_hash)))
 	
-	return web.Response(status = 200, body = str(result))
+	return web.HTTPOk(text = str(result))
 
-async def put(request):
+async def put(request: web.Request) -> web.Response:
 	"""
 		Upload new sound file.
 		Overwrite existing file if uf=1
 		
 		POST /esnd/snd/put?[uf=1]
 		
-		:type request: aiohttp.web.Request
 		:return 1 for success 0 for failure
-		:rtype: aiohttp.web.Response
 	"""
 	data = await request.post()
 	
@@ -90,7 +84,7 @@ async def put(request):
 			if request.rel_url.query.get('uf') == 1:
 				output = open(file_path, 'wb')
 			else:
-				return web.Response(status = 200, body = '0')
+				return web.HTTPOk(text = str(0))
 		
 		f.seek(0)
 		
@@ -102,35 +96,31 @@ async def put(request):
 	with Session() as session:
 		session.merge(Sound(**metadata._asdict()))
 	
-	return web.Response(status = 200, body = '1')
+	return web.HTTPOk(text = str(1))
 
-def get(request):
+def get(request: web.Request) -> web.Response:
 	"""
 		Get sound file
 		
 		GET /esnd/snd/get?hash={hash}
 		
-		:type request: aiohttp.web.Request
 		:return file content or 0 if file is not found
-		:rtype: aiohttp.web.Response
 	"""
 	file_hash = request.rel_url.query['hash']
 	
 	try:
 		with open(_get_file_path(file_hash), 'rb') as f:
-			return web.Response(status = 200, content_type = 'audio/mpeg', body = f.read())
+			return web.HTTPOk(content_type = 'audio/mpeg', body = f.read())
 	except FileNotFoundError:
-		return web.Response(status = 200, body = '0')
+		return web.HTTPOk(text = str(0))
 
-def random(request):
+def random(request: web.Request) -> web.Response:
 	"""
 		Get random sound from library
 		
 		GET /esnd/snd/random?[catId={category}]&[lngId={language}]
 		
-		:type request: aiohttp.web.Request
 		:return: file content or 0 if file is not found
-		:rtype: aiohttp.web.Response
 	"""
 	category = request.rel_url.query.get('catId')
 	language = request.rel_url.query.get('lngId')
@@ -147,7 +137,7 @@ def random(request):
 		try:
 			offset = randrange(0, query.count())
 		except ValueError:
-			return web.Response(status = 200, body = '0')
+			return web.HTTPOk(text = str(0))
 		
 		sound = query.offset(offset).limit(1).one()
 		
@@ -156,7 +146,7 @@ def random(request):
 		assert path.exists(file_path)
 		
 		with open(file_path, 'rb') as f:
-			return web.Response(status = 200, content_type = 'audio/mpeg', body = f.read())
+			return web.HTTPOk(content_type = 'audio/mpeg', body = f.read())
 
 def _get_file_path(file_hash: str) -> str:
 	"""

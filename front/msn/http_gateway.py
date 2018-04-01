@@ -45,8 +45,8 @@ class GatewaySession:
 	def _on_close(self) -> None:
 		self.time_last_connect = 0
 
-async def handle_http_gateway_options(req):
-	return web.Response(status = 200, headers = {
+async def handle_http_gateway_options(req: web.Request) -> web.Response:
+	return web.HTTPOk(headers = {
 		'Access-Control-Allow-Origin': '*',
 		'Access-Control-Allow-Methods': 'POST',
 		'Access-Control-Allow-Headers': 'Content-Type',
@@ -54,7 +54,7 @@ async def handle_http_gateway_options(req):
 		'Access-Control-Max-Age': '86400',
 	})
 
-async def handle_http_gateway(req):
+async def handle_http_gateway(req: web.Request) -> web.Response:
 	query = req.query
 	session_id = query.get('SessionID')
 	backend = req.app['backend']
@@ -82,14 +82,14 @@ async def handle_http_gateway(req):
 		gateway_sessions[session_id] = tmp
 	gwsess = gateway_sessions.get(session_id)
 	if gwsess is None:
-		return web.Response(status = 400, text = '')
+		raise web.HTTPBadRequest()
 	
 	gwsess.logger.log_connect()
 	gwsess.controller.data_received(req.transport, await req.body())
 	gwsess.logger.log_disconnect()
 	body = gwsess.controller.flush()
 	
-	return web.Response(headers = {
+	return web.HTTPOk(headers = {
 		'Access-Control-Allow-Origin': '*',
 		'Access-Control-Allow-Methods': 'POST',
 		'Access-Control-Expose-Headers': 'X-MSN-Messenger',

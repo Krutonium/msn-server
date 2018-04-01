@@ -74,7 +74,7 @@ async def handle_chat_banad(req: web.Request) -> web.Response:
 	query = req.query
 	
 	return render(req, 'ymsg:c/msg/banad.html', {
-		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
+		'spaceid': (query.get('spaceid') or 0),
 	})
 
 async def handle_chat_tabad(req: web.Request) -> web.Response:
@@ -82,7 +82,7 @@ async def handle_chat_tabad(req: web.Request) -> web.Response:
 	
 	return render(req, 'ymsg:c/msg/adsmall.html', {
 		'adtitle': 'banner ad',
-		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
+		'spaceid': (query.get('spaceid') or 0),
 	})
 
 async def handle_chat_alertad(req: web.Request) -> web.Response:
@@ -90,16 +90,14 @@ async def handle_chat_alertad(req: web.Request) -> web.Response:
 	
 	return render(req, 'ymsg:c/msg/adsmall.html', {
 		'adtitle': 'alert ad usmsgr',
-		'spaceid': (0 if not query.get('spaceid') else query.get('spaceid')),
+		'spaceid': (query.get('spaceid') or 0),
 	})
 
 async def handle_chat_notice(req: web.Request) -> web.Response:
 	return render(req, 'ymsg:c/msg/chat.html')
 
 async def handle_rd_yahoo(req: web.Request) -> web.Response:
-	return web.Response(status = 302, headers = {
-		'Location': req.query_string.replace(' ', '+'),
-	})
+	return web.HTTPFound(req.query_string.replace(' ', '+'))
 
 async def handle_ft_http(req: web.Request) -> web.Response:
 	body = await req.read()
@@ -202,7 +200,7 @@ async def handle_yahoo_filedl(req: web.Request) -> web.Response:
 			file_stream = file.read()
 			file.close()
 			shutil.rmtree(file_storage_path, ignore_errors = True)
-			return web.Response(status = 200, body = file_stream)
+			return web.HTTPOk(body = file_stream)
 	except FileNotFoundError:
 		raise web.HTTPNotFound
 

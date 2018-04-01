@@ -60,7 +60,7 @@ def register(app: web.Application) -> None:
 async def handle_abservice(req: web.Request) -> web.Response:
 	header, action, bs, token = await _preprocess_soap(req)
 	if bs is None:
-		return web.Response(status = 403, text = '')
+		raise web.HTTPForbidden()
 	action_str = _get_tag_localname(action)
 	if _find_element(action, 'deltasOnly'):
 		return render(req, 'msn:abservice/Fault.fullsync.xml', { 'faultactor': action_str })
@@ -461,7 +461,7 @@ def _find_element(xml: Any, query: str) -> Any:
 
 async def handle_msgrconfig(req):
 	msgr_config = _get_msgr_config()
-	return web.Response(status = 200, content_type = 'text/xml', text = msgr_config)
+	return web.HTTPOk(content_type = 'text/xml', text = msgr_config)
 
 def _get_msgr_config() -> str:
 	with open(TMPL_DIR + '/MsgrConfigEnvelope.xml') as fh:
@@ -471,7 +471,7 @@ def _get_msgr_config() -> str:
 	return envelope.format(MsgrConfig = config)
 
 async def handle_nexus(req):
-	return web.Response(status = 200, headers = {
+	return web.HTTPOk(headers = {
 		'PassportURLs': 'DALogin=https://{}{}'.format(settings.LOGIN_HOST, LOGIN_PATH),
 	})
 
@@ -483,21 +483,21 @@ async def handle_login(req):
 		email, pwd = tmp
 		token = _login(req, email, pwd)
 	if token is None:
-		return web.Response(status = 401, headers = {
+		raise web.HTTPUnauthorized(headers = {
 			'WWW-Authenticate': '{}da-status=failed'.format(PP),
 		})
-	return web.Response(status = 200, headers = {
+	return web.HTTPOk(headers = {
 		'Authentication-Info': '{}da-status=success,from-PP=\'{}\''.format(PP, token),
 	})
 
 async def handle_not_rst(req):
 	if req.method == 'OPTIONS':
-		return web.Response(status = 200, headers = {
+		return web.HTTPOk(headers = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'POST',
 			'Access-Control-Allow-Headers': 'X-User, X-Password, Content-Type',
 			'Access-Control-Expose-Headers': 'X-Token',
-			'Access-Control-Max-Age': '86400',
+			'Access-Control-Max-Age': str(86400),
 		})
 	
 	email = req.headers.get('X-User')
@@ -510,7 +510,7 @@ async def handle_not_rst(req):
 	}
 	if token is not None:
 		headers['X-Token'] = token
-	return web.Response(status = 200, headers = headers)
+	return web.HTTPOk(headers = headers)
 
 async def handle_rst(req):
 	from lxml.objectify import fromstring as parse_xml
@@ -522,7 +522,7 @@ async def handle_rst(req):
 	pwd = _find_element(root, 'Password')
 
 	if email is None or pwd is None:
-		return web.Response(status = 400)
+		raise web.HTTPBadRequest()
 	
 	token = _login(req, email, pwd)
 	now = datetime.utcnow()
@@ -555,8 +555,7 @@ async def handle_rst(req):
 		) for i, domain in enumerate(domains)]
 		
 		tmpl = req.app['jinja_env'].get_template('msn:RST/RST.xml')
-		return web.Response(
-			status = 200,
+		return web.HTTPOk(
 			content_type = 'text/xml',
 			text = tmpl.render(
 				puidhex = cid.upper(),
@@ -631,16 +630,11 @@ async def handle_usertile(req: web.Request, small: bool = False) -> web.Response
 	
 	try:
 		ext = os.listdir(storage_path)[0].split('.')[-1]
-		
-		if small:
-			image_path = os.path.join(storage_path, "{uuid}_thumb.{ext}".format(**locals()))
-		else:
-			image_path = os.path.join(storage_path, "{uuid}.{ext}".format(**locals()))
-		
+		image_path = os.path.join(storage_path, '{}{}.{}'.format(uuid, '_thumb' if small else '', ext))
 		with open(image_path, 'rb') as file:
-			return web.Response(status=200, content_type="image/{ext}".format(**locals()), body=file.read())
+			return web.HTTPOk(content_type = 'image/{}'.format(ext), body = file.read())
 	except FileNotFoundError:
-		raise web.HTTPNotFound
+		raise web.HTTPNotFound()
 
 async def handle_debug(req):
 	return render(req, 'msn:debug.html')
