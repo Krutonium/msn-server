@@ -659,9 +659,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			t = self.cached_t_cookie or ''
 			expiry = self.cached_cookie_expiry or ''
 		
-		print(self.cached_y_cookie)
-		print(self.cached_t_cookie)
-		
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),

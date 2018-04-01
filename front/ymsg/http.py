@@ -127,7 +127,6 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	try:
 		# check version and vendorId
 		if y_ft_pkt[1] > 16 or y_ft_pkt[2] not in (0, 100):
-			print('Error! Returning HTTP 500')
 			raise web.HTTPInternalServerError
 	except Exception:
 		raise web.HTTPInternalServerError
@@ -212,8 +211,8 @@ def _parse_cookies(req: web.Request, backend: Backend, yahoo_id: str) -> Optiona
 	
 	cookie_array = auth_cookies.split(';')
 	
-	y = _find_substr_in_array(cookie_array, 'Y=').strip() + ';'
-	t = _find_substr_in_array(cookie_array, 'T=').strip() + ';'
+	y = _find_substr_in_array(cookie_array, 'Y=').strip()
+	t = _find_substr_in_array(cookie_array, 'T=').strip()
 	
 	yahoo_id_user = backend.auth_service.pop_token('ymsg/service', y)
 	if yahoo_id_user != yahoo_id or not yahoo_id_to_uuid(None, backend, yahoo_id): return None
