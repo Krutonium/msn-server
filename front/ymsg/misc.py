@@ -121,8 +121,8 @@ _FromSubstatus = DefaultDict(YMSGStatus.Bad, {
 	Substatus.SteppedOut: YMSGStatus.SteppedOut,
 })
 
-Y_COOKIE_TEMPLATE = 'Y=v=1&n=&l={encodedname}&p=&r=&lg=&intl=&np=;'
-T_COOKIE_TEMPLATE = 'T=z={token}&a=&sk={token}&ks={token}&kt=&ku=&d={token};'
+Y_COOKIE_TEMPLATE = 'Y=v=1&n=&l={encodedname}&p=&r=&lg=&intl=&np='
+T_COOKIE_TEMPLATE = 'T=z={token}&a=&sk={token}&ks={token}&kt=&ku=&d={token}'
 
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
@@ -224,7 +224,7 @@ def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message
 		('4', yahoo_id(user.email)),
 		('14', message),
 		# Uploaded files will only last for a day on the server
-		('38', 86400),
+		('38', time.time() + 86400),
 		('20', settings.YAHOO_FT_DL_HOST + '/tmp/file/' + url_path),
 	]))
 
