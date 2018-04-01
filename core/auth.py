@@ -21,10 +21,10 @@ class AuthService:
 		self._bytoken = {}
 		self._idxbase = 0
 	
-	def create_token(self, purpose: str, data: Any, *, predefined_token: Optional[str] = None, format_token: bool = False, predefined_time: Optional[int] = None, persistent: bool = False, lifetime: int = 30) -> str:
+	def create_token(self, purpose: str, data: Any, *, predefined_token: Optional[str] = None, predefined_time: Optional[int] = None, lifetime: int = 30) -> str:
 		self._remove_expired()
-		td = TokenData(purpose, data, (predefined_time or self._time()) + lifetime, token = predefined_token, format_token = format_token)
-		if not persistent: assert td.token not in self._bytoken
+		td = TokenData(purpose, data, (predefined_time or self._time()) + lifetime, token = predefined_token)
+		assert td.token not in self._bytoken
 		idx = bisect.bisect_left(self._ordered, td)
 		self._ordered.insert(idx, td)
 		self._bytoken[td.token] = idx + self._idxbase
@@ -38,6 +38,10 @@ class AuthService:
 		td = self._ordered[idx]
 		if not td.validate(purpose, token, self._time()): return None
 		return td.data
+	
+	def gen_token_for_format(self):
+		td = TokenData('', None, self._time())
+		return td.token
 	
 	def _remove_expired(self) -> None:
 		if not self._ordered: return
@@ -58,10 +62,8 @@ class TokenData:
 	data: Any
 	expiry: int
 	
-	def __init__(self, purpose: str, data: Any, expiry: int, token: Optional[str] = None, format_token: bool = False) -> None:
+	def __init__(self, purpose: str, data: Any, expiry: int, token: Optional[str] = None) -> None:
 		self.token = (gen_salt(20) if token is None else token)
-		if format_token:
-			self.token = self.token.format( token = gen_salt(20) )
 		self.purpose = purpose
 		self.expiry = expiry
 		self.data = data
