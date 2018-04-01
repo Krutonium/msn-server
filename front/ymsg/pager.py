@@ -15,20 +15,22 @@ from core.client import Client
 from core.user import UserService
 
 from .ymsg_ctrl import YMSGCtrlBase
-from .misc import YMSGService, YMSGStatus
+from .misc import YMSGService, YMSGStatus, yahoo_id_to_uuid
 from . import misc, Y64
 
 # "Pre" because it's needed before BackendSession is created.
 PRE_SESSION_ID: Dict[str, int] = {}
 
 class YMSGCtrlPager(YMSGCtrlBase):
-	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'bs', 'private_chats', 'chat_sessions', 'client')
+	__slots__ = ('backend', 'dialect', 'yahoo_id', 'sess_id', 'challenge', 'cached_y_cookie', 'cached_t_cookie', 'bs', 'private_chats', 'chat_sessions', 'client')
 	
 	backend: Backend
 	dialect: int
 	yahoo_id: str
 	sess_id: int
 	challenge: Optional[str]
+	cached_y_cookie: Optional[str]
+	cached_t_cookie: Optional[str]
 	bs: Optional[BackendSession]
 	private_chats: Dict[str, Tuple[ChatSession, 'ChatEventHandler']]
 	chat_sessions: Dict[Chat, ChatSession]
@@ -41,6 +43,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		self.yahoo_id = ''
 		self.sess_id = 0
 		self.challenge = None
+		self.cached_y_cookie = None
+		self.cached_t_cookie = None
 		self.bs = None
 		self.private_chats = {}
 		self.chat_sessions = {}
@@ -69,7 +73,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert isinstance(arg1, str)
 		self.yahoo_id = arg1
 		
-		if self.yahoo_id_to_uuid(self.yahoo_id) is None or self.yahoo_id.endswith('@yahoo.com'):
+		if yahoo_id_to_uuid(None, self.backend, self.yahoo_id) is None or self.yahoo_id.endswith('@yahoo.com'):
 			self.send_reply(YMSGService.AuthResp, YMSGStatus.LoginError, 0, MultiDict([
 				('66', int(YMSGStatus.NotAtHome))
 			]))
@@ -119,7 +123,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert self.challenge is not None
 		is_resp_correct = self._verify_challenge_v1(resp_6, resp_96)
 		if is_resp_correct:
-			uuid = self.yahoo_id_to_uuid(self.yahoo_id)
+			uuid = yahoo_id_to_uuid(None, self.backend, self.yahoo_id)
 			if uuid is None:
 				is_resp_correct = False
 			else:
@@ -217,7 +221,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		# Yahoo! Messenger has a function that lets you add people by email address (a.k.a. stripping the "@domain.tld" part of the address and
 		# filling that out in the "Yahoo! ID" section of the contact add dialog). Treat as is.
-		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
+		contact_uuid = yahoo_id_to_uuid(self.bs, self.backend, contact_yahoo_id)
 		if contact_uuid is None:
 			add_request_response.add('66', 3)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
@@ -325,7 +329,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert detail is not None
 		
 		contacts = detail.contacts
-		contact_uuid = self.yahoo_id_to_uuid(contact_id)
+		contact_uuid = yahoo_id_to_uuid(bs, self.backend, contact_id)
 		if contact_uuid is None:
 			remove_buddy_response.add('66', 3)
 			self.send_reply(YMSGService.FriendRemove, YMSGStatus.BRB, self.sess_id, remove_buddy_response)
@@ -355,7 +359,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert detail is not None
 		contacts = detail.contacts
 		
-		ignored_uuid = self.yahoo_id_to_uuid(ignored_yahoo_id)
+		ignored_uuid = yahoo_id_to_uuid(bs, self.backend, ignored_yahoo_id)
 		if ignored_uuid is None:
 			ignore_reply_response.add('66', 3)
 			self.send_reply(YMSGService.Ignore, YMSGStatus.BRB, self.sess_id, ignore_reply_response)
@@ -429,7 +433,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		yahoo_data = args[4]
 		notify_type = yahoo_data.get('49') # typing, games, etc.
 		contact_yahoo_id = yahoo_data.get('5')
-		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
+		contact_uuid = yahoo_id_to_uuid(self.bs, self.backend, contact_yahoo_id)
 		if contact_uuid is None:
 			return
 		
@@ -441,7 +445,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		yahoo_data = args[4]
 		contact_yahoo_id = yahoo_data.get('5')
-		contact_uuid = self.yahoo_id_to_uuid(contact_yahoo_id)
+		contact_uuid = yahoo_id_to_uuid(self.bs, self.backend, contact_yahoo_id)
 		if contact_uuid is None:
 			return
 		
@@ -455,7 +459,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert bs is not None
 		
 		yahoo_data = args[4]
-		contact_uuid = self.yahoo_id_to_uuid(yahoo_data.get('5'))
+		contact_uuid = yahoo_id_to_uuid(bs, self.backend, yahoo_data.get('5'))
 		if contact_uuid is None:
 			return
 		
@@ -487,7 +491,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert cs is not None
 		
 		for conf_user_yahoo_id in conf_roster:
-			conf_user_uuid = self.yahoo_id_to_uuid(conf_user_yahoo_id)
+			conf_user_uuid = yahoo_id_to_uuid(self.bs, self.backend, conf_user_yahoo_id)
 			if conf_user_uuid is None:
 				continue
 			cs.invite(conf_user_uuid, invite_msg = invite_msg, roster = conf_roster, voice_chat = voice_chat)
@@ -515,7 +519,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert cs is not None
 		
 		for conf_user_yahoo_id in conf_new_roster:
-			conf_user_uuid = self.yahoo_id_to_uuid(conf_user_yahoo_id)
+			conf_user_uuid = yahoo_id_to_uuid(self.bs, self.backend, conf_user_yahoo_id)
 			if conf_user_uuid is None:
 				continue
 			cs.invite(conf_user_uuid, invite_msg = invite_msg, roster = conf_roster, voice_chat = voice_chat, existing = True)
@@ -590,28 +594,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	
 	# Other functions
 	
-	def yahoo_id_to_uuid(self, yahoo_id: str) -> Optional[str]:
-		email = None # type: Optional[str]
-		
-		if '@' in yahoo_id:
-			email = yahoo_id
-		elif '@yahoo.com' in yahoo_id:
-			return None
-		elif self.bs:
-			detail = self.bs.user.detail
-			assert detail is not None
-			pre = yahoo_id + '@yahoo.com'
-			for ctc in detail.contacts.values():
-				if ctc.head.email.startswith(pre):
-					email = ctc.head.email
-					break
-		
-		if email is None:
-			# Assume that it's an "@yahoo.com" address
-			email = yahoo_id + '@yahoo.com'
-		
-		return self.backend.util_get_uuid_from_email(email)
-	
 	def _get_private_chat_with(self, other_user_uuid: str) -> Tuple[ChatSession, 'ChatEventHandler']:
 		assert self.bs is not None
 		
@@ -663,15 +645,27 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if c.lists & Lst.BL:
 				ignore_list.append(misc.yahoo_id(c.head.email))
 		
-		tmp = datetime.datetime.utcnow() + datetime.timedelta(days = 1)
-		expiry = tmp.strftime('%a, %d %b %Y %H:%M:%S GMT')
+		if self.backend.auth_service.pop_token('ymsg/service', self.cached_y_cookie) is None and self.backend.auth_service.pop_token('ymsg/service', self.cached_t_cookie) is None:
+			tmp = time.time()
+			expiry = (datetime.datetime.utcfromtimestamp(tmp) + datetime.timedelta(days = 1)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+			
+			y = self.backend.auth_service.create_token('ymsg/service', self.yahoo_id, predefined_token = misc.Y_COOKIE_TEMPLATE.format(
+				encodedname = misc.encode_yahoo_id(self.yahoo_id),
+			), predefined_time = tmp, persistent = True, lifetime = 86400)
+			t = self.backend.auth_service.create_token('ymsg/service', { self.yahoo_id: self.bs }, predefined_token = misc.T_COOKIE_TEMPLATE, predefined_time = tmp, format_token = True, lifetime = 86400)
+			
+			self.cached_y_cookie = y
+			self.cached_t_cookie = t
+		else:
+			y = self.cached_y_cookie
+			t = self.cached_t_cookie
 		
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),
 			('89', self.yahoo_id),
-			('59', 'Y\tv=1&n=&l=&p=&r=&lg=&intl=&np=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
-			('59', 'T\tz=&a=&sk=&ks=&kt=&ku=&d=; expires=' + expiry + '; path=/; domain=.yahoo.com'),
+			('59', y.replace('=', '\t', 1) + ' expires=' + expiry + '; path=/; domain=.yahoo.com'),
+			('59', t.replace('=', '\t', 1) + ' expires=' + expiry + '; path=/; domain=.yahoo.com'),
 			('59', 'C\tmg=1'),
 			('3', self.yahoo_id),
 			('90', '1'),
@@ -711,7 +705,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		if yahoo_id is None:
 			return False
 		
-		uuid = self.yahoo_id_to_uuid(yahoo_id)
+		uuid = yahoo_id_to_uuid(self.bs, self.backend, yahoo_id)
 		if uuid is None:
 			return False
 		
@@ -808,6 +802,14 @@ class BackendEventHandler(event.BackendEventHandler):
 	
 	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
 		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
+			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+	
+	def on_upload_file_ft(self, recipient: str, message: str):
+		for y in misc.build_http_ft_ack_packet(self.bs, recipient, message):
+			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+	
+	def on_sent_ft_http(self, sender: str, url_path: str, message: str):
+		for y in misc.build_http_ft_packet(self.bs, sender, url_path, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
