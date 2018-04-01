@@ -351,6 +351,10 @@ class MSNPCtrlNS(MSNPCtrl):
 		else:
 			self.send_reply('REG', trid, 1, name, group_id, 0)
 	
+	def _m_adl(self, trid: str, data: bytes) -> None:
+		# TODO: For MSNP13+
+		self.send_reply('ADL', trid, 'OK')
+	
 	def _m_adc(self, trid: str, lst_name: str, arg1: str, arg2: Optional[str] = None) -> None:
 		if arg1.startswith('N='):
 			#>>> ADC 249 BL N=bob1@hotmail.com
@@ -401,6 +405,10 @@ class MSNPCtrlNS(MSNPCtrl):
 				self.send_reply('ADC', trid, lst_name, 'N={}'.format(ctc_head.email))
 		else:
 			self.send_reply('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
+	
+	def _m_rml(self, trid: str, data: bytes) -> None:
+		# TODO: For MSNP13+
+		self.send_reply('RML', trid, 'OK')
 	
 	def _m_rem(self, trid: str, lst_name: str, usr: str, group_id: Optional[str] = None) -> None:
 		bs = self.bs
@@ -526,14 +534,14 @@ class MSNPCtrlNS(MSNPCtrl):
 			extra += (1,)
 		self.send_reply('XFR', trid, dest, 'm1.escargot.log1p.xyz:1864', 'CKI', token, *extra)
 	
-	# These four commands appear to be useless:
-	def _m_adl(self, trid: str, data: bytes) -> None:
-		self.send_reply('ADL', trid, 'OK')
-	def _m_rml(self, trid: str, data: bytes) -> None:
-		self.send_reply('RML', trid, 'OK')
 	def _m_fqy(self, trid: str, data: bytes) -> None:
+		# "Federated query; Query contact's network types"
+		# https://web.archive.org/web/20100820020114/http://msnpiki.msnfanatic.com:80/index.php/Command:FQY
 		self.send_reply('FQY', trid, b'')
+	
 	def _m_uun(self, trid: str, email: str, arg0: str, data: bytes) -> None:
+		# "Send sharing invitation or reply to invitation"
+		# https://web.archive.org/web/20130926060507/http://msnpiki.msnfanatic.com/index.php/MSNP13:Changes#UUN
 		self.send_reply('UUN', trid, 'OK')
 	
 	def _ser(self) -> Optional[int]:
