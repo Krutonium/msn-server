@@ -29,6 +29,9 @@ def main(*, devmode: bool = False) -> None:
 		if settings.ENABLE_FRONT_DEVBOTS:
 			import front.devbots
 			front.devbots.register(loop, backend)
+		
+		import dev.webconsole
+		dev.webconsole.register(loop, backend, http_app)
 	
 	backend.run_forever()
 

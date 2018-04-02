@@ -23,6 +23,7 @@ class Backend:
 	__slots__ = (
 		'user_service', 'auth_service', 'loop', '_stats', '_sc',
 		'_chats_by_id', '_user_by_uuid', '_unsynced_db', '_runners',
+		'_dev',
 	)
 	
 	user_service: UserService
@@ -34,6 +35,7 @@ class Backend:
 	_user_by_uuid: Dict[str, User]
 	_unsynced_db: Dict[User, UserDetail]
 	_runners: List[Runner]
+	_dev: Optional[Any]
 	
 	def __init__(self, loop: asyncio.AbstractEventLoop, *, user_service: Optional[UserService] = None, auth_service: Optional[AuthService] = None) -> None:
 		self.user_service = user_service or UserService()
@@ -45,6 +47,7 @@ class Backend:
 		self._user_by_uuid = {}
 		self._unsynced_db = {}
 		self._runners = []
+		self._dev = None
 		
 		loop.create_task(self._sync_db())
 		loop.create_task(self._clean_sessions())
@@ -148,6 +151,13 @@ class Backend:
 	def util_get_sessions_by_user(self, user: User) -> Iterable['BackendSession']:
 		return self._sc.get_sessions_by_user(user)
 	
+	def dev_connect(self, obj: object) -> None:
+		if self._dev is None: return
+		self._dev.connect(obj)
+	
+	def dev_disconnect(self, obj: object) -> None:
+		if self._dev is None: return
+		self._dev.disconnect(obj)
 	
 	async def _sync_db(self) -> None:
 		while True:

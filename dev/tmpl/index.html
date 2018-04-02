@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Webconsole</title>
+</head>
+<body>
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			new App('{{ wsurl }}');
+		});
+		
+		class App {
+			constructor(wsurl) {
+				this.ws = new WebSocket(wsurl);
+				this.ws.onmessage = this._onWSMessage.bind(this);
+				this.$input = document.getElementById('input');
+				this.$output = document.getElementById('output');
+				this.$input.addEventListener('keypress', this._onKeyPress.bind(this));
+				this.hist = [];
+				this.histIndex = 0;
+			}
+			
+			_onWSMessage(evt) {
+				this.appendOutput(evt.data, 'out');
+			}
+			
+			appendOutput(text, cls) {
+				const $elm = document.createElement('p');
+				$elm.textContent = text;
+				if (cls) $elm.setAttribute('class', cls);
+				this.$output.appendChild($elm);
+				this.$output.scrollTop = this.$output.scrollHeight;
+			}
+			
+			_onKeyPress(evt) {
+				if (evt.shiftKey) return;
+				const k = evt.keyCode;
+				const $input = this.$input;
+				if (k == 13) {
+					const text = $input.value;
+					$input.value = '';
+					this.appendOutput(text, 'in');
+					this.ws.send(text);
+					
+					this.hist.push(text);
+					if (this.hist.length > 150) {
+						this.hist.splice(0, this.hist.length - 100);
+					}
+					this.histIndex = this.hist.length;
+					
+					evt.preventDefault();
+					return false;
+				} else if (k == 38) {
+					this.histIndex -= 1;
+					if (this.histIndex < 0) {
+						this.histIndex = this.hist.length - 1;
+					}
+					if (this.histIndex >= 0) {
+						$input.value = this.hist[this.histIndex];
+					} else {
+						$input.value = '';
+					}
+					
+					evt.preventDefault();
+					return false;
+				} else if (k == 40) {
+					this.histIndex += 1;
+					if (this.histIndex >= this.hist.length) {
+						this.histIndex = 0;
+					}
+					if (this.histIndex < this.hist.length) {
+						$input.value = this.hist[this.histIndex];
+					} else {
+						$input.value = '';
+					}
+					
+					evt.preventDefault();
+					return false;
+				}
+			}
+		}
+	</script>
+	
+	<div id="output"></div>
+	<textarea id="input"></textarea>
+	
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+		body {
+			margin: 1vh;
+			background: #999999;
+		}
+		#output {
+			height: 82vh;
+			background: #DDDDDD;
+			border: 1px solid #000000;
+			padding: 0.3em;
+			font-family: monospace;
+			white-space: pre-wrap;
+			overflow: scroll;
+		}
+		#input {
+			height: 15vh;
+			width: 100%;
+		}
+		#output p {
+			margin: 0em 0em 0.2em;
+			padding: 0.2em 0.3em;
+		}
+		#output .in {
+			font-weight: bold;
+		}
+		#output .in::before {
+			color: #666666;
+			content: "\3C \3C \3C  ";
+		}
+		#output p:hover {
+			background: #99CC99;
+		}
+	</style>
+</body>
+</html>
