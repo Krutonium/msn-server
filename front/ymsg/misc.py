@@ -23,6 +23,7 @@ class YMSGService(IntEnum):
 	PingConfiguration = 0x12
 	SkinName = 0x15
 	Passthrough2 = 0x16
+	MassMessage = 0x17
 	ConfInvite = 0x18
 	ConfLogon = 0x19
 	ConfDecline = 0x1a
@@ -166,7 +167,7 @@ def build_message_packet(user_from: User, bs: BackendSession, message_dict: Dict
 		('5', yahoo_id(user_to.email)),
 		('4', yahoo_id(user_from.email)),
 		('14', message_dict.get('14')),
-		('63', message_dict.get('63')),
+		('63', (message_dict.get('63') if message_dict.get('63') is not None else ';0')),
 		('64', message_dict.get('64'))
 	])
 	

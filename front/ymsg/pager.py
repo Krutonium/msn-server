@@ -453,6 +453,20 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		cs, evt = self._get_private_chat_with(contact_uuid)
 		evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
 	
+	def _y_0017(self, *args) -> None:
+		# SERVICE_MASSMESSAGE (0x17); send a message to multiple users
+		
+		yahoo_data = args[4]
+		contact_yahoo_ids = yahoo_data.getall('5')
+		if contact_yahoo_ids:
+			for yahoo_id in contact_yahoo_ids:
+				contact_uuid = yahoo_id_to_uuid(self.bs, self.backend, yahoo_id)
+				if contact_uuid is None:
+					continue
+				
+				cs, evt = self._get_private_chat_with(contact_uuid)
+				evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
+	
 	def _y_004d(self, *args) -> None:
 		# SERVICE_P2PFILEXFER (0x4d); initiate P2P file transfer. Due to this service being present in 3rd-party libraries; we can implement it here
 		
