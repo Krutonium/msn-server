@@ -167,9 +167,13 @@ def build_message_packet(user_from: User, bs: BackendSession, message_dict: Dict
 		('5', yahoo_id(user_to.email)),
 		('4', yahoo_id(user_from.email)),
 		('14', message_dict.get('14')),
-		('63', (message_dict.get('63') if message_dict.get('63') is not None else ';0')),
-		('64', message_dict.get('64'))
 	])
+	
+	if message_dict.get('63') is not None:
+		message_dict.add('63', message_dict.get('63'))
+	
+	if message_dict.get('64') is not None:
+		message_dict.add('64', message_dict.get('64'))
 	
 	if message_dict.get('97') is not None:
 		message_to_dict.add('97', message_dict.get('97'))
