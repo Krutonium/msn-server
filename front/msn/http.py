@@ -293,7 +293,7 @@ async def handle_rsi(req: web.Request) -> web.Response:
 			isValidDeletion = backend.user_service.delete_oim(messageId)
 			if not isValidDeletion:
 				return render(req, 'msn:oim/Fault.validation.xml', status = 500)
-		bs.evt.on_oim_deletion()
+		bs.evt.msn_on_oim_deletion()
 		return render(req, 'msn:oim/DeleteMessagesResponse.xml')
 	
 	return render(req, 'msn:Fault.unsupported.xml', { 'faultactor': action_str })
