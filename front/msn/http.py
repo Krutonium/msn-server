@@ -70,7 +70,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 	cachekey = secrets.token_urlsafe(172)
 	
 	#print(_xml_to_string(action))
-	backend = req.app['backend']
+	backend: Backend = req.app['backend']
 	
 	try:
 		if action_str == 'FindMembership':
@@ -84,18 +84,22 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			})
 		if action_str == 'AddMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
+			assert lst is not None
 			email = _find_element(action, 'PassportName')
 			contact_uuid = backend.util_get_uuid_from_email(email)
-			backend.me_contact_add(bs, contact_uuid, lst, email)
+			assert contact_uuid is not None
+			bs.me_contact_add(contact_uuid, lst, name = email)
 			return render(req, 'msn:sharing/AddMemberResponse.xml')
 		if action_str == 'DeleteMember':
 			lst = models.Lst.Parse(str(_find_element(action, 'MemberRole')))
+			assert lst is not None
 			email = _find_element(action, 'PassportName')
 			if email:
 				contact_uuid = backend.util_get_uuid_from_email(email)
 			else:
 				contact_uuid = str(_find_element(action, 'MembershipId')).split('/')[1]
-			backend.me_contact_remove(bs, contact_uuid, lst)
+			assert contact_uuid is not None
+			bs.me_contact_remove(contact_uuid, lst)
 			return render(req, 'msn:sharing/DeleteMemberResponse.xml')
 		
 		if action_str == 'ABFindAll':
@@ -121,14 +125,16 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
 			contact_uuid = backend.util_get_uuid_from_email(email)
-			backend.me_contact_add(bs, contact_uuid, models.Lst.FL, email)
+			assert contact_uuid is not None
+			bs.me_contact_add(contact_uuid, models.Lst.FL, name = email)
 			return render(req, 'msn:abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABContactDelete':
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_contact_remove(bs, contact_uuid, models.Lst.FL)
+			assert contact_uuid is not None
+			bs.me_contact_remove(contact_uuid, models.Lst.FL)
 			return render(req, 'msn:abservice/ABContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -136,7 +142,8 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABContactUpdate':
 			contact_uuid = _find_element(action, 'contactId')
 			is_messenger_user = _find_element(action, 'isMessengerUser')
-			backend.me_contact_edit(bs, contact_uuid, is_messenger_user = is_messenger_user)
+			assert contact_uuid is not None
+			bs.me_contact_edit(contact_uuid, is_messenger_user = is_messenger_user)
 			return render(req, 'msn:abservice/ABContactUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -144,7 +151,7 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupAdd':
 			name = _find_element(action, 'name')
 			is_favorite = _find_element(action, 'IsFavorite')
-			group = backend.me_group_add(bs, name, is_favorite = is_favorite)
+			group = bs.me_group_add(name, is_favorite = is_favorite)
 			return render(req, 'msn:abservice/ABGroupAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -154,14 +161,14 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			group_id = str(_find_element(action, 'groupId'))
 			name = _find_element(action, 'name')
 			is_favorite = _find_element(action, 'IsFavorite')
-			backend.me_group_edit(bs, group_id, name, is_favorite = is_favorite)
+			bs.me_group_edit(group_id, name, is_favorite = is_favorite)
 			return render(req, 'msn:abservice/ABGroupUpdateResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
 			})
 		if action_str == 'ABGroupDelete':
 			group_id = str(_find_element(action, 'guid'))
-			backend.me_group_remove(bs, group_id)
+			bs.me_group_remove(group_id)
 			return render(req, 'msn:abservice/ABGroupDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -169,7 +176,8 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupContactAdd':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_group_contact_add(bs, group_id, contact_uuid)
+			assert contact_uuid is not None
+			bs.me_group_contact_add(group_id, contact_uuid)
 			return render(req, 'msn:abservice/ABGroupContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -178,7 +186,8 @@ async def handle_abservice(req: web.Request) -> web.Response:
 		if action_str == 'ABGroupContactDelete':
 			group_id = str(_find_element(action, 'guid'))
 			contact_uuid = _find_element(action, 'contactId')
-			backend.me_group_contact_remove(bs, group_id, contact_uuid)
+			assert contact_uuid is not None
+			bs.me_group_contact_remove(group_id, contact_uuid)
 			return render(req, 'msn:abservice/ABGroupContactDeleteResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -303,7 +312,7 @@ async def handle_oim(req: web.Request) -> web.Response:
 			'authTypeNode': (Markup('<TweenerChallenge xmlns="http://messenger.msn.com/ws/2004/09/oim/">ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1</TweenerChallenge>') if soapaction.startswith('http://messenger.msn.com/ws/2004/09/') else Markup('<SSOChallenge xmlns="http://messenger.live.com/ws/2006/09/oim/">?MBI_KEY_OLD</SSOChallenge>')),
 		}, status = 500)
 	
-	backend = req.app['backend']
+	backend: Backend = req.app['backend']
 	user = bs.user
 	detail = user.detail
 	assert detail is not None
@@ -401,7 +410,8 @@ async def _preprocess_soap(req: web.Request) -> Tuple[Any, Any, Optional[Backend
 	if token[0:2] == 't=':
 		token = token[2:22]
 	
-	backend_sess = req.app['backend'].util_get_sess_by_token(token)
+	backend: Backend = req.app['backend']
+	backend_sess = backend.util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
@@ -423,7 +433,8 @@ async def _preprocess_soap_rsi(req: web.Request) -> Tuple[Any, Any, Optional[Bac
 	if token is not None and token[0:2] == 't=':
 		token = token[2:22]
 	
-	bs = req.app['backend'].util_get_sess_by_token(token)
+	backend: Backend = req.app['backend']
+	bs = backend.util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	action = _find_element(root, 'Body/*[1]')
@@ -440,7 +451,8 @@ async def _preprocess_soap_oimws(req: web.Request) -> Tuple[Any, Any, Any, Optio
 	if token[0:2] == 't=':
 		token = token[2:22]
 	
-	bs = req.app['backend'].util_get_sess_by_token(token)
+	backend: Backend = req.app['backend']
+	bs = backend.util_get_sess_by_token(token)
 	
 	header = _find_element(root, 'Header')
 	body_msgtype = _find_element(root, 'Body/MessageType')
@@ -528,11 +540,13 @@ async def handle_rst(req):
 	now = datetime.utcnow()
 	timez = now.isoformat()[0:19] + 'Z'
 	
-	if token is not None:
+	backend: Backend = req.app['backend']
+	uuid = backend.util_get_uuid_from_email(email)
+	
+	if token is not None and uuid is not None:
 		tomorrowz = (now + timedelta(days = 1)).isoformat()[0:19] + 'Z'
-		
 		# load PUID and CID, assume them to be the same for our purposes
-		cid = _cid_format(req.app['backend'].util_get_uuid_from_email(email))
+		cid = _cid_format(uuid)
 		
 		peername = req.transport.get_extra_info('peername')
 		if peername:
@@ -653,7 +667,7 @@ def _extract_pp_credentials(auth_str: str) -> Optional[Tuple[str, str]]:
 	return email, pwd
 
 def _login(req, email: str, pwd: str) -> Optional[str]:
-	backend = req.app['backend'] # type: Backend
+	backend: Backend = req.app['backend']
 	uuid = backend.user_service.login(email, pwd)
 	if uuid is None: return None
 	return backend.auth_service.create_token('nb/login', uuid)
