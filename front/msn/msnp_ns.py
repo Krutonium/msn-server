@@ -563,12 +563,32 @@ class MSNPCtrlNS(MSNPCtrl):
 	def _m_fqy(self, trid: str, data: bytes) -> None:
 		# "Federated query; Query contact's network types"
 		# https://web.archive.org/web/20100820020114/http://msnpiki.msnfanatic.com:80/index.php/Command:FQY
-		self.send_reply('FQY', trid, b'')
+		# 
+		# Just return what the client sends us until we can implement the protocol Yahoo! Messenger 8.0 uses (the version of Yahoo! that
+		# supports the Yahoo/MSN interop)
+		self.send_reply('FQY', trid, data)
 	
 	def _m_uun(self, trid: str, email: str, arg0: str, data: bytes) -> None:
 		# "Send sharing invitation or reply to invitation"
 		# https://web.archive.org/web/20130926060507/http://msnpiki.msnfanatic.com/index.php/MSNP13:Changes#UUN
-		self.send_reply('UUN', trid, 'OK')
+		bs = self.bs
+		assert bs is not None
+		
+		contact_uuid = self.backend.util_get_uuid_from_email(email)
+		if contact_uuid is None:
+			return
+		try:
+			snm = parse_xml(data.decode('utf-8'))
+			opcode = snm.get('opcode')
+			
+			if opcode in ('SNM','ACK'):
+				self.send_reply('UUN', trid, 'OK')
+		except Exception:
+			# Initiating a voice call on WLM sends a `UUN` command with some integers instead of an `<SNM>` XML ('UUN <trid> <passport> 11\r\n\r\n1 1 0 134546710 144000000')
+			# Send a response in that case.
+			self.send_reply('UUN', trid, 'OK')
+		
+		bs.me_send_uun_invitation(contact_uuid, data)
 	
 	def _ser(self) -> Optional[int]:
 		if self.dialect >= 10:
@@ -617,14 +637,17 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
 		pass
 	
-	def on_oim_sent(self, oim_uuid: str) -> None:
+	def msn_on_oim_sent(self, oim_uuid: str) -> None:
 		assert self.ctrl.bs is not None
 		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', _encode_payload(PAYLOAD_MSG_3,
 			md = gen_mail_data(self.ctrl.bs.user, self.ctrl.backend, oim_uuid = oim_uuid, just_sent = True, e_node = False, q_node = False)
 		))
 	
-	def on_oim_deletion(self) -> None:
+	def msn_on_oim_deletion(self) -> None:
 		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', _encode_payload(PAYLOAD_MSG_4))
+	
+	def msn_on_uun_sent(self, sender: User, snm: bytes) -> None:
+		self.ctrl.send_reply('UBN', sender.email, 1, snm)
 	
 	def on_pop_boot(self) -> None:
 		self.ctrl.send_reply('OUT', 'OTH')
