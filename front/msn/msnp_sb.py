@@ -194,17 +194,16 @@ def messagedata_from_msnp(sender: User, data: bytes) -> MessageData:
 	# b'MIME-Version: 1.0\r\nContent-Type: application/x-msnmsgrp2p\r\nP2P-Dest: t2h@hotmail.com\r\n\r\n\x00\x00\x00\x00Ht\xc4\n\x00\x00\x00\x00\x00\x00\x00\x00K\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00Xt\xc4\nN\x0b\xc7\nK\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 	# etc.
 	
-	s = data.decode('utf-8')
-	i = s.index('\r\n\r\n')
-	headers = s[:i]
-	body = s[i+4:]
+	i = data.index(b'\r\n\r\n')
+	headers = data[:i].decode('utf-8')
+	body = data[i+4:]
 	
 	if 'text/x-msmsgscontrol' in headers:
 		type = MessageType.Typing
 		text = ''
 	elif 'text/plain' in headers:
 		type = MessageType.Chat
-		text = body
+		text = body.decode('utf-8')
 	else:
 		type = MessageType.Chat
 		text = "(Unsupported MSNP Content-Type)"
