@@ -10,7 +10,7 @@ from util.misc import Logger
 
 from core import event, error
 from core.backend import Backend, BackendSession, Chat, ChatSession
-from core.models import Substatus, Lst, User, Contact, Group, TextWithData, MessageData, MessageType, UserStatus
+from core.models import Substatus, Lst, User, Contact, Group, TextWithData, MessageData, MessageType, UserStatus, LoginOption
 from core.client import Client
 from core.user import UserService
 from core.auth import AuthService
@@ -906,10 +906,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		for y in misc.build_contact_request_notif(user, self.bs.user, ('' if message is None else message.text), (None if message is None else message.yahoo_utf8)):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_pop_boot(self) -> None:
-		pass
-	
-	def on_pop_notify(self) -> None:
+	def on_login_elsewhere(self, option: LoginOption) -> None:
 		pass
 	
 	def on_close(self) -> None:

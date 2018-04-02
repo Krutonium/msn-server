@@ -6,7 +6,7 @@ from enum import IntEnum
 from util.misc import Logger
 
 from core import event
-from core.models import Contact, Substatus, User, TextWithData, MessageData, MessageType, Substatus
+from core.models import Contact, Substatus, User, TextWithData, MessageData, MessageType, Substatus, LoginOption
 from core.backend import Backend, BackendSession, Chat, ChatSession
 from core.client import Client
 
@@ -199,11 +199,11 @@ class BackendEventHandler(event.BackendEventHandler):
 		if message:
 			self.ctrl.send_reply('NOTICE', ":\"{}\"".format(message), source = user.email)
 	
-	def on_pop_boot(self) -> None:
-		self.ctrl.send_reply('NOTICE', ":You are being booted because your account is used elsewhere.")
-	
-	def on_pop_notify(self) -> None:
-		self.ctrl.send_reply('NOTICE', ":Your account is being used elsewhere.")
+	def on_login_elsewhere(self, option: LoginOption) -> None:
+		if option is LoginOption.BootOthers:
+			self.ctrl.send_reply('NOTICE', ":You are being booted because your account is used elsewhere.")
+		else:
+			self.ctrl.send_reply('NOTICE', ":Your account is being used elsewhere.")
 	
 	def on_close(self) -> None:
 		self.ctrl.close()

@@ -215,3 +215,7 @@ class Service:
 	def __init__(self, host: str, port: int) -> None:
 		self.host = host
 		self.port = port
+
+class LoginOption(Enum):
+	BootOthers = object()
+	NotifyOthers = object()

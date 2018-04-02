@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Callable, Optional, Dict, Any, List
 from abc import ABCMeta, abstractmethod
-from .models import User, Contact, Lst, MessageData, TextWithData, Substatus
+from .models import User, Contact, Lst, MessageData, TextWithData, Substatus, LoginOption
 
 if TYPE_CHECKING:
 	from .backend import BackendSession, Chat, ChatSession
@@ -36,10 +36,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def on_contact_request_denied(self, user: User, message: str) -> None: pass
 	
 	@abstractmethod
-	def on_pop_boot(self) -> None: pass
-	
-	@abstractmethod
-	def on_pop_notify(self) -> None: pass
+	def on_login_elsewhere(self, option: LoginOption) -> None: pass
 	
 	# TODO: Make these non-frontend-specific to allow interop
 	

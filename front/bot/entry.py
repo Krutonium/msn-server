@@ -3,7 +3,7 @@ import asyncio
 import random
 
 from core.client import Client
-from core.models import Substatus, Lst, Contact, User, TextWithData, MessageData, MessageType
+from core.models import Substatus, Lst, Contact, User, TextWithData, MessageData, MessageType, LoginOption
 from core.backend import Backend, BackendSession, Chat, ChatSession
 from core import event
 
@@ -55,10 +55,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
 		pass
 	
-	def on_pop_boot(self) -> None:
-		pass
-	
-	def on_pop_notify(self) -> None:
+	def on_login_elsewhere(self, option: LoginOption) -> None:
 		pass
 
 class ChatEventHandler(event.ChatEventHandler):

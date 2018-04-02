@@ -6,7 +6,7 @@ from util.misc import Logger
 
 from core import event
 from core.backend import Backend, BackendSession, Chat
-from core.models import Substatus, Lst, User, Contact, TextWithData
+from core.models import Substatus, Lst, User, Contact, TextWithData, LoginOption
 from core.client import Client
 
 from .msnp import MSNPCtrl
@@ -649,12 +649,12 @@ class BackendEventHandler(event.BackendEventHandler):
 	def msn_on_uun_sent(self, sender: User, snm: bytes) -> None:
 		self.ctrl.send_reply('UBN', sender.email, 1, snm)
 	
-	def on_pop_boot(self) -> None:
-		self.ctrl.send_reply('OUT', 'OTH')
-	
-	def on_pop_notify(self) -> None:
-		# TODO: What do?
-		pass
+	def on_login_elsewhere(self, option: LoginOption) -> None:
+		if option is LoginOption.BootOthers:
+			self.ctrl.send_reply('OUT', 'OTH')
+		else:
+			# TODO: What do?
+			pass
 	
 	def on_close(self) -> None:
 		self.ctrl.close()

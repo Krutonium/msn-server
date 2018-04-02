@@ -10,7 +10,7 @@ from .user import UserService
 from .auth import AuthService
 from .stats import Stats
 from .client import Client
-from .models import User, UserDetail, Group, Lst, Contact, UserStatus, TextWithData, MessageData, Substatus
+from .models import User, UserDetail, Group, Lst, Contact, UserStatus, TextWithData, MessageData, Substatus, LoginOption
 from . import error, event
 
 class Ack(IntFlag):
@@ -477,12 +477,12 @@ class BackendSession(Session):
 	def me_pop_boot_others(self) -> None:
 		for sess_other in self.backend._sc.get_sessions_by_user(self.user):
 			if self is sess_other: continue
-			sess_other.evt.on_pop_boot()
+			sess_other.evt.on_login_elsewhere(LoginOption.BootOthers)
 	
 	def me_pop_notify_others(self) -> None:
 		for sess_other in self.backend.util_get_sessions_by_user(self.user):
 			if self is sess_other: continue
-			sess_other.evt.on_pop_notify()
+			sess_other.evt.on_login_elsewhere(LoginOption.NotifyOthers)
 
 class _SessionCollection:
 	__slots__ = ('_sessions', '_sessions_by_user', '_sess_by_token', '_tokens_by_sess')
