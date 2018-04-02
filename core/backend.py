@@ -346,7 +346,7 @@ class BackendSession(Session):
 			raise error.UserDoesNotExist()
 		user = self.user
 		ctc = self._add_to_list(user, ctc_head, lst, name)
-		if lst is Lst.FL:
+		if lst & Lst.FL:
 			# FL needs a matching RL on the contact
 			ctc_me = self._add_to_list(ctc_head, user, Lst.RL, user.status.name)
 			# If other user hasn't already allowed/blocked me, notify them that I added them to my list.
@@ -387,9 +387,9 @@ class BackendSession(Session):
 		ctc = detail.contacts.get(contact_uuid)
 		if ctc is None:
 			raise error.ContactDoesNotExist()
-		assert lst is not Lst.RL
+		assert not lst & Lst.RL
 		self._remove_from_list(user, ctc.head, lst)
-		if lst is Lst.FL:
+		if lst & Lst.FL:
 			ctc.groups = set()
 			# Remove matching RL
 			self._remove_from_list(ctc.head, user, Lst.RL)
@@ -408,11 +408,13 @@ class BackendSession(Session):
 		# Add `ctc_head` to `user`'s `lst`
 		detail = self.backend._load_detail(user)
 		contacts = detail.contacts
-		if ctc_head.uuid not in contacts:
-			contacts[ctc_head.uuid] = Contact(ctc_head, set(), Lst.Empty, UserStatus(name))
-		ctc = contacts[ctc_head.uuid]
 		
 		updated = False
+		
+		if ctc_head.uuid not in contacts:
+			contacts[ctc_head.uuid] = Contact(ctc_head, set(), Lst.Empty, UserStatus(name))
+			updated = True
+		ctc = contacts[ctc_head.uuid]
 		
 		orig_name = ctc.status.name
 		if ctc.status.name is None:

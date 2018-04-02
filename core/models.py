@@ -184,7 +184,7 @@ class Lst(IntFlag):
 	label: str
 	
 	# TODO: This is ugly.
-	def __init__(self, id):
+	def __init__(self, id: int) -> None:
 		super().__init__()
 		if id == 0x01:
 			self.label = "Follow"

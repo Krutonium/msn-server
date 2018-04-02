@@ -352,7 +352,20 @@ class MSNPCtrlNS(MSNPCtrl):
 			self.send_reply('REG', trid, 1, name, group_id, 0)
 	
 	def _m_adl(self, trid: str, data: bytes) -> None:
-		# TODO: For MSNP13+
+		bs = self.bs
+		assert bs is not None
+		
+		adl_xml = parse_xml(data.decode('utf-8'))
+		for d_el in adl_xml.iterchildren():
+			domain = d_el.get('n')
+			for c_el in d_el.iterchildren():
+				username = c_el.get('n')
+				email = '{}@{}'.format(username, domain)
+				contact_uuid = self.backend.util_get_uuid_from_email(email)
+				assert contact_uuid is not None
+				lsts = Lst(int(c_el.get('l')))
+				bs.me_contact_add(contact_uuid, lsts)
+		
 		self.send_reply('ADL', trid, 'OK')
 	
 	def _m_adc(self, trid: str, lst_name: str, arg1: str, arg2: Optional[str] = None) -> None:
@@ -407,7 +420,20 @@ class MSNPCtrlNS(MSNPCtrl):
 			self.send_reply('ADD', trid, lst_name, self._ser(), ctc_head.email, name, group_id)
 	
 	def _m_rml(self, trid: str, data: bytes) -> None:
-		# TODO: For MSNP13+
+		bs = self.bs
+		assert bs is not None
+		
+		rml_xml = parse_xml(data.decode('utf-8'))
+		for d_el in rml_xml.iterchildren():
+			domain = d_el.get('n')
+			for c_el in d_el.iterchildren():
+				username = c_el.get('n')
+				email = '{}@{}'.format(username, domain)
+				contact_uuid = self.backend.util_get_uuid_from_email(email)
+				assert contact_uuid is not None
+				lsts = Lst(int(c_el.get('l')))
+				bs.me_contact_remove(contact_uuid, lsts)
+		
 		self.send_reply('RML', trid, 'OK')
 	
 	def _m_rem(self, trid: str, lst_name: str, usr: str, group_id: Optional[str] = None) -> None:
@@ -577,9 +603,15 @@ class BackendEventHandler(event.BackendEventHandler):
 		name = (user.status.name or email)
 		dialect = self.ctrl.dialect
 		if dialect < 10:
-			m = ('ADD', 0, Lst.RL.name, email, name)
-		else:
+			m: Tuple[Any, ...] = ('ADD', 0, Lst.RL.name, email, name)
+		elif dialect < 13:
 			m = ('ADC', 0, Lst.RL.name, 'N={}'.format(email), 'F={}'.format(name))
+		else:
+			username, domain = email.split('@', 1)
+			adl_payload = '<ml l="1"><d n="{}"><c n="{}" l="{}" t="1"/></d></ml>'.format(
+				domain, username, int(Lst.RL)
+			)
+			m = ('ADL', 0, adl_payload.encode('utf-8'))
 		self.ctrl.send_reply(*m)
 	
 	def on_contact_request_denied(self, user: User, message: Optional[str]) -> None:
