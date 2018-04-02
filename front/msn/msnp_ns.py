@@ -108,7 +108,7 @@ class MSNPCtrlNS(MSNPCtrl):
 				assert usr_email is not None
 				uuid = backend.user_service.msn_login_md5(usr_email, md5_hash)
 				if uuid is not None:
-					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
+					self.bs = backend.login(uuid, self.client, BackendEventHandler(self), LoginOption.BootOthers)
 				self._util_usr_final(trid, None)
 				return
 		
@@ -136,7 +136,8 @@ class MSNPCtrlNS(MSNPCtrl):
 				assert usr_email is not None
 				uuid = backend.auth_service.pop_token('nb/login', token)
 				if uuid is not None:
-					self.bs = backend.login(uuid, self.client, BackendEventHandler(self))
+					option = (LoginOption.BootOthers if dialect < 18 else LoginOption.NotifyOthers)
+					self.bs = backend.login(uuid, self.client, BackendEventHandler(self), option)
 				self._util_usr_final(trid, token)
 				return
 		
@@ -153,11 +154,6 @@ class MSNPCtrlNS(MSNPCtrl):
 			self.backend.util_set_sess_token(bs, token)
 		
 		dialect = self.dialect
-		
-		if dialect < 18:
-			bs.me_pop_boot_others()
-		else:
-			bs.me_pop_notify_others()
 		
 		user = bs.user
 		

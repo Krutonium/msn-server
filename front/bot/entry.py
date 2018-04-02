@@ -13,7 +13,7 @@ BOT_EMAIL = 'test@bot.log1p.xyz'
 def register(loop: asyncio.AbstractEventLoop, backend: Backend) -> None:
 	uuid = backend.util_get_uuid_from_email(BOT_EMAIL)
 	assert uuid is not None
-	bs = backend.login(uuid, CLIENT, BackendEventHandler(loop))
+	bs = backend.login(uuid, CLIENT, BackendEventHandler(loop), LoginOption.BootOthers)
 	assert bs is not None
 
 class BackendEventHandler(event.BackendEventHandler):

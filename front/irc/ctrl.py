@@ -56,7 +56,7 @@ class IRCCtrl:
 		assert password is not None
 		uuid = self.backend.user_service.login(email, password)
 		if uuid is not None:
-			bs = self.backend.login(uuid, self.client, BackendEventHandler(self))
+			bs = self.backend.login(uuid, self.client, BackendEventHandler(self), LoginOption.BootOthers)
 		else:
 			bs = None
 		if bs is None:

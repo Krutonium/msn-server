@@ -126,7 +126,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if uuid is None:
 				is_resp_correct = False
 			else:
-				bs = self.backend.login(uuid, self.client, BackendEventHandler(self.backend.loop, self), front_needs_self_notify = True)
+				bs = self.backend.login(uuid, self.client, BackendEventHandler(self.backend.loop, self), LoginOption.BootOthers, front_needs_self_notify = True)
 				if bs is None:
 					is_resp_correct = False
 				else:

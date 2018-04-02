@@ -1,6 +1,6 @@
 from typing import Dict, List, Set, Any, Tuple, Optional, Sequence, FrozenSet, Iterable
 from abc import ABCMeta, abstractmethod
-import asyncio, time
+import asyncio, time, traceback
 from collections import defaultdict
 from enum import IntFlag
 
@@ -73,10 +73,17 @@ class Backend:
 		self._sync_contact_statuses()
 		self._generic_notify(sess, old_substatus = old_substatus)
 	
-	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, *, front_needs_self_notify: bool = False) -> Optional['BackendSession']:
+	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, option: LoginOption, *, front_needs_self_notify: bool = False) -> Optional['BackendSession']:
 		user = self._load_user_record(uuid)
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
+		
+		for bs_other in self._sc.get_sessions_by_user(user):
+			try:
+				bs_other.evt.on_login_elsewhere(option)
+			except:
+				traceback.print_exc()
+		
 		bs = BackendSession(self, user, client, evt, front_needs_self_notify = front_needs_self_notify)
 		bs.evt.bs = bs
 		self._stats.on_login()
@@ -174,8 +181,7 @@ class Backend:
 				if not detail: continue
 				batch.append((user, detail))
 			self.user_service.save_batch(batch)
-		except Exception:
-			import traceback
+		except:
 			traceback.print_exc()
 	
 	async def _clean_sessions(self) -> None:
@@ -188,8 +194,7 @@ class Backend:
 				for sess in self._sc.iter_sessions():
 					if sess.closed:
 						closed.append(sess)
-			except Exception:
-				import traceback
+			except:
 				traceback.print_exc()
 			
 			for sess in closed:
@@ -201,7 +206,6 @@ class Backend:
 			try:
 				self._stats.flush()
 			except Exception:
-				import traceback
 				traceback.print_exc()
 
 class Session(metaclass = ABCMeta):
@@ -473,16 +477,6 @@ class BackendSession(Session):
 		for sess_notify in self.backend._sc.get_sessions_by_user(ctc_head):
 			if sess_notify is self: continue
 			sess_notify.evt.msn_on_uun_sent(self.user, snm)
-	
-	def me_pop_boot_others(self) -> None:
-		for sess_other in self.backend._sc.get_sessions_by_user(self.user):
-			if self is sess_other: continue
-			sess_other.evt.on_login_elsewhere(LoginOption.BootOthers)
-	
-	def me_pop_notify_others(self) -> None:
-		for sess_other in self.backend.util_get_sessions_by_user(self.user):
-			if self is sess_other: continue
-			sess_other.evt.on_login_elsewhere(LoginOption.NotifyOthers)
 
 class _SessionCollection:
 	__slots__ = ('_sessions', '_sessions_by_user', '_sess_by_token', '_tokens_by_sess')
