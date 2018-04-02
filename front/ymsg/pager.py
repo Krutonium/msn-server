@@ -441,6 +441,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		cs, _ = self._get_private_chat_with(contact_uuid)
 		cs.send_message_to_everyone(messagedata_from_ymsg(cs.user, yahoo_data, notify_type = notify_type))
 	
+	# TODO: Implement offline messaging for both `SERVICE_MESSAGE` and `SERVICE_MASSMESSAGE`.
+	# 
+	# Obviously, source has to be Chet Simpson. Where else can we get this juicy data? :P
+	# https://github.com/TheGibletInitiative/Giblet/blob/master/Protocols/YMsg/include/Protocols/YMsg/Server/Builders/OfflineMessage.h
+	
 	def _y_0006(self, *args) -> None:
 		# SERVICE_MESSAGE (0x06); send a message to a user
 		
