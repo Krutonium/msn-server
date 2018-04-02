@@ -46,6 +46,12 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def msn_on_oim_sent(self, oim_uuid: str) -> None:
 		pass
 	
+	def msn_on_oim_deletion(self) -> None:
+		pass
+	
+	def msn_on_uun_sent(self, sender: User, snm: bytes) -> None:
+		pass
+	
 	def ymsg_on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
 		pass
 	
