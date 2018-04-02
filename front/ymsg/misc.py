@@ -170,10 +170,10 @@ def build_message_packet(user_from: User, bs: BackendSession, message_dict: Dict
 	])
 	
 	if message_dict.get('63') is not None:
-		message_dict.add('63', message_dict.get('63'))
+		message_to_dict.add('63', message_dict.get('63'))
 	
 	if message_dict.get('64') is not None:
-		message_dict.add('64', message_dict.get('64'))
+		message_to_dict.add('64', message_dict.get('64'))
 	
 	if message_dict.get('97') is not None:
 		message_to_dict.add('97', message_dict.get('97'))
