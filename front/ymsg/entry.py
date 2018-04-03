@@ -10,10 +10,11 @@ from .ymsg_ctrl import YMSGCtrlBase
 
 def register(loop: asyncio.AbstractEventLoop, backend: Backend, http_app: web.Application) -> None:
 	from util.misc import ProtocolRunner
-	from . import pager, http
+	from . import pager, http, voicechat
 	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
 	http.register(http_app)
+	#voicechat.register(backend)
 
 class ListenerYMSG(asyncio.Protocol):
 	logger: Logger
