@@ -154,8 +154,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		me_status_update(bs, status)
 		
 		self._update_buddy_list(contacts, groups, after_auth = True)
-		
-		bs.backend._sync_contact_statuses()
 	
 	# State = Live
 	

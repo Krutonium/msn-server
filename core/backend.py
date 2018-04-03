@@ -21,9 +21,8 @@ class Ack(IntFlag):
 
 class Backend:
 	__slots__ = (
-		'user_service', 'auth_service', 'loop', '_stats', '_sc',
-		'_chats_by_id', '_user_by_uuid', '_unsynced_db', '_runners',
-		'_dev',
+		'user_service', 'auth_service', 'loop', '_stats', '_sc', '_chats_by_id', '_user_by_uuid',
+		'_worklist_sync_db', '_worklist_notify', '_runners', '_dev',
 	)
 	
 	user_service: UserService
@@ -33,7 +32,8 @@ class Backend:
 	_sc: '_SessionCollection'
 	_chats_by_id: Dict[Tuple[str, str], 'Chat']
 	_user_by_uuid: Dict[str, User]
-	_unsynced_db: Dict[User, UserDetail]
+	_worklist_sync_db: Dict[User, UserDetail]
+	_worklist_notify: Dict[str, Tuple['BackendSession', Substatus]]
 	_runners: List[Runner]
 	_dev: Optional[Any]
 	
@@ -45,13 +45,15 @@ class Backend:
 		self._sc = _SessionCollection()
 		self._chats_by_id = {}
 		self._user_by_uuid = {}
-		self._unsynced_db = {}
+		self._worklist_sync_db = {}
+		self._worklist_notify = {}
 		self._runners = []
 		self._dev = None
 		
-		loop.create_task(self._sync_db())
-		loop.create_task(self._clean_sessions())
-		loop.create_task(self._sync_stats())
+		loop.create_task(self._worker_sync_db())
+		loop.create_task(self._worker_clean_sessions())
+		loop.create_task(self._worker_sync_stats())
+		loop.create_task(self._worker_notify())
 	
 	def add_runner(self, runner: Runner) -> None:
 		self._runners.append(runner)
@@ -69,8 +71,9 @@ class Backend:
 			# so don't send offline notifications.
 			return
 		# User is offline, send notifications
+		user.status.substatus = Substatus.Offline
+		self._sync_contact_statuses(user)
 		user.detail = None
-		self._sync_contact_statuses()
 		self._generic_notify(sess, old_substatus = old_substatus)
 	
 	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, option: LoginOption) -> Optional['BackendSession']:
@@ -112,38 +115,35 @@ class Backend:
 	def chat_get(self, scope: str, id: str) -> Optional['Chat']:
 		return self._chats_by_id.get((scope, id))
 	
-	def _generic_notify(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
-		# TODO: This should be done async, with a slight delay, to reduce unnecessary traffic.
-		# (Similar to how `_unsynced_db` works.)
-		# Notify relevant `BackendSession`s of status, name, message, media
-		user = bs.user
-		detail = self._load_detail(user)
+	def _sync_contact_statuses(self, user: User) -> None:
+		detail = user.detail
+		if detail is None: return
 		for ctc in detail.contacts.values():
-			for bs_other in self._sc.get_sessions_by_user(ctc.head):
-				detail_other = bs_other.user.detail
-				if detail_other is None: continue
-				ctc_me = detail_other.contacts.get(user.uuid)
-				# This shouldn't be `None`, since every contact should have
-				# an `RL` contact on the other users' list (at the very least).
-				if ctc_me is None: continue
-				if not ctc_me.lists & Lst.FL: continue
-				bs_other.evt.on_presence_notification(ctc_me, old_substatus)
-	
-	def _sync_contact_statuses(self) -> None:
-		# TODO: This should be done async, with a slight delay, to reduce unnecessary traffic.
-		# (Similar to how `_unsynced_db` works.)
-		# Recompute all `Contact.status`'s
-		for user in self._user_by_uuid.values():
-			detail = user.detail
-			if detail is None: continue
-			for ctc in detail.contacts.values():
+			if ctc.lists & Lst.FL:
 				ctc.compute_visible_status(user)
+			
+			# If the contact lists ever become inconsistent (FL without matching RL),
+			# the contact that's missing the RL will always see the other user as offline.
+			# Because of this, and the fact that most contacts *are* two-way, and it
+			# not being that much extra work, I'm leaving this line commented out.
+			#if not ctc.lists & Lst.RL: continue
+			
+			if ctc.head.detail is None: continue
+			ctc_rev = ctc.head.detail.contacts.get(user.uuid)
+			if ctc_rev is None: continue
+			ctc_rev.compute_visible_status(ctc.head)
+	
+	def _generic_notify(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
+		uuid = bs.user.uuid
+		if uuid in self._worklist_notify:
+			return
+		self._worklist_notify[uuid] = (bs, old_substatus)
 	
 	def _mark_modified(self, user: User, *, detail: Optional[UserDetail] = None) -> None:
 		ud = user.detail or detail
 		if detail: assert ud is detail
 		assert ud is not None
-		self._unsynced_db[user] = ud
+		self._worklist_sync_db[user] = ud
 	
 	def util_get_uuid_from_email(self, email: str) -> Optional[str]:
 		return self.user_service.get_uuid(email)
@@ -165,25 +165,25 @@ class Backend:
 		if self._dev is None: return
 		self._dev.disconnect(obj)
 	
-	async def _sync_db(self) -> None:
+	async def _worker_sync_db(self) -> None:
 		while True:
 			await asyncio.sleep(1)
 			self._sync_db_impl()
 	
 	def _sync_db_impl(self) -> None:
-		if not self._unsynced_db: return
+		if not self._worklist_sync_db: return
 		try:
-			users = list(self._unsynced_db.keys())[:100]
+			users = list(self._worklist_sync_db.keys())[:100]
 			batch = []
 			for user in users:
-				detail = self._unsynced_db.pop(user, None)
+				detail = self._worklist_sync_db.pop(user, None)
 				if not detail: continue
 				batch.append((user, detail))
 			self.user_service.save_batch(batch)
 		except:
 			traceback.print_exc()
 	
-	async def _clean_sessions(self) -> None:
+	async def _worker_clean_sessions(self) -> None:
 		while True:
 			await asyncio.sleep(10)
 			now = time.time()
@@ -199,13 +199,36 @@ class Backend:
 			for sess in closed:
 				self._sc.remove_session(sess)
 	
-	async def _sync_stats(self) -> None:
+	async def _worker_sync_stats(self) -> None:
 		while True:
 			await asyncio.sleep(60)
 			try:
 				self._stats.flush()
-			except Exception:
+			except:
 				traceback.print_exc()
+	
+	async def _worker_notify(self) -> None:
+		# Notify relevant `BackendSession`s of status, name, message, media, etc. changes
+		worklist = self._worklist_notify
+		while True:
+			await asyncio.sleep(0.2)
+			try:
+				for bs, old_substatus in worklist.values():
+					user = bs.user
+					detail = self._load_detail(user)
+					for ctc in detail.contacts.values():
+						for bs_other in self._sc.get_sessions_by_user(ctc.head):
+							detail_other = bs_other.user.detail
+							if detail_other is None: continue
+							ctc_me = detail_other.contacts.get(user.uuid)
+							# This shouldn't be `None`, since every contact should have
+							# an `RL` contact on the other users' list (at the very least).
+							if ctc_me is None: continue
+							if not ctc_me.lists & Lst.FL: continue
+							bs_other.evt.on_presence_notification(ctc_me, old_substatus)
+			except:
+				traceback.print_exc()
+			worklist.clear()
 
 class Session(metaclass = ABCMeta):
 	__slots__ = ('closed',)
@@ -250,24 +273,33 @@ class BackendSession(Session):
 		detail = user.detail
 		assert detail is not None
 		
+		needs_notify = False
+		
 		old_substatus = user.status.substatus
 		
 		if 'message' in fields:
 			user.status.message = fields['message']
+			needs_notify = True
 		if 'media' in fields:
 			user.status.media = fields['media']
+			needs_notify = True
 		if 'name' in fields:
 			user.status.name = fields['name']
-		if 'gtc' in fields:
-			detail.settings['gtc'] = fields['gtc']
+			needs_notify = True
 		if 'blp' in fields:
 			detail.settings['blp'] = fields['blp']
+			needs_notify = True
 		if 'substatus' in fields:
 			user.status.substatus = fields['substatus']
+			if old_substatus != user.status.substatus:
+				needs_notify = True
+		if 'gtc' in fields:
+			detail.settings['gtc'] = fields['gtc']
 		
 		self.backend._mark_modified(user)
-		self.backend._sync_contact_statuses()
-		self.backend._generic_notify(self, old_substatus = old_substatus)
+		if needs_notify:
+			self.backend._sync_contact_statuses(user)
+			self.backend._generic_notify(self, old_substatus = old_substatus)
 	
 	def me_group_add(self, name: str, *, is_favorite: Optional[bool] = None) -> Group:
 		if len(name) > MAX_GROUP_NAME_LENGTH:
@@ -356,7 +388,6 @@ class BackendSession(Session):
 				for sess_added in backend._sc.get_sessions_by_user(ctc_head):
 					if sess_added is self: continue
 					sess_added.evt.on_added_me(user, message = message)
-		backend._sync_contact_statuses()
 		self.evt.on_presence_notification(ctc, old_substatus = Substatus.Offline)
 		backend._generic_notify(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
@@ -394,7 +425,6 @@ class BackendSession(Session):
 			ctc.groups = set()
 			# Remove matching RL
 			self._remove_from_list(ctc.head, user, Lst.RL)
-		self.backend._sync_contact_statuses()
 	
 	def me_contact_deny(self, adder_uuid: str, deny_message: Optional[str]):
 		user_adder = self.backend._load_user_record(adder_uuid)
@@ -435,6 +465,7 @@ class BackendSession(Session):
 		
 		if updated:
 			self.backend._mark_modified(user, detail = detail)
+			self.backend._sync_contact_statuses(user)
 		
 		return ctc
 	
@@ -456,6 +487,7 @@ class BackendSession(Session):
 		
 		if updated:
 			self.backend._mark_modified(user, detail = detail)
+			self.backend._sync_contact_statuses(user)
 	
 	def me_contact_notify_oim(self, uuid: str, oim_uuid: str) -> None:
 		ctc_head = self.backend._load_user_record(uuid)
