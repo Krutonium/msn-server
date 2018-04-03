@@ -74,7 +74,7 @@ class Backend:
 		user.status.substatus = Substatus.Offline
 		self._sync_contact_statuses(user)
 		user.detail = None
-		self._generic_notify(sess, old_substatus = old_substatus)
+		self._notify_contacts(sess, old_substatus = old_substatus)
 	
 	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, option: LoginOption) -> Optional['BackendSession']:
 		user = self._load_user_record(uuid)
@@ -133,7 +133,7 @@ class Backend:
 			if ctc_rev is None: continue
 			ctc_rev.compute_visible_status(ctc.head)
 	
-	def _generic_notify(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
+	def _notify_contacts(self, bs: 'BackendSession', *, old_substatus: Substatus) -> None:
 		uuid = bs.user.uuid
 		if uuid in self._worklist_notify:
 			return
@@ -299,7 +299,7 @@ class BackendSession(Session):
 		self.backend._mark_modified(user)
 		if needs_notify:
 			self.backend._sync_contact_statuses(user)
-			self.backend._generic_notify(self, old_substatus = old_substatus)
+			self.backend._notify_contacts(self, old_substatus = old_substatus)
 	
 	def me_group_add(self, name: str, *, is_favorite: Optional[bool] = None) -> Group:
 		if len(name) > MAX_GROUP_NAME_LENGTH:
@@ -389,7 +389,7 @@ class BackendSession(Session):
 					if sess_added is self: continue
 					sess_added.evt.on_added_me(user, message = message)
 		self.evt.on_presence_notification(ctc, old_substatus = Substatus.Offline)
-		backend._generic_notify(self, old_substatus = Substatus.Offline)
+		backend._notify_contacts(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
 	
 	def me_contact_edit(self, contact_uuid: str, *, is_messenger_user: Optional[bool] = None) -> None:
