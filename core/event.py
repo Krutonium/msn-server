@@ -25,7 +25,7 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None: pass
 	
 	@abstractmethod
-	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None: pass
+	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', voice_chat: Optional[int] = None, existing: bool = False) -> None: pass
 	
 	# `user` added me to their FL, and they're now on my RL.
 	@abstractmethod

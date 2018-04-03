@@ -6,7 +6,7 @@ import time
 
 from util.misc import first_in_iterable, DefaultDict
 
-from core.backend import Backend, BackendSession, ChatSession
+from core.backend import Backend, BackendSession, Chat, ChatSession
 from core.models import User, Contact, Substatus
 
 import settings
@@ -230,8 +230,9 @@ def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message
 		('20', settings.YAHOO_FT_DL_HOST + '/tmp/file/' + url_path),
 	]))
 
-def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_msg: str, conf_roster: List[str], voice_chat: int, existing_conf: bool = False) -> Iterable[EncodedYMSG]:
+def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_msg: str, voice_chat: int, existing_conf: bool = False) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
+	conf_id = chat.ids['ymsg/conf']
 	
 	conf_invite_dict = MultiDict([
 		('1', yahoo_id(user_to.email)),
@@ -240,8 +241,8 @@ def build_conf_invite(user_from: User, bs: BackendSession, conf_id: str, invite_
 		('58', invite_msg)
 	])
 	
-	for conf_user in conf_roster:
-		conf_invite_dict.add('52', conf_user)
+	for cs in chat.get_roster():
+		conf_invite_dict.add('52', yahoo_id(cs.user.email))
 	
 	conf_invite_dict.add('13', voice_chat)
 	

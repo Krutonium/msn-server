@@ -628,7 +628,7 @@ class ChatSession(Session):
 		self.evt.on_close()
 		self.chat.on_leave(self)
 	
-	def invite(self, invitee_uuid: str, *, invite_msg: Optional[str] = None, roster: Optional[List[str]] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
+	def invite(self, invitee_uuid: str, *, invite_msg: Optional[str] = None, voice_chat: Optional[int] = None, existing: bool = False) -> None:
 		detail = self.user.detail
 		assert detail is not None
 		ctc = detail.contacts.get(invitee_uuid)
@@ -640,7 +640,7 @@ class ChatSession(Session):
 			invitee = ctc.head
 		ctc_sessions = self.bs.backend.util_get_sessions_by_user(invitee)
 		for ctc_sess in ctc_sessions:
-			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg or '', roster = roster, voice_chat = voice_chat, existing = existing)
+			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg or '', voice_chat = voice_chat, existing = existing)
 	
 	def send_message_to_everyone(self, data: MessageData) -> None:
 		stats = self.chat._stats
