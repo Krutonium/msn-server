@@ -5,6 +5,9 @@ from core.backend import Backend
 def register(backend: Backend) -> None:
 	from util.misc import ProtocolRunner
 	
+	# TODO: Implement UDP ports
+	# https://imfreedom.org/wiki/Yahoo#Network
+	backend.add_runner(ProtocolRunner('0.0.0.0', 5000, ListenerVoiceChat))
 	backend.add_runner(ProtocolRunner('0.0.0.0', 5001, ListenerVoiceChat))
 
 class ListenerVoiceChat(asyncio.Protocol):
