@@ -540,7 +540,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			conf_user_uuid = yahoo_id_to_uuid(self.bs, self.backend, conf_user_yahoo_id)
 			if conf_user_uuid is None:
 				continue
-			cs.invite(conf_user_uuid, invite_msg = invite_msg, voice_chat = voice_chat, existing = True)
+			cs.invite(conf_user_uuid, invite_msg = invite_msg, voice_chat = voice_chat)
 	
 	def _y_0019(self, *args) -> None:
 		# SERVICE_CONFLOGON (0x19); request for me to join a conference
@@ -886,19 +886,20 @@ class BackendEventHandler(event.BackendEventHandler):
 		for y in misc.build_http_ft_packet(self.bs, sender, url_path, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', voice_chat: Optional[int] = None, existing: bool = False) -> None:
+	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '', voice_chat: Optional[int] = None) -> None:
 		if chat.twoway_only:
 			# A Yahoo! non-conference chat; auto-accepted invite
 			evt = ChatEventHandler(self.loop, self.ctrl)
 			cs = chat.join('yahoo', self.bs, evt)
 			chat.send_participant_joined(cs)
 			self.ctrl.private_chats[inviter.uuid] = (cs, evt)
-		else:
-			# Regular chat
-			if 'ymsg/conf' not in chat.ids:
-				chat.add_id('ymsg/conf', chat.ids['main'])
-			for y in misc.build_conf_invite(inviter, self.bs, chat, invite_msg, voice_chat or 0, existing_conf = existing):
-				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+			return
+		
+		# Regular chat
+		if 'ymsg/conf' not in chat.ids:
+			chat.add_id('ymsg/conf', chat.ids['main'])
+		for y in misc.build_conf_invite(inviter, self.bs, chat, invite_msg, voice_chat or 0):
+			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
 		for y in misc.build_contact_request_notif(user, self.bs.user, ('' if message is None else message.text), (None if message is None else message.yahoo_utf8)):
