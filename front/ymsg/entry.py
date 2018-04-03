@@ -13,6 +13,15 @@ def register(loop: asyncio.AbstractEventLoop, backend: Backend, http_app: web.Ap
 	from . import pager, http, voicechat
 	
 	backend.add_runner(ProtocolRunner('0.0.0.0', 5050, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	# Funny that Yahoo! used the FTP data transfer port, the Telnet, SMTP, and NNTP (Usenet) ports as the fallback ports.
+	backend.add_runner(ProtocolRunner('0.0.0.0', 20, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 23, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 25, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 119, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	# Yahoo! also utilized port 80 for YMSG communication via TCP, but that interferes with the port 80 binded to the HTTP
+	# services when the server is run in dev mode.
+	backend.add_runner(ProtocolRunner('0.0.0.0', 8001, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
+	backend.add_runner(ProtocolRunner('0.0.0.0', 8002, ListenerYMSG, args = ['YH', backend, pager.YMSGCtrlPager]))
 	http.register(http_app)
 	#voicechat.register(backend)
 
