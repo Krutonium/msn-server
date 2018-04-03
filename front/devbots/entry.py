@@ -1,4 +1,4 @@
-from typing import cast, Optional, List
+from typing import Optional
 import asyncio
 import random
 
@@ -32,7 +32,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		pass
 	
-	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, voice_chat: Optional[int] = None) -> None:
+	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None) -> None:
 		cs = chat.join('testbot', self.bs, ChatEventHandler(self.loop, self.bs))
 		chat.send_participant_joined(cs)
 	

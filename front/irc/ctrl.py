@@ -186,7 +186,7 @@ class BackendEventHandler(event.BackendEventHandler):
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		self.ctrl.send_reply('NOTICE', ":{} is now {}".format(contact.head.email, contact.status.substatus))
 	
-	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, voice_chat: Optional[int] = None) -> None:
+	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None) -> None:
 		self.ctrl.send_reply('INVITE', self.bs.user.email, chat.ids['irc'], source = inviter.email)
 	
 	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:

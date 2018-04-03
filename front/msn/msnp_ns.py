@@ -604,7 +604,7 @@ class BackendEventHandler(event.BackendEventHandler):
 		for m in build_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
 			self.ctrl.send_reply(*m)
 	
-	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None, voice_chat: Optional[int] = None) -> None:
+	def on_chat_invite(self, chat: Chat, inviter: User, *, invite_msg: Optional[str] = None) -> None:
 		extra = () # type: Tuple[Any, ...]
 		dialect = self.ctrl.dialect
 		if dialect >= 13:

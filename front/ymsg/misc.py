@@ -230,7 +230,7 @@ def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message
 		('20', settings.YAHOO_FT_DL_HOST + '/tmp/file/' + url_path),
 	]))
 
-def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_msg: str, voice_chat: int) -> Iterable[EncodedYMSG]:
+def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_msg: str) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	conf_id = chat.ids['ymsg/conf']
 	
@@ -245,7 +245,7 @@ def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_ms
 	for cs in roster:
 		conf_invite_dict.add('52', yahoo_id(cs.user.email))
 	
-	conf_invite_dict.add('13', voice_chat)
+	conf_invite_dict.add('13', chat.front_data.get('ymsg_voice_chat') or 0)
 	
 	yield ((YMSGService.ConfAddInvite if len(roster) > 1 else YMSGService.ConfInvite), YMSGStatus.BRB, conf_invite_dict)
 

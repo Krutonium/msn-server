@@ -552,10 +552,11 @@ class _SessionCollection:
 			self._sessions_by_user[sess.user].discard(sess)
 
 class Chat:
-	__slots__ = ('ids', 'backend', 'twoway_only', '_users_by_sess', '_stats')
+	__slots__ = ('ids', 'backend', 'front_data', 'twoway_only', '_users_by_sess', '_stats')
 	
 	ids: Dict[str, str]
 	backend: Backend
+	front_data: Dict[str, Any]
 	twoway_only: bool
 	_users_by_sess: Dict['ChatSession', User]
 	_stats: Any
@@ -564,6 +565,7 @@ class Chat:
 		super().__init__()
 		self.ids = {}
 		self.backend = backend
+		self.front_data = {}
 		self.twoway_only = twoway_only
 		self._users_by_sess = {}
 		self._stats = stats
@@ -628,7 +630,7 @@ class ChatSession(Session):
 		self.evt.on_close()
 		self.chat.on_leave(self)
 	
-	def invite(self, invitee_uuid: str, *, invite_msg: Optional[str] = None, voice_chat: Optional[int] = None) -> None:
+	def invite(self, invitee_uuid: str, *, invite_msg: Optional[str] = None) -> None:
 		detail = self.user.detail
 		assert detail is not None
 		ctc = detail.contacts.get(invitee_uuid)
@@ -640,7 +642,7 @@ class ChatSession(Session):
 			invitee = ctc.head
 		ctc_sessions = self.bs.backend.util_get_sessions_by_user(invitee)
 		for ctc_sess in ctc_sessions:
-			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg or '', voice_chat = voice_chat)
+			ctc_sess.evt.on_chat_invite(self.chat, self.user, invite_msg = invite_msg or '')
 	
 	def send_message_to_everyone(self, data: MessageData) -> None:
 		stats = self.chat._stats
