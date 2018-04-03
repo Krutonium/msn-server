@@ -73,7 +73,7 @@ class Backend:
 		self._sync_contact_statuses()
 		self._generic_notify(sess, old_substatus = old_substatus)
 	
-	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, option: LoginOption, *, front_needs_self_notify: bool = False) -> Optional['BackendSession']:
+	def login(self, uuid: str, client: Client, evt: event.BackendEventHandler, option: LoginOption) -> Optional['BackendSession']:
 		user = self._load_user_record(uuid)
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
@@ -84,7 +84,7 @@ class Backend:
 			except:
 				traceback.print_exc()
 		
-		bs = BackendSession(self, user, client, evt, front_needs_self_notify = front_needs_self_notify)
+		bs = BackendSession(self, user, client, evt)
 		bs.evt.bs = bs
 		self._stats.on_login()
 		self._stats.on_user_active(user, client)
@@ -120,7 +120,6 @@ class Backend:
 		detail = self._load_detail(user)
 		for ctc in detail.contacts.values():
 			for bs_other in self._sc.get_sessions_by_user(ctc.head):
-				if bs_other is bs and not bs.front_needs_self_notify: continue
 				detail_other = bs_other.user.detail
 				if detail_other is None: continue
 				ctc_me = detail_other.contacts.get(user.uuid)
@@ -226,23 +225,21 @@ class Session(metaclass = ABCMeta):
 	def _on_close(self) -> None: pass
 
 class BackendSession(Session):
-	__slots__ = ('backend', 'user', 'client', 'evt', 'front_data', 'front_needs_self_notify')
+	__slots__ = ('backend', 'user', 'client', 'evt', 'front_data')
 	
 	backend: Backend
 	user: User
 	client: Client
 	evt: event.BackendEventHandler
 	front_data: Dict[str, Any]
-	front_needs_self_notify: bool
 	
-	def __init__(self, backend: Backend, user: User, client: Client, evt: event.BackendEventHandler, *, front_needs_self_notify: bool = False) -> None:
+	def __init__(self, backend: Backend, user: User, client: Client, evt: event.BackendEventHandler) -> None:
 		super().__init__()
 		self.backend = backend
 		self.user = user
 		self.client = client
 		self.evt = evt
 		self.front_data = {}
-		self.front_needs_self_notify = front_needs_self_notify
 	
 	def _on_close(self) -> None:
 		self.evt.on_close()
