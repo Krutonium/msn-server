@@ -911,7 +911,8 @@ class BackendEventHandler(event.BackendEventHandler):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_login_elsewhere(self, option: LoginOption) -> None:
-		pass
+		if option is LoginOption.BootOthers:
+			self.ctrl.close()
 	
 	def on_close(self) -> None:
 		self.ctrl.close()

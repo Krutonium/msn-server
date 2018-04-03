@@ -81,7 +81,8 @@ class Backend:
 		if user is None: return None
 		self.user_service.update_date_login(uuid)
 		
-		for bs_other in self._sc.get_sessions_by_user(user):
+		bs_others = list(self._sc.get_sessions_by_user(user))
+		for bs_other in bs_others:
 			try:
 				bs_other.evt.on_login_elsewhere(option)
 			except:
