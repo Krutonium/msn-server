@@ -243,7 +243,9 @@ def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_ms
 	
 	roster = list(chat.get_roster())
 	for cs in roster:
+		if cs.user.uuid == user_from.uuid: continue
 		conf_invite_dict.add('52', yahoo_id(cs.user.email))
+		conf_invite_dict.add('53', yahoo_id(cs.user.email))
 	
 	conf_invite_dict.add('13', chat.front_data.get('ymsg_voice_chat') or 0)
 	
