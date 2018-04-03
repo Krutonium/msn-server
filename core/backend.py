@@ -109,8 +109,8 @@ class Backend:
 		assert detail is not None
 		return detail
 	
-	def chat_create(self, *, twoway_only: bool = False) -> 'Chat':
-		return Chat(self, self._stats, twoway_only = twoway_only)
+	def chat_create(self) -> 'Chat':
+		return Chat(self, self._stats)
 	
 	def chat_get(self, scope: str, id: str) -> Optional['Chat']:
 		return self._chats_by_id.get((scope, id))
@@ -552,21 +552,19 @@ class _SessionCollection:
 			self._sessions_by_user[sess.user].discard(sess)
 
 class Chat:
-	__slots__ = ('ids', 'backend', 'front_data', 'twoway_only', '_users_by_sess', '_stats')
+	__slots__ = ('ids', 'backend', 'front_data', '_users_by_sess', '_stats')
 	
 	ids: Dict[str, str]
 	backend: Backend
 	front_data: Dict[str, Any]
-	twoway_only: bool
 	_users_by_sess: Dict['ChatSession', User]
 	_stats: Any
 	
-	def __init__(self, backend: Backend, stats: Any, *, twoway_only: bool = False) -> None:
+	def __init__(self, backend: Backend, stats: Any) -> None:
 		super().__init__()
 		self.ids = {}
 		self.backend = backend
 		self.front_data = {}
-		self.twoway_only = twoway_only
 		self._users_by_sess = {}
 		self._stats = stats
 		

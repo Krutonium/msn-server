@@ -620,7 +620,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		assert self.bs is not None
 		
 		if other_user_uuid not in self.private_chats:
-			chat = self.backend.chat_create(twoway_only = True)
+			chat = self.backend.chat_create()
+			chat.front_data['ymsg_twoway_only'] = True
 			
 			# `user` joins
 			evt = ChatEventHandler(self.backend.loop, self)
@@ -891,7 +892,7 @@ class BackendEventHandler(event.BackendEventHandler):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '') -> None:
-		if chat.twoway_only:
+		if chat.front_data.get('ymsg_twoway_only'):
 			# A Yahoo! non-conference chat; auto-accepted invite
 			evt = ChatEventHandler(self.loop, self.ctrl)
 			cs = chat.join('yahoo', self.bs, evt)
@@ -933,7 +934,7 @@ class ChatEventHandler(event.ChatEventHandler):
 		self.ctrl.chat_sessions.pop(self.cs.chat, None)
 	
 	def on_participant_joined(self, cs_other: ChatSession) -> None:
-		if self.cs.chat.twoway_only:
+		if self.cs.chat.front_data.get('ymsg_twoway_only'):
 			return
 		for y in misc.build_conf_logon(self.bs, cs_other):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
@@ -954,7 +955,7 @@ class ChatEventHandler(event.ChatEventHandler):
 		yahoo_data = messagedata_to_ymsg(data)
 		
 		if data.type is MessageType.Chat:
-			if self.cs.chat.twoway_only:
+			if self.cs.chat.front_data.get('ymsg_twoway_only'):
 				for y in misc.build_message_packet(sender, self.bs, yahoo_data):
 					self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 			else:
