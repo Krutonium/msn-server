@@ -124,9 +124,17 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
+			invite_msg = None
+			pending_annotations = _find_element(action, 'PendingAnnotations')
+			if pending_annotations is not None:
+				for annot in pending_annotations.iterchildren():
+					annot_name = annot.Name.text
+					if annot_name == 'MSN.IM.InviteMessage':
+						invite_msg = models.TextWithData(annot.Value.text, None)
+						break
 			contact_uuid = backend.util_get_uuid_from_email(email)
 			assert contact_uuid is not None
-			bs.me_contact_add(contact_uuid, models.Lst.FL, name = email)
+			bs.me_contact_add(contact_uuid, models.Lst.FL, name = email, message = invite_msg)
 			return render(req, 'msn:abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
