@@ -41,6 +41,7 @@ class YMSGService(IntEnum):
 	FriendAdd = 0x83
 	FriendRemove = 0x84
 	Ignore = 0x85
+	ContactDeny = 0x86
 	GroupRename = 0x89
 	Ping = 0x8a
 	
