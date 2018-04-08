@@ -66,9 +66,9 @@ def encode_msnobj(msnobj: Optional[str]) -> Optional[str]:
 def gen_mail_data(user: User, backend: Backend, *, oim_uuid: Optional[str] = None, just_sent: bool = False, on_ns: bool = True, e_node: bool = True, q_node: bool = True) -> str:
 	md_m_pl = ''
 	if just_sent:
-		oim_collection = backend.user_service.get_oim_single(user.email, oim_uuid or '')
+		oim_collection = backend.user_service.msn_get_oim_single(user.email, oim_uuid or '')
 	else:
-		oim_collection = backend.user_service.get_oim_batch(user.email)
+		oim_collection = backend.user_service.msn_get_oim_batch(user.email)
 	if on_ns and len(oim_collection) > 25: return 'too-large'
 	
 	for oim in oim_collection:

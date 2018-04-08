@@ -124,17 +124,9 @@ async def handle_abservice(req: web.Request) -> web.Response:
 			})
 		if action_str == 'ABContactAdd':
 			email = _find_element(action, 'passportName')
-			invite_msg = None
-			pending_annotations = _find_element(action, 'PendingAnnotations')
-			if pending_annotations is not None:
-				for annot in pending_annotations.iterchildren():
-					annot_name = annot.Name.text
-					if annot_name == 'MSN.IM.InviteMessage':
-						invite_msg = models.TextWithData(annot.Value.text, None)
-						break
 			contact_uuid = backend.util_get_uuid_from_email(email)
 			assert contact_uuid is not None
-			bs.me_contact_add(contact_uuid, models.Lst.FL, name = email, message = invite_msg)
+			bs.me_contact_add(contact_uuid, models.Lst.FL, name = email)
 			return render(req, 'msn:abservice/ABContactAddResponse.xml', {
 				'cachekey': cachekey,
 				'host': settings.LOGIN_HOST,
@@ -291,14 +283,14 @@ async def handle_rsi(req: web.Request) -> web.Response:
 	if action_str == 'GetMessage':
 		oim_uuid = _find_element(action, 'messageId')
 		oim_markAsRead = _find_element(action, 'alsoMarkAsRead')
-		oim_message = backend.user_service.get_oim_message_by_uuid(user.email, oim_uuid, oim_markAsRead is True)
+		oim_message = backend.user_service.msn_get_oim_message_by_uuid(user.email, oim_uuid, oim_markAsRead is True)
 		return render(req, 'msn:oim/GetMessageResponse.xml', {
 			'oim_data': oim_message,
 		})
 	if action_str == 'DeleteMessages':
 		messageIds = action.findall('.//{*}messageId/{*}messageIds')
 		for messageId in messageIds:
-			isValidDeletion = backend.user_service.delete_oim(messageId)
+			isValidDeletion = backend.user_service.msn_delete_oim(messageId)
 			if not isValidDeletion:
 				return render(req, 'msn:oim/Fault.validation.xml', status = 500)
 		bs.evt.msn_on_oim_deletion()
@@ -367,7 +359,7 @@ async def handle_oim(req: web.Request) -> web.Response:
 	
 	oim_content = '\r\n\r\n'.join(oim_header_body)
 	
-	backend.user_service.save_oim(oim_run_id, int(oim_msg_seq), oim_content, user.email, friendlyname, recipient, oim_sent_date)
+	backend.user_service.msn_save_oim(oim_run_id, int(oim_msg_seq), oim_content, user.email, friendlyname, recipient, oim_sent_date)
 	bs.me_contact_notify_oim(recipient_uuid, oim_run_id)
 	
 	return render(req, 'msn:oim/StoreResponse.xml', {
