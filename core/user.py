@@ -3,8 +3,8 @@ from datetime import datetime
 
 from util.hash import hasher, hasher_md5, hasher_md5crypt
 
-from .db import Session, User as DBUser, OIM as DBOIM
-from .models import User, Contact, UserStatus, UserDetail, Group, OIMMetadata
+from .db import Session, User as DBUser, OIM as DBOIM, YahooOIM as DBYahooOIM
+from .models import User, Contact, UserStatus, UserDetail, Group, OIMMetadata, YahooOIM, MessageData
 
 class UserService:
 	_cache_by_uuid: Dict[str, Optional[User]]
@@ -89,7 +89,7 @@ class UserService:
 				detail.contacts[ctc.head.uuid] = ctc
 		return detail
 	
-	def get_oim_batch(self, to_member_name: str) -> List[OIMMetadata]:
+	def msn_get_oim_batch(self, to_member_name: str) -> List[OIMMetadata]:
 		with Session() as sess:
 			query = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.is_read == False)
 			tmp_oims = [
@@ -101,7 +101,7 @@ class UserService:
 			]
 		return tmp_oims
 	
-	def get_oim_single(self, to_member_name: str, run_id: str) -> List[OIMMetadata]:
+	def msn_get_oim_single(self, to_member_name: str, run_id: str) -> List[OIMMetadata]:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.run_id == run_id).one_or_none()
 			if dboim is None: return []
@@ -110,7 +110,7 @@ class UserService:
 				dboim.to_member_name, dboim.oim_sent, len(dboim.content),
 			)]
 	
-	def get_oim_message_by_uuid(self, to_member_name: str, run_id: str, markAsRead: bool) -> Optional[str]:
+	def msn_get_oim_message_by_uuid(self, to_member_name: str, run_id: str, markAsRead: bool) -> Optional[str]:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.to_member_name == to_member_name, DBOIM.run_id == run_id).one_or_none()
 			if dboim is None: return None
@@ -120,7 +120,7 @@ class UserService:
 				sess.add(dboim)
 		return msg_content
 	
-	def save_oim(self, run_id: str, seq_num: int, content: str, from_member: str, from_member_friendly: str, recipient: str, sent: datetime) -> None:
+	def msn_save_oim(self, run_id: str, seq_num: int, content: str, from_member: str, from_member_friendly: str, recipient: str, sent: datetime) -> None:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.run_id == run_id).one_or_none()
 			if dboim is None:
@@ -132,12 +132,33 @@ class UserService:
 			dboim.is_read = False
 			sess.add(dboim)
 	
-	def delete_oim(self, run_id: str) -> bool:
+	def msn_delete_oim(self, run_id: str) -> bool:
 		with Session() as sess:
 			dboim = sess.query(DBOIM).filter(DBOIM.run_id == run_id).one_or_none()
 			if dboim is None: return False
 			sess.delete(dboim)
 		return True
+	
+	def yahoo_get_oim_message_by_recipient(self, recipient_id: str) -> List[YahooOIM]:
+		with Session() as sess:
+			query = sess.query(DBYahooOIM).filter(DBYahooOIM.recipient_id == recipient_id)
+			tmp_oims = []
+			for oim in query:
+				tmp_oims.append(
+					YahooOIM(
+						oim.from_id, oim.recipient_id, oim.sent, oim.message, oim.utf8_kv,
+					)
+				)
+				sess.delete(oim)
+		return tmp_oims
+	
+	def yahoo_save_oim(self, message: str, utf8_kv: Optional[bool], from_id: str, recipient_id: str, sent: datetime) -> None:
+		with Session() as sess:
+			dbyahoooim = DBYahooOIM(from_id = from_id, recipient_id = recipient_id)
+			dbyahoooim.sent = sent
+			dbyahoooim.message = message
+			dbyahoooim.utf8_kv = utf8_kv
+			sess.add(dbyahoooim)
 	
 	def save_batch(self, to_save: List[Tuple[User, UserDetail]]) -> None:
 		with Session() as sess:

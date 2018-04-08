@@ -148,6 +148,22 @@ class OIMMetadata:
 		self.last_oim_sent = last_oim_sent
 		self.oim_content_length = oim_content_length
 
+class YahooOIM:
+	__slots__ = ('from_id', 'recipient_id', 'sent', 'message', 'utf8_kv')
+	
+	from_id: str
+	recipient_id: str
+	sent: datetime
+	message: Optional[str]
+	utf8_kv: Optional[bool]
+	
+	def __init__(self, from_id: str, recipient_id: str, sent: datetime, message: Optional[str], utf8_kv: Optional[bool]):
+		self.from_id = from_id
+		self.recipient_id = recipient_id
+		self.sent = sent
+		self.message = message
+		self.utf8_kv = utf8_kv
+
 T = TypeVar('T')
 def _default_if_none(x: Optional[T], default: T) -> T:
 	if x is None: return default

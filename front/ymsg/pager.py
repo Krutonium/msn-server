@@ -154,6 +154,24 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		me_status_update(bs, status)
 		
 		self._update_buddy_list(contacts, groups, after_auth = True)
+		
+		oims = self.backend.user_service.yahoo_get_oim_message_by_recipient(self.yahoo_id)
+		
+		for oim in oims:
+			oim_msg_dict = MultiDict([
+				('31', 6),
+				('32', 6),
+				('1', oim.from_id),
+				('5', self.yahoo_id),
+				('4', oim.from_id),
+				('15', int(oim.sent.timestamp())),
+				('14', oim.message),
+			])
+			
+			if oim.utf8_kv is not None:
+				oim_msg_dict.add('97', int(oim.utf8_kv))
+			
+			self.send_reply(YMSGService.Message, YMSGStatus.NotInOffice, self.sess_id, oim_msg_dict)
 	
 	# State = Live
 	
@@ -437,7 +455,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			return
 		
 		cs, _ = self._get_private_chat_with(contact_uuid)
-		cs.send_message_to_everyone(messagedata_from_ymsg(cs.user, yahoo_data, notify_type = notify_type))
+		if cs is not None:
+			cs.send_message_to_everyone(messagedata_from_ymsg(cs.user, yahoo_data, notify_type = notify_type))
 	
 	# TODO: Implement offline messaging for both `SERVICE_MESSAGE` and `SERVICE_MASSMESSAGE`.
 	# 
@@ -454,7 +473,12 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			return
 		
 		cs, evt = self._get_private_chat_with(contact_uuid)
-		evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
+		if None not in (cs, evt):
+			evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
+		else:
+			md = messagedata_from_ymsg(self.backend._load_user_record(contact_uuid), yahoo_data)
+			if md.type is MessageType.Chat:
+				self.backend.user_service.yahoo_save_oim(md.text, (bool(int(md.front_cache['ymsg'].get('97'))) if md.front_cache['ymsg'].get('97') is not None else None), self.yahoo_id, contact_yahoo_id, datetime.datetime.utcnow())
 	
 	def _y_0017(self, *args) -> None:
 		# SERVICE_MASSMESSAGE (0x17); send a message to multiple users
@@ -468,7 +492,12 @@ class YMSGCtrlPager(YMSGCtrlBase):
 					continue
 				
 				cs, evt = self._get_private_chat_with(contact_uuid)
-				evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
+				if None not in (cs, evt):
+					evt._send_when_user_joins(contact_uuid, messagedata_from_ymsg(cs.user, yahoo_data))
+				else:
+					md = messagedata_from_ymsg(self.backend._load_user_record(contact_uuid), yahoo_data)
+					if md.type is MessageType.Chat:
+						self.backend.user_service.yahoo_save_oim(md.text, (bool(int(md.front_cache['ymsg'].get('97'))) if md.front_cache.get('97') is not None else None), self.yahoo_id, yahoo_id, datetime.datetime.utcnow())
 	
 	def _y_004d(self, *args) -> None:
 		# SERVICE_P2PFILEXFER (0x4d); initiate P2P file transfer. Due to this service being present in 3rd-party libraries; we can implement it here
@@ -619,7 +648,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 	def _get_private_chat_with(self, other_user_uuid: str) -> Tuple[ChatSession, 'ChatEventHandler']:
 		assert self.bs is not None
 		
-		if other_user_uuid not in self.private_chats:
+		other_user = self.backend._load_user_record(other_user_uuid)
+		if other_user_uuid not in self.private_chats and other_user.status.substatus is not Substatus.Offline:
 			chat = self.backend.chat_create()
 			chat.front_data['ymsg_twoway_only'] = True
 			
@@ -628,7 +658,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			cs = chat.join('yahoo', self.bs, evt)
 			self.private_chats[other_user_uuid] = (cs, evt)
 			cs.invite(other_user_uuid)
-		return self.private_chats[other_user_uuid]
+		return (self.private_chats.get(other_user_uuid) if other_user.status.substatus is not Substatus.Offline else (None, None))
 	
 	def _get_chat_by_id(self, scope: str, id: str, *, create: bool = False) -> Optional[Chat]:
 		chat = self.backend.chat_get(scope, id)

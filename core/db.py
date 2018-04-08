@@ -84,6 +84,16 @@ class OIM(Base):
 	content = sa.Column(sa.String, nullable = False)
 	is_read = sa.Column(sa.Boolean, nullable = False)
 
+class YahooOIM(Base):
+	__tablename__ = 't_yahoo_oim'
+	
+	id = sa.Column(sa.Integer, nullable = False, primary_key = True)
+	from_id = sa.Column(sa.String, nullable = False)
+	recipient_id = sa.Column(sa.String, nullable = False)
+	sent = sa.Column(sa.DateTime, nullable = False)
+	message = sa.Column(sa.String, nullable = False)
+	utf8_kv = sa.Column(sa.Boolean, nullable = True)
+
 class Sound(Base):
 	__tablename__ = 't_sound'
 	

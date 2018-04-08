@@ -65,6 +65,7 @@ class YMSGStatus(IntEnum):
 	# "Not at Home"/BadUsername
 	NotAtHome   = 0x00000003
 	NotAtDesk   = 0x00000004
+	# "Not in Office"/OfflineMessage
 	NotInOffice = 0x00000005
 	OnPhone     = 0x00000006
 	OnVacation  = 0x00000007
