@@ -600,6 +600,18 @@ class BackendEventHandler(event.BackendEventHandler):
 	def __init__(self, ctrl: MSNPCtrlNS) -> None:
 		self.ctrl = ctrl
 	
+	def on_system_message(self, *args: Any, **kwargs: Any) -> None:
+		data = [
+			'MIME-Version: 1.0',
+			'Content-Type: application/x-msmsgssystemmessage',
+			'',
+			'Type: {}'.format(args[0]),
+		] + [
+			'Arg{}: {}'.format(i+1, a)
+			for i, a in enumerate(args[1:])
+		]
+		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', ('\r\n'.join(data) + '\r\n').encode('utf-8'))
+	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		for m in build_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
 			self.ctrl.send_reply(*m)

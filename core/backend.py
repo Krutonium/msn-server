@@ -55,6 +55,10 @@ class Backend:
 		loop.create_task(self._worker_sync_stats())
 		loop.create_task(self._worker_notify())
 	
+	def send_system_message(self, *args: Any, **kwargs: Any) -> None:
+		for bs in self._sc.iter_sessions():
+			bs.evt.on_system_message(*args, **kwargs)
+	
 	def add_runner(self, runner: Runner) -> None:
 		self._runners.append(runner)
 	
