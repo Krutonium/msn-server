@@ -142,18 +142,11 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		bs = self.bs
 		assert bs is not None
 		
-		user = bs.user
-		detail = user.detail
-		assert detail is not None
-		
 		self.t_cookie_token = AuthService.GenTokenStr()
-		
-		contacts = detail.contacts
-		groups = detail.groups
 		
 		me_status_update(bs, status)
 		
-		self._update_buddy_list(contacts, groups, after_auth = True)
+		self._update_buddy_list(after_auth = True)
 		
 		oims = self.backend.user_service.yahoo_get_oim_message_by_recipient(self.yahoo_id)
 		
@@ -296,7 +289,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			pass
 		
 		# Just in case Yahoo! doesn't send a LIST packet
-		self._update_buddy_list(contacts, groups)
+		self._update_buddy_list()
 	
 	def _y_0086(self, *args) -> None:
 		# SERVICE_CONTACTDENY (0x86); deny a contact request
@@ -320,13 +313,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		bs.me_group_edit(old_group_name, new_group_name)
 		
-		user = bs.user
-		detail = user.detail
-		assert detail is not None
-		
-		contacts = detail.contacts
-		groups = detail.groups
-		self._update_buddy_list(contacts, groups)
+		self._update_buddy_list()
 	
 	def _y_0084(self, *args) -> None:
 		# SERVICE_FRIENDREMOVE (0x84); remove a buddy from your list
@@ -354,8 +341,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		bs.me_contact_remove(contact_uuid, Lst.FL)
 		
-		groups = detail.groups
-		self._update_buddy_list(contacts, groups)
+		self._update_buddy_list()
 	
 	def _y_0085(self, *args) -> None:
 		# SERVICE_IGNORE (0x85); add/remove someone from your ignore list
@@ -408,29 +394,14 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		bs = self.bs
 		assert bs is not None
-		user = bs.user
-		detail = user.detail
-		assert detail is not None
-		
-		contacts = detail.contacts
-		groups = detail.groups
 		
 		self.send_reply(YMSGService.UserStat, bs.front_data.get('ymsg_status') or YMSGStatus.Available, self.sess_id, None)
-		self._update_buddy_list(contacts, groups)
+		self._update_buddy_list()
 	
 	def _y_0055(self, *args) -> None:
 		# SERVICE_LIST (0x55); send a user's buddy list
 		
-		bs = self.bs
-		assert bs is not None
-		user = bs.user
-		detail = user.detail
-		assert detail is not None
-		
-		contacts = detail.contacts
-		groups = detail.groups
-		
-		self._update_buddy_list(contacts, groups)
+		self._update_buddy_list()
 	
 	def _y_008a(self, *args) -> None:
 		# SERVICE_PING (0x8a); send a response ping after the client pings
@@ -671,7 +642,16 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			chat.send_participant_joined(cs)
 		return cs
 	
-	def _update_buddy_list(self, contacts: Dict[str, Contact], groups: Dict[str, Group], after_auth: bool = False) -> None:
+	def _update_buddy_list(self, after_auth: bool = False) -> None:
+		bs = self.bs
+		assert bs is not None
+		user = bs.user
+		detail = user.detail
+		assert detail is not None
+		
+		contacts = detail.contacts
+		groups = detail.groups
+		
 		cs = list(contacts.values())
 		cs_fl = [c for c in cs if c.lists & Lst.FL]
 		
@@ -693,14 +673,19 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if c.lists & Lst.BL:
 				ignore_list.append(misc.yahoo_id(c.head.email))
 		
+		id_list = [self.yahoo_id]
+		aliases = self.backend.user_service.yahoo_get_aliases(user.uuid)
+		if aliases is not None:
+			for alias in aliases: id_list.append(alias)
+		
 		(y_cookie, t_cookie, cookie_expiry) = self._refresh_cookies()
 		
 		self.send_reply(YMSGService.List, YMSGStatus.Available, self.sess_id, MultiDict([
 			('87', ''.join(contact_group_list)),
 			('88', ','.join(ignore_list)),
-			('89', self.yahoo_id),
-			('59', '{}={}; expires={}; path=/; domain=.yahoo.com'.format('Y', y_cookie.replace('=', '\t', 1), cookie_expiry)),
-			('59', '{}={}; expires={}; path=/; domain=.yahoo.com'.format('T', t_cookie.replace('=', '\t', 1), cookie_expiry)),
+			('89', ','.join(id_list)),
+			('59', '{}\t{}; expires={}; path=/; domain=.yahoo.com'.format('Y', y_cookie, cookie_expiry)),
+			('59', '{}\t{}; expires={}; path=/; domain=.yahoo.com'.format('T', t_cookie, cookie_expiry)),
 			('59', 'C\tmg=1'),
 			('3', self.yahoo_id),
 			('90', '1'),
@@ -791,8 +776,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		y_cookie = Y_COOKIE_TEMPLATE.format(encodedname = _encode_yahoo_id(self.yahoo_id))
 		t_cookie = T_COOKIE_TEMPLATE.format(token = self.t_cookie_token)
 		
-		auth_service.pop_token('ymsg/y_cookie', y_cookie)
-		auth_service.pop_token('ymsg/t_cookie', t_cookie)
+		auth_service.pop_token('ymsg/cookie', y_cookie)
+		auth_service.pop_token('ymsg/cookie', t_cookie)
 		
 		auth_service.create_token('ymsg/cookie', self.yahoo_id, token = y_cookie, lifetime = 86400)
 		auth_service.create_token('ymsg/cookie', self.bs, token = t_cookie, lifetime = 86400)
@@ -904,17 +889,22 @@ class BackendEventHandler(event.BackendEventHandler):
 		for y in misc.build_contact_deny_notif(user, self.bs, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
+	def ymsg_on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
 		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_upload_file_ft(self, recipient: str, message: str):
+	def ymsg_on_upload_file_ft(self, recipient: str, message: str) -> None:
 		for y in misc.build_http_ft_ack_packet(self.bs, recipient, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
-	def on_sent_ft_http(self, sender: str, url_path: str, message: str):
+	def ymsg_on_sent_ft_http(self, sender: str, url_path: str, message: str) -> None:
 		for y in misc.build_http_ft_packet(self.bs, sender, url_path, message):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+	
+	def ymsg_on_notify_alias_activate(self, activated_alias: str) -> None:
+		self.ctrl.send_reply(YMSGService.IDActivate, YMSGStatus.BRB, self.ctrl.sess_id, MultiDict([
+			('3', activated_alias),
+		]))
 	
 	def on_chat_invite(self, chat: 'Chat', inviter: User, *, invite_msg: str = '') -> None:
 		if chat.front_data.get('ymsg_twoway_only'):

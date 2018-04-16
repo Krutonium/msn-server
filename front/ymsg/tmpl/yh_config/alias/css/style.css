@@ -1,0 +1,58 @@
+.alias-cmd-message {
+	background-color: #ffffc8;
+	border-style: solid;
+	border-color: #ff0000;
+	margin-top: 1em;
+	margin-left: 1em;
+	margin-right: 1em;
+	font-size: 1.3em;
+	text-align: center;
+	display: none;
+}
+
+.alias-cmd-board .spacer-title {
+	position: relative;
+	width: 70%;
+}
+
+.alias-cmd-board .desc-info {
+	position: relative;
+	top: 1em;
+}
+
+.alias-cmd-board .spacer {
+	position: relative;
+	top: 3em;
+	width: 100%;
+}
+
+.alias-cmd-board .list {
+	position: relative;
+	top: 3em;
+}
+
+.alias-cmd-board .element .alias {
+	position: absolute;
+	margin-left: 2em;
+	top: 0.6em;
+}
+
+.alias-cmd-board .element .actions {
+	position: absolute;
+	right: 3em;
+	top: 0.6em;
+}
+
+.alias-cmd-board .new-cmd {
+	position: relative;
+	top: 7em;
+}
+
+.alias-cmd-board .new-alias-dialog {
+	background-color: #ffffc8;
+	display: none;
+}
+
+.alias-cmd-board .new-alias-dialog .close {
+	margin-bottom: 2em;
+}

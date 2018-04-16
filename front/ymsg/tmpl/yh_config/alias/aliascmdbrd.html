@@ -1,0 +1,118 @@
+<html>
+	<head>
+		<title>Escargot - Manage Identities</title>
+		<link rel="stylesheet" href="alias/css/style.css" type="text/css">
+		<script language="JavaScript">
+			function ToggleNewAliasDialog(isOn) {
+				if (isOn) {
+					document.getElementById('new-alias-dialog').style.display = 'block';
+					document.getElementById('new-alias-dialog-close').style.display = 'block';
+					document.getElementById('new-alias-button').style.display = 'none';
+				} else {
+					document.getElementById('new-alias-dialog').style.display = 'none';
+					document.getElementById('new-alias-dialog-close').style.display = 'none';
+					document.getElementById('new-alias-button').style.display = 'block';
+				}
+			}
+			
+			function VerifyAliasFormFields() {
+				var alias_new = document.forms['aliasCreate']['alias_new'].value;
+				
+				if (alias_new == '') {
+					alert('Alias name field has not been filled out. Please enter in an alias!');
+					return false;
+				} else if (!/^[0-9a-zA-Z._]+$/.test(alias_new)) {
+					alert('Alias contains restricted characters!');
+					return false;
+				}
+			}
+			
+			function DeleteAlias(alias) {
+				doDelete = confirm('Are you sure you want to delete the alias "' + alias + '"?');
+				
+				if (!doDelete)
+					return false;
+				
+				//setup AJAX
+				
+				if (window.XMLHTTPRequest) {
+					xh = new XMLHTTPRequest();
+				} else {
+					xh = new ActiveXObject('Microsoft.XMLHTTP');
+				}
+				
+				xh.onreadystatechange = function () {
+					if (this.readyState == 4 && this.status == 200) {
+						parentNode = document.getElementById('alias-list');
+						childNode = document.getElementById('alias-list-element-' + alias);
+						parentNode.removeChild(childNode);
+						alert('You have successfully deleted the alias "' + alias + '"!');
+					}
+				};
+				
+				//now open request to deletion service
+				xh.open('POST', 'alias/cgi/delete_alias', true);
+				xh.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+				xh.send('Y={{ y_cookie }}&T={{ t_cookie }}&alias=' + alias);
+			}
+			
+			function InitPage() {
+				var qs = window.location.href.substr(window.location.href.indexOf('?') + 1);
+				
+				var isNewAliasSucceed = qs.indexOf('.succeed=');
+				if (isNewAliasSucceed != -1) {
+					document.getElementById('alias-notif-register-success').style.display = 'block';
+				}
+				
+				var anyErrors = qs.indexOf('.err=');
+				if (anyErrors != -1) {
+					reason_end = qs.indexOf('&', anyErrors + 5);
+					if (reason_end != -1) {
+						reason_end += 1;
+					} else {
+						reason_end = qs.length;
+					}
+					reason = qs.slice(anyErrors + 5, reason_end);
+					alert(reason);
+					if (reason == 'taken') {
+						document.getElementById('alias-error-taken').style.display = 'block';
+					}
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<img src="alias/img/escargot_alt_logo_blue.png" width="150" height="40">
+		<!-- Notifications -->
+		<div class="alias-cmd-message alias-register-success" id="alias-notif-register-success"><p>Success! The alias you have registered is now yours.</p></div>
+		<div class="alias-cmd-message error-taken" id="alias-error-taken"><p>The alias you tried to register has already been taken.</p></div>
+		
+		<div class="alias-cmd-board">
+			<h1>Manage your Yahoo! Messenger aliases</h1>
+			<div class="alias-cmd-board spacer-title"><hr/></div>
+			<div class="alias-cmd-board desc-info">Configure your Yahoo! Messenger aliases here to use on Yahoo! Messenger.</div>
+			<div class="alias-cmd-board spacer"><hr/></div>
+			<div class="alias-cmd-board list" id="alias-list">
+{{ alias_tags }}
+			</div>
+			<div class="alias-cmd-board new-cmd">
+				<div class="alias-cmd-board new-alias-dialog" id="new-alias-dialog">
+					<a href="javascript:void(0);" onclick="ToggleNewAliasDialog(false)" class="alias-cmd-board new-alias-dialog close" id="new-alias-dialog-close">[x] Close</a>
+					<p>Enter in your new alias in the text box below.</p>
+					<p>You can only add numbers, letters (uppercase and lowercase), periods, and underscores to your alias, and you cannot take an alias that has already been taken as another alias or Yahoo! ID.</p>
+					<form name="aliasCreate" action="alias/cgi/create_alias" onsubmit="return VerifyAliasFormFields()" method="post">
+						<input type="hidden" name="Y" value="{{ y_cookie }}">
+						<input type="hidden" name="T" value="{{ t_cookie }}">
+						<input type="hidden" name="id" value="{{ main_yid }}">
+						<input type="text" name="alias_new">
+						<input type="submit" value="Create Alias">
+					</form>
+				</div>
+				<a href="javascript:void(0);" onclick="ToggleNewAliasDialog(true)" class="alias-cmd-board new-button" id="new-alias-button">New...</a>
+			</div>
+		</div>
+		<script language="JavaScript">
+			InitPage();
+		</script>
+	</body>
+	</html>

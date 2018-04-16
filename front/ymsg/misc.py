@@ -17,6 +17,7 @@ class YMSGService(IntEnum):
 	IsAway = 0x03
 	IsBack = 0x04
 	Message = 0x06
+	IDActivate = 0x07
 	UserStat = 0x0a
 	ContactNew = 0x0f
 	AddIgnore = 0x11

@@ -51,6 +51,7 @@ def create_user(email: str, pw: str, name: str, message: str) -> User:
 		name = name, message = message, contacts = {}, groups = [],
 		settings = {},
 	)
+	user.set_front_data('ymsg', 'aliases', [])
 	set_passwords(user, pw, support_old_msn = True, support_yahoo = True)
 	return user
 

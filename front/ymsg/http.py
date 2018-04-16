@@ -1,15 +1,16 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from aiohttp import web
 import asyncio
 from markupsafe import Markup
-from urllib.parse import unquote_plus
+from urllib.parse import unquote, unquote_plus
 import os
+import datetime
 import shutil
 
 from core.backend import Backend, BackendSession
 import util.misc
 from .ymsg_ctrl import _decode_ymsg
-from .misc import YMSGService, yahoo_id_to_uuid
+from .misc import YMSGService, yahoo_id_to_uuid, yahoo_id
 import time
 
 YAHOO_TMPL_DIR = 'front/ymsg/tmpl'
@@ -29,6 +30,16 @@ def register(app: web.Application) -> None:
 	app.router.add_route('*', '/c/msg/alerts.html', handle_chat_alertad)
 	app.router.add_static('/c/msg/chat_img', YAHOO_TMPL_DIR + '/c/msg/chat_img')
 	app.router.add_static('/c/msg/ad_img', YAHOO_TMPL_DIR + '/c/msg/ad_img')
+	
+	# Yahoo!'s redirector to cookie-based services
+	app.router.add_route('*', '/config/reset_cookies', handle_cookies_redirect)
+	
+	# Yahoo! Messenger alias service
+	app.router.add_route('*', '/config/edit_identity', handle_yahoo_alias_service)
+	app.router.add_post('/config/alias/cgi/create_alias', handle_yahoo_alias_create)
+	app.router.add_post('/config/alias/cgi/delete_alias', handle_yahoo_alias_delete)
+	app.router.add_static('/config/alias/img', YAHOO_TMPL_DIR + '/yh_config/alias/img')
+	app.router.add_static('/config/alias/css', YAHOO_TMPL_DIR + '/yh_config/alias/css')
 	
 	# Yahoo!'s redirect service (rd.yahoo.com)
 	app.router.add_get('/messenger/search/', handle_rd_yahoo)
@@ -99,6 +110,98 @@ async def handle_chat_notice(req: web.Request) -> web.Response:
 async def handle_rd_yahoo(req: web.Request) -> web.Response:
 	return web.HTTPFound(req.query_string.replace(' ', '+'))
 
+async def handle_cookies_redirect(req: web.Request) -> web.Response:
+	# Retreive the `Y` and `T` cookies.
+	
+	query = req.query
+	backend = req.app['backend']
+	
+	y_cookie = query.get('.y')
+	t_cookie = query.get('.t')
+	
+	(yahoo_id, bs) = _parse_cookies(req, backend, y = y_cookie[2:], t = t_cookie[2:])
+	if bs is None or yahoo_id is None:
+		raise web.HTTPInternalServerError
+	
+	redir_to = query.get('.done')
+	
+	return _redir_with_auth_cookies(redir_to, y_cookie[2:], t_cookie[2:], backend)
+
+async def handle_yahoo_alias_service(req: web.Request) -> web.Response:
+	backend = req.app['backend']
+	query = req.query
+	
+	(yahoo_id, bs) = _parse_cookies(req, backend)
+	
+	if yahoo_id != query.get('.l') or bs is None:
+		raise web.HTTPInternalServerError
+	
+	aliases = backend.user_service.yahoo_get_aliases(bs.user.uuid)
+	
+	if aliases is not None and len(aliases) > 0:
+		tmpl = req.app['jinja_env'].get_template('ymsg:yh_config/alias/aliascmdbrd.aliasentry.html')
+		alias_tags = [tmpl.render(alias = alias) for alias in aliases]
+	else:
+		tmpl = req.app['jinja_env'].get_template('ymsg:yh_config/alias/aliascmdbrd.noalias.html')
+		alias_tags = [tmpl.render()]
+	
+	return render(req, 'ymsg:yh_config/alias/aliascmdbrd.html', {
+		'y_cookie': req.cookies.get('Y'),
+		't_cookie': req.cookies.get('T'),
+		'alias_tags': Markup(''.join(alias_tags)),
+		'main_yid': query.get('.l'),
+	})
+
+async def handle_yahoo_alias_create(req: web.Request) -> web.Response:
+	body = await req.read()
+	
+	backend = req.app['backend']
+	params = _parse_urlencoded(body)
+	
+	(id, bs) = _parse_cookies(req, backend, y = params['Y'], t = params['T'])
+	
+	if id != params['id'] or bs is None:
+		raise web.HTTPInternalServerError
+	
+	for bs_other in bs.backend._sc.iter_sessions():
+		alias_list = backend.user_service.yahoo_get_aliases(bs_other.user.uuid) or []
+		if params['alias_new'] == yahoo_id(bs_other.user.email) or params['alias_new'] in alias_list:
+			return _redir_with_auth_cookies('/config/edit_identity?.done=http://messenger.yahoo.com/&.l=' + params['id'] + '&.err=taken', params['Y'], params['T'], backend)
+	
+	print(params['alias_new'])
+	
+	backend.user_service.yahoo_add_alias(bs.user.uuid, params['alias_new'])
+	# TODO: RN, we send an `IDActivate` to the client when an alias is created. Is this the appropriate action?
+	bs.evt.ymsg_on_notify_alias_activate(params['alias_new'])
+	
+	return _redir_with_auth_cookies('/config/edit_identity?.done=http://messenger.yahoo.com/&.l=' + params['id'] + '&.succeed=', params['Y'], params['T'], backend)
+
+async def handle_yahoo_alias_delete(req: web.Request) -> web.Response:
+	return web.HTTPOk()
+
+def _parse_urlencoded(body: bytes) -> Dict[str, Any]:
+	param_dict = {}
+	
+	for param in body.decode().split('&'):
+		param_two = param.split('=')
+		for i in range(1, len(param_two), 2): param_dict[param_two[i - 1]] = unquote(param_two[i])
+	
+	return param_dict
+
+def _redir_with_auth_cookies(loc: str, y: str, t: str, backend: Backend) -> web.Response:
+	resp = web.Response(status = 302, headers = {
+		'Location': loc,
+	})
+	
+	y_expiry = datetime.datetime.utcfromtimestamp(backend.auth_service.get_token_expiry('ymsg/cookie', y)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+	t_expiry = datetime.datetime.utcfromtimestamp(backend.auth_service.get_token_expiry('ymsg/cookie', t)).strftime('%a, %d %b %Y %H:%M:%S GMT') 
+	
+	# TODO: Replace '.yahoo.com' with '.log1p.xyz' when patched Yahoo! Messenger files are released.
+	resp.set_cookie('Y', y, path = '/', expires = y_expiry, domain = '.yahoo.com')
+	resp.set_cookie('T', t, path = '/', expires = t_expiry, domain = '.yahoo.com')
+	
+	return resp
+
 async def handle_ft_http(req: web.Request) -> web.Response:
 	body = await req.read()
 	
@@ -137,8 +240,8 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	ymsg_data = y_ft_pkt[5]
 	
 	yahoo_id_sender = ymsg_data.get('0') or ''
-	bs = _parse_cookies(req, backend, yahoo_id_sender)
-	if bs is None:
+	(yahoo_id, bs) = _parse_cookies(req, backend, yahoo_id_sender)
+	if bs is None or (yahoo_id != yahoo_id_sender or not yahoo_id_to_uuid(None, backend, yahoo_id)):
 		raise web.HTTPInternalServerError
 	
 	yahoo_id_recipient = ymsg_data.get('5') or ''
@@ -206,16 +309,17 @@ async def handle_yahoo_filedl(req: web.Request) -> web.Response:
 def _get_tmp_file_storage_path(uuid: Optional[str] = None) -> str:
 	return 'storage/yfs/{}'.format(util.misc.gen_uuid() if uuid is None else uuid)
 
-def _parse_cookies(req: web.Request, backend: Backend, yahoo_id: str) -> Optional[BackendSession]:
+def _parse_cookies(req: web.Request, backend: Backend, y: Optional[str] = None, t: Optional[str] = None) -> Tuple[Optional[str], Optional[BackendSession]]:
 	cookies = req.cookies
 	
-	y_cookie = cookies.get('Y') or ''
-	t_cookie = cookies.get('T') or ''
+	if None in (y,t):
+		y_cookie = cookies.get('Y')
+		t_cookie = cookies.get('T')
+	else:
+		y_cookie = y
+		t_cookie = t
 	
-	yahoo_id_user = backend.auth_service.get_token('ymsg/cookie', y_cookie)
-	if yahoo_id_user != yahoo_id or not yahoo_id_to_uuid(None, backend, yahoo_id): return None
-	
-	return backend.auth_service.get_token('ymsg/cookie', t_cookie)
+	return (backend.auth_service.get_token('ymsg/cookie', y_cookie), backend.auth_service.get_token('ymsg/cookie', t_cookie))
 
 def render(req: web.Request, tmpl_name: str, ctxt: Optional[Dict[str, Any]] = None, status: int = 200) -> web.Response:
 	if tmpl_name.endswith('.xml'):

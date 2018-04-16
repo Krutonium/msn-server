@@ -160,6 +160,22 @@ class UserService:
 			dbyahoooim.utf8_kv = utf8_kv
 			sess.add(dbyahoooim)
 	
+	# TODO: Get these two functions working.
+	
+	def yahoo_get_aliases(self, uuid: str) -> Optional[List[str]]:
+		with Session() as sess:
+			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
+			if dbuser is None: return None
+			return dbuser.get_front_data('ymsg', 'aliases')
+	
+	def yahoo_add_alias(self, uuid: str, alias: str) -> None:
+		with Session() as sess:
+			dbuser = sess.query(DBUser).filter(DBUser.uuid == uuid).one_or_none()
+			alias_list = dbuser.get_front_data('ymsg', 'aliases')
+			if alias not in alias_list: alias_list.append(alias)
+			dbuser.set_front_data('ymsg', 'aliases', alias_list)
+			sess.add(dbuser)
+	
 	def save_batch(self, to_save: List[Tuple[User, UserDetail]]) -> None:
 		with Session() as sess:
 			for user, detail in to_save:

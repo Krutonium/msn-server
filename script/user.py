@@ -28,6 +28,7 @@ def main() -> None:
 				name = email, message = '',
 				settings = {}, groups = {}, contacts = {},
 			)
+			if support_yahoo: user.set_front_data('ymsg', 'aliases', [])
 		else:
 			print("User exists, changing password...")
 		set_passwords(user, pw, support_old_msn = args.support_old_msn, support_yahoo = args.support_yahoo)
