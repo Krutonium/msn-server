@@ -868,22 +868,23 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.sess_id = ctrl.sess_id
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
-		if contact.status.is_offlineish():
+		if contact.status.is_offlineish() and not old_substatus.is_offlineish():
 			service = YMSGService.LogOff
-		elif old_substatus.is_offlineish():
+		elif old_substatus.is_offlineish() and not contact.status.is_offlineish():
 			service = YMSGService.LogOn
 		elif contact.status.substatus is Substatus.Online:
 			service = YMSGService.IsBack
 		else:
 			service = YMSGService.IsAway
 		
-		yahoo_data = MultiDict()
-		if service is not YMSGService.LogOff:
-			yahoo_data.add('0', self.ctrl.yahoo_id)
-		
-		add_contact_status_to_data(yahoo_data, contact.status, contact.head)
-		
-		self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
+		if not (contact.status.is_offlineish() and old_substatus.is_offlineish()):
+			yahoo_data = MultiDict()
+			if service is not YMSGService.LogOff:
+				yahoo_data.add('0', self.ctrl.yahoo_id)
+			
+			add_contact_status_to_data(yahoo_data, contact.status, contact.head)
+			
+			self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
 	
 	def on_contact_request_denied(self, user: User, message: str) -> None:
 		for y in misc.build_contact_deny_notif(user, self.bs, message):
