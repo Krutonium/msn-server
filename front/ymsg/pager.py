@@ -287,9 +287,6 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			# can happen is if the the contact list gets in an inconsistent state.
 			# (I.e. contact is not on FL, but still part of groups.)
 			pass
-		
-		# Just in case Yahoo! doesn't send a LIST packet
-		self._update_buddy_list()
 	
 	def _y_0086(self, *args) -> None:
 		# SERVICE_CONTACTDENY (0x86); deny a contact request
@@ -369,15 +366,12 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			return
 		
 		if int(ignore_mode) == 1:
-			contact = contacts[ignored_uuid]
+			contact = contacts.get(ignored_uuid)
 			if contact is not None:
-				if not contact.groups:
+				if not contact.groups and (contact.lists & Lst.BL):
 					ignore_reply_response.add('66', 2)
 					self.send_reply(YMSGService.Ignore, YMSGStatus.BRB, self.sess_id, ignore_reply_response)
-				else:
-					ignore_reply_response.add('66', 12)
-					self.send_reply(YMSGService.Ignore, YMSGStatus.BRB, self.sess_id, ignore_reply_response)
-				return
+					return
 			bs.me_contact_add(ignored_uuid, Lst.BL)
 		elif int(ignore_mode) == 2:
 			bs.me_contact_remove(ignored_uuid, Lst.BL)
