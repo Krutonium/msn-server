@@ -168,8 +168,6 @@ async def handle_yahoo_alias_create(req: web.Request) -> web.Response:
 		if params['alias_new'] == yahoo_id(bs_other.user.email) or params['alias_new'] in alias_list:
 			return _redir_with_auth_cookies('/config/edit_identity?.done=http://messenger.yahoo.com/&.l=' + params['id'] + '&.err=taken', params['Y'], params['T'], backend)
 	
-	print(params['alias_new'])
-	
 	backend.user_service.yahoo_add_alias(bs.user.uuid, params['alias_new'])
 	# TODO: RN, we send an `IDActivate` to the client when an alias is created. Is this the appropriate action?
 	bs.evt.ymsg_on_notify_alias_activate(params['alias_new'])
