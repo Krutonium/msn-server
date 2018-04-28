@@ -705,6 +705,9 @@ class YMSGCtrlPager(YMSGCtrlBase):
 					('143', 60),
 					('144', 13)
 				]))
+			
+			if self.backend.notify_maintenance:
+				bs.evt.on_system_message(None, self.backend.maintenance_mins)
 		else:
 			self.send_reply(YMSGService.LogOn, YMSGStatus.Available, self.sess_id, logon_payload)
 	
@@ -861,6 +864,23 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.dialect = ctrl.dialect
 		self.sess_id = ctrl.sess_id
 	
+	def on_system_message(self, *args: Any, message: str = '', **kwargs: Any) -> None:
+		if args[1] is not None and args[1] > 0:
+			msg = 'The server will be shutting down for maintenance in ' + str(args[1]) + ' minute(s).'
+		else:
+			msg = message
+		
+		self.ctrl.send_reply(YMSGService.SystemMessage, YMSGStatus.BRB, self.sess_id, MultiDict([
+			('14', msg),
+			('15', time.time()),
+		]))
+	
+	def on_maintenance_boot(self) -> None:
+		# No maintenance-specific booting packets known as of now. Use generic booting procedure.
+		
+		self.ctrl.send_reply(YMSGService.LogOff, YMSGStatus.Available, 0, None)
+		self.on_close()
+	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		if contact.status.is_offlineish() and not old_substatus.is_offlineish():
 			service = YMSGService.LogOff
@@ -881,23 +901,30 @@ class BackendEventHandler(event.BackendEventHandler):
 			self.ctrl.send_reply(service, YMSGStatus.BRB, self.sess_id, yahoo_data)
 	
 	def on_contact_request_denied(self, user: User, message: str) -> None:
-		for y in misc.build_contact_deny_notif(user, self.bs, message):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		self.ctrl.send_reply(YMSGService.ContactNew, YMSGStatus.OnVacation, self.sess_id, MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('3', misc.yahoo_id(user.email)),
+			('14', message),
+		]))
 	
 	def ymsg_on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
 		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+			self.ctrl.send_reply(y[0], y[1], self.sess_id, y[2])
 	
 	def ymsg_on_upload_file_ft(self, recipient: str, message: str) -> None:
-		for y in misc.build_http_ft_ack_packet(self.bs, recipient, message):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		self.ctrl.send_reply(YMSGService.FileTransfer, YMSGStatus.BRB, self.sess_id, MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('5', recipient),
+			('4', misc.yahoo_id(self.bs.user.email)),
+			('14', message),
+		]))
 	
 	def ymsg_on_sent_ft_http(self, sender: str, url_path: str, message: str) -> None:
 		for y in misc.build_http_ft_packet(self.bs, sender, url_path, message):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+			self.ctrl.send_reply(y[0], y[1], self.sess_id, y[2])
 	
 	def ymsg_on_notify_alias_activate(self, activated_alias: str) -> None:
-		self.ctrl.send_reply(YMSGService.IDActivate, YMSGStatus.BRB, self.ctrl.sess_id, MultiDict([
+		self.ctrl.send_reply(YMSGService.IDActivate, YMSGStatus.BRB, self.sess_id, MultiDict([
 			('3', activated_alias),
 		]))
 	
@@ -917,8 +944,18 @@ class BackendEventHandler(event.BackendEventHandler):
 			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
 	
 	def on_added_me(self, user: User, *, message: Optional[TextWithData] = None) -> None:
-		for y in misc.build_contact_request_notif(user, self.bs.user, ('' if message is None else message.text), (None if message is None else message.yahoo_utf8)):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		contact_request_data = MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('3', misc.yahoo_id(user.email)),
+		])
+		
+		if message is not None:
+			contact_request_data.add('14', message)
+			contact_request_data.add('97', utf8)
+		
+		contact_request_data.add('15', time.time())
+		
+		self.ctrl.send_reply(YMSGService.ContactNew, YMSGStatus.NotAtHome, self.sess_id, contact_request_data)
 	
 	def on_login_elsewhere(self, option: LoginOption) -> None:
 		if option is LoginOption.BootOthers:
@@ -947,19 +984,29 @@ class ChatEventHandler(event.ChatEventHandler):
 	def on_participant_joined(self, cs_other: ChatSession) -> None:
 		if self.cs.chat.front_data.get('ymsg_twoway_only'):
 			return
-		for y in misc.build_conf_logon(self.bs, cs_other):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		self.ctrl.send_reply(YMSGService.ConfLogon, YMSGStatus.BRB, self.ctrl.sess_id, MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('57', cs_other.chat.ids['ymsg/conf']),
+			('53', misc.yahoo_id(cs_other.user.email)),
+		]))
 	
 	def on_participant_left(self, cs_other: ChatSession) -> None:
 		if 'ymsg/conf' not in cs_other.chat.ids:
 			# Yahoo only receives this event in "conferences"
 			return
-		for y in misc.build_conf_logoff(self.bs, cs_other):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		self.ctrl.send_reply(YMSGService.ConfLogoff, YMSGStatus.BRB, self.ctrl.sess_id, MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('57', cs_other.chat.ids['ymsg/conf']),
+			('56', misc.yahoo_id(cs_other.user.email)),
+		]))
 	
 	def on_invite_declined(self, invited_user: User, *, message: str = '') -> None:
-		for y in misc.build_conf_invite_decline(invited_user, self.bs, self.cs.chat.ids['ymsg/conf'], message):
-			self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+		self.ctrl.send_reply(YMSGService.ConfDecline, YMSGStatus.BRB, self.ctrl.sess_id, MultiDict([
+			('1', misc.yahoo_id(self.bs.user.email)),
+			('57', self.cs.chat.ids['ymsg/conf']),
+			('54', misc.yahoo_id(invited_user.email)),
+			('14', message),
+		]))
 	
 	def on_message(self, data: MessageData) -> None:
 		sender = data.sender
@@ -967,11 +1014,34 @@ class ChatEventHandler(event.ChatEventHandler):
 		
 		if data.type is MessageType.Chat:
 			if self.cs.chat.front_data.get('ymsg_twoway_only'):
-				for y in misc.build_message_packet(sender, self.bs, yahoo_data):
-					self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+				message_to_dict = MultiDict([
+					('5', misc.yahoo_id(self.bs.user.email)),
+					('4', misc.yahoo_id(sender.email)),
+					('14', yahoo_data.get('14')),
+				])
+				
+				if yahoo_data.get('63') is not None:
+					message_to_dict.add('63', yahoo_data.get('63'))
+				
+				if yahoo_data.get('64') is not None:
+					message_to_dict.add('64', yahoo_data.get('64'))
+				
+				if yahoo_data.get('97') is not None:
+					message_to_dict.add('97', yahoo_data.get('97'))
+				
+				self.ctrl.send_reply(YMSGService.Message, YMSGStatus.BRB, self.ctrl.sess_id, message_to_dict)
 			else:
-				for y in misc.build_conf_message_packet(sender, self.cs, yahoo_data):
-					self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])
+				conf_message_dict = MultiDict([
+					('1', misc.yahoo_id(bs.user.email)),
+					('57', self.cs.chat.ids['ymsg/conf']),
+					('3', misc.yahoo_id(sender.email)),
+					('14', yahoo_data.get('14')),
+				])
+				
+				if yahoo_data.get('97') is not None:
+					conf_message_dict.add('97', yahoo_data.get('97'))
+				
+				self.ctrl.send_reply(YMSGService.ConfMsg, YMSGStatus.BRB, self.ctrl.sess_id, conf_message_dict)
 		elif data.type is MessageType.Typing:
 			for y in misc.build_notify_notif(sender, self.bs, yahoo_data):
 				self.ctrl.send_reply(y[0], y[1], self.ctrl.sess_id, y[2])

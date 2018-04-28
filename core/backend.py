@@ -21,13 +21,16 @@ class Ack(IntFlag):
 
 class Backend:
 	__slots__ = (
-		'user_service', 'auth_service', 'loop', '_stats', '_sc', '_chats_by_id', '_user_by_uuid',
-		'_worklist_sync_db', '_worklist_notify', '_runners', '_dev',
+		'user_service', 'auth_service', 'loop', 'notify_maintenance', 'maintenance_mode', 'maintenance_mins',  '_stats', '_sc',
+		'_chats_by_id', '_user_by_uuid', '_worklist_sync_db', '_worklist_notify', '_runners', '_dev',
 	)
 	
 	user_service: UserService
 	auth_service: AuthService
 	loop: asyncio.AbstractEventLoop
+	notify_maintenance: bool
+	maintenance_mode: bool
+	maintenance_mins: int
 	_stats: Stats
 	_sc: '_SessionCollection'
 	_chats_by_id: Dict[Tuple[str, str], 'Chat']
@@ -41,6 +44,9 @@ class Backend:
 		self.user_service = user_service or UserService()
 		self.auth_service = auth_service or AuthService()
 		self.loop = loop
+		self.notify_maintenance = False
+		self.maintenance_mode = False
+		self.maintenance_mins = 0
 		self._stats = Stats()
 		self._sc = _SessionCollection()
 		self._chats_by_id = {}
@@ -55,9 +61,25 @@ class Backend:
 		loop.create_task(self._worker_sync_stats())
 		loop.create_task(self._worker_notify())
 	
-	def send_system_message(self, *args: Any, **kwargs: Any) -> None:
+	def push_system_message(self, *args: Any, message: str = '', **kwargs: Any) -> None:
 		for bs in self._sc.iter_sessions():
-			bs.evt.on_system_message(*args, **kwargs)
+			bs.evt.on_system_message(*args, message = message, **kwargs)
+		
+		if isinstance(args[1], int) and args[1] > 0:
+			self.notify_maintenance = True
+			self.maintenance_mins = args[1]
+			self.loop.create_task(self._worker_set_server_maintenance())
+	
+	async def _worker_set_server_maintenance(self):
+		while self.maintenance_mins > 0:
+			await asyncio.sleep(60)
+			self.maintenance_mins -= 1
+		
+		if self.maintenance_mins <= 0:
+			self.notify_maintenance = False
+			self.maintenance_mode = True
+			for bs in self._sc._sessions.copy():
+				bs.evt.on_maintenance_boot()
 	
 	def add_runner(self, runner: Runner) -> None:
 		self._runners.append(runner)

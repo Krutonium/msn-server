@@ -496,7 +496,7 @@ class MSNPCtrlNS(MSNPCtrl):
 		bs.front_data['msn_msnobj'] = msnobj
 		self.send_reply('CHG', trid, sts_name, capabilities, encode_msnobj(msnobj))
 		
-		# Send ILNs
+		# Send ILNs (and system messages, if any)
 		if self.iln_sent:
 			return
 		self.iln_sent = True
@@ -507,6 +507,8 @@ class MSNPCtrlNS(MSNPCtrl):
 		for ctc in detail.contacts.values():
 			for m in build_presence_notif(trid, ctc, dialect, self.backend):
 				self.send_reply(*m)
+		if self.backend.notify_maintenance:
+			bs.evt.on_system_message(1, self.backend.maintenance_mins)
 	
 	def _m_rea(self, trid: str, email: str, name: str) -> None:
 		if self.dialect >= 10:
@@ -601,6 +603,8 @@ class BackendEventHandler(event.BackendEventHandler):
 		self.ctrl = ctrl
 	
 	def on_system_message(self, *args: Any, **kwargs: Any) -> None:
+		if args[0] == 1 and args[1] < 0: return
+		
 		data = [
 			'MIME-Version: 1.0',
 			'Content-Type: application/x-msmsgssystemmessage',
@@ -611,6 +615,9 @@ class BackendEventHandler(event.BackendEventHandler):
 			for i, a in enumerate(args[1:])
 		]
 		self.ctrl.send_reply('MSG', 'Hotmail', 'Hotmail', ('\r\n'.join(data) + '\r\n').encode('utf-8'))
+	
+	def on_maintenance_boot(self) -> None:
+		self.on_close(maintenance = True)
 	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		for m in build_presence_notif(None, contact, self.ctrl.dialect, self.ctrl.backend):
@@ -664,8 +671,8 @@ class BackendEventHandler(event.BackendEventHandler):
 			# TODO: What do?
 			pass
 	
-	def on_close(self) -> None:
-		self.ctrl.close()
+	def on_close(self, **kwargs) -> None:
+		self.ctrl.close(**kwargs)
 
 def _encode_payload(tmpl: str, **kwargs: Any) -> bytes:
 	return tmpl.format(**kwargs).replace('\n', '\r\n').encode('utf-8')

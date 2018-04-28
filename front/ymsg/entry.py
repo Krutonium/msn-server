@@ -52,6 +52,9 @@ class ListenerYMSG(asyncio.Protocol):
 	def data_received(self, data: bytes) -> None:
 		transport = self.transport
 		assert transport is not None
+		if self.backend.maintenance_mode:
+			transport.close()
+			return
 		self.controller.transport = None
 		self.controller.data_received(transport, data)
 		transport.write(self.controller.flush())

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Escargot System Control Board</title>
+	<script>
+		if (window.XMLHttpRequest) {
+			ajaxObj = new XMLHttpRequest();
+		} else {
+			ajaxObj = new ActiveXObject('Microsoft.XMLHTTP');
+		}
+		
+		function isNumber(value) {
+			return !isNaN(parseInt(value)) && isFinite(value);
+		}
+		
+		function clearErrors() {
+			document.getElementsByClassName('success sys-message-pushed')[0].style.display = 'none';
+			document.getElementsByClassName('success mt-message-pushed')[0].style.display = 'none';
+			document.getElementsByClassName('error mt-time-server')[0].style.display = 'none';
+		}
+		
+		function pushSysMessageAsync() {
+			clearErrors();
+			ajaxObj.open('POST', '/sysboard/', true);
+			
+			ajaxObj.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					if (this.status == 200) {
+						document.getElementsByClassName('success sys-message-pushed')[0].style.display = 'block';
+					} else if (this.status == 401) {
+						window.location.href = '/sysboard/login';
+					} else if (this.status == 421) {
+						window.location.reload(true);
+					} else if (this.status == 500) {
+						document.getElementsByClassName('error mt-time-server')[0].style.display = 'block';
+					}
+				}
+			};
+			
+			mt_msg = document.getElementById('system-msg').value
+			
+			ajaxObj.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+			ajaxObj.send('sysmsg=' + encodeURIComponent(mt_msg));
+		}
+		
+		function pushMtMessageAsync() {
+			clearErrors();
+			ajaxObj.open('POST', '/sysboard/', true);
+			
+			ajaxObj.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					if (this.status == 200) {
+						document.getElementsByClassName('success mt-message-pushed')[0].style.display = 'block';
+						document.getElementById('pushMtMessage').disabled = true;
+						document.getElementById('system-msg').disabled = true;
+						document.getElementById('pushSysMessage').disabled = true;
+					} else if (this.status == 401) {
+						window.location.href = '/sysboard/login';
+					} else if (this.status == 421) {
+						window.location.reload(true);
+					} else if (this.status == 500) {
+						document.getElementsByClassName('error mt-time-server')[0].style.display = 'block';
+					}
+				}
+			};
+			
+			mt_mins = document.getElementById('mt-min').value
+			
+			ajaxObj.setRequestHeader('X-Maintenance-Minutes', mt_mins);
+			ajaxObj.send();
+		}
+	</script>
+</head>
+<body>
+	<div id="page-title">Escargot System Command Board</div>
+	<p class="success mt-message-pushed">Maintenance message has been successfully set and pushed!</p>
+	<p class="success sys-message-pushed">System message has been successfully pushed!</p>
+	<p class="error mt-time-server">An internal server error has occured while pushing your system message. Try again!</p>
+	<div id="mt-time-until">
+		Minutes until maintenance:&nbsp;<input type="text" id="mt-min"/>
+	</div>
+	<div class="push-message maintenance"><button id="pushMtMessage" type="button" onclick="pushMtMessageAsync()">Push Maintenance Message</button></div>
+	<p class="error mt-time-typecheck">You can only input numbers in this field.</p>
+	<p class="error mt-time-empty">You must enter in a number.</p>
+	<div id="message-section">
+		<p id="sys-message-label"><b>System Messages</b></p>
+		<p id="sys-message-disclaimer">This is only for Yahoo! Messenger. System messages will not be sent to MSN users.</p>
+		<div id="system-msg-block"><textarea id="system-msg" cols="60" rows="15"></textarea></div>
+		<div class="push-message system"><button id="pushSysMessage" type="button" onclick="pushSysMessageAsync()">Push System Message</button></div>
+	</div>
+	<style>
+		* {
+			/* How get Helvetica? :P */
+			font-family: Arial, sans-serif;
+		}
+		
+		body { background-color: #f9f9f9; }
+		
+		#page-title {
+			margin-top: 2em;
+			margin-bottom: 2.5em;
+			font-size: 42px;
+			text-align: center;
+		}
+		
+		.error, .success {
+			display: none;
+			text-align: center;
+			margin-top: 3em;
+			margin-left: 10%;
+			margin-right: 10%;
+		}
+		
+		.error { background-color: red; }
+		
+		.success { background-color: green; }
+		
+		#mt-time-until, #sys-message-label, #sys-message-disclaimer, #system-msg-block, .push-message {
+			display: flex;
+			justify-content: center;
+		}
+		
+		#mt-time-until { margin-bottom: 3em; }
+		
+		#sys-message-label { margin-top: 2em; }
+		
+		#system-msg {
+			resize: none;
+			font-family: "Courier New", serif;
+		}
+		
+		.push-message { margin-top: 2em; }
+	</style>
+	<script>
+		//set default maintenance minutes value on DOM load
+		
+		mt_min = document.getElementById('mt-min');
+		mt_min.value = 5;
+		
+		mt_min.addEventListener('input', function (evt) {
+			document.getElementsByClassName('error mt-time-server')[0].style.display = 'none';
+			document.getElementsByClassName('error mt-time-empty')[0].style.display = 'none';
+			document.getElementsByClassName('error mt-time-typecheck')[0].style.display = 'none';
+			document.getElementById('pushMtMessage').disabled = false;
+			
+			if (this.value == '') {
+				document.getElementsByClassName('error mt-time-empty')[0].style.display = 'block';
+				document.getElementById('pushMtMessage').disabled = true;
+			} else if ((this.value != '' && !isNumber(this.value)) || this.value.indexOf(' ') != -1) {
+				document.getElementsByClassName('error mt-time-typecheck')[0].style.display = 'block';
+				document.getElementById('pushMtMessage').disabled = true;
+			}
+		});
+	</script>
+</body>
+</html>

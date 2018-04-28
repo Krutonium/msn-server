@@ -47,10 +47,14 @@ class MSNPCtrl(metaclass = ABCMeta):
 	def _m_out(self) -> None:
 		self.close()
 	
-	def close(self, hard = False) -> None:
+	def close(self, hard: bool = False, maintenance: bool = False) -> None:
 		if self.closed: return
 		self.closed = True
-		if not hard: self.send_reply('OUT')
+		if not hard:
+			if maintenance:
+				self.send_reply('OUT', 'SSD')
+			else:
+				self.send_reply('OUT')
 		if self.close_callback:
 			self.close_callback()
 		self._on_close()

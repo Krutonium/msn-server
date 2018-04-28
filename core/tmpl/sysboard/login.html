@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Login - Escargot System Control Board</title>
+	<script>
+		function submitPass() {
+			//refresh error dialog
+			document.getElementById('invalid-pass').style.display = 'none';
+			
+			password = document.getElementById('sys-password').value
+			
+			if (window.XMLHttpRequest) {
+				ajaxObj = new XMLHttpRequest();
+			} else {
+				ajaxObj = new ActiveXObject('Microsoft.XMLHTTP');
+			}
+			
+			ajaxObj.open('POST', '/sysboard/login', true);
+			
+			ajaxObj.onreadystatechange = function() {
+				if (this.readyState == 4) {
+					if (this.status == 200) {
+						window.location.href = '/sysboard/';
+					} else if (this.status == 500) {
+						document.getElementById('invalid-pass').style.display = 'block';
+					}
+				}
+			};
+			
+			ajaxObj.setRequestHeader('X-Password', password);
+			ajaxObj.send();
+		}
+	</script>
+</head>
+<body>
+	<div id="login-content">
+		<div id="login-header">Escargot System Control Board</div>
+		<p id="invalid-pass">Password supplied is empty or invalid. Try again!</p>
+		<div id="pass-field">Password:&nbsp;<input id="sys-password" type="password" placeholder="Enter your password"/></div>
+		<div id="login-button"><button type="button" onclick="submitPass()">Login</button></div>
+	</div>
+	<style>
+		* {
+			/* How get Helvetica? :P */
+			font-family: Arial, sans-serif;
+		}
+		
+		body {
+			background-color: #cccccc;
+		}
+		
+		#login-content {
+			margin-top: 20%;
+		}
+		
+		#login-header {
+			font-size: 42px;
+			text-align: center;
+			margin-bottom: 1em;
+		}
+		
+		#pass-field, #login-button {
+			display: flex;
+			justify-content: center;
+		}
+		
+		#invalid-pass {
+			display: none;
+			background-color: red;
+			margin-left: 20%;
+			margin-right: 20%;
+			text-align: center;
+		}
+		
+		#pass-field {
+			font-size: 24px;
+		}
+		
+		#sys-password {
+			width: 20em;
+		}
+		
+		#login-button {
+			margin-top: 1em;
+		}
+		
+		button {
+			font-size: 16px;
+		}
+	</style>
+</body>
+</html>

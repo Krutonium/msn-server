@@ -183,6 +183,14 @@ class BackendEventHandler(event.BackendEventHandler):
 	def __init__(self, ctrl: IRCCtrl) -> None:
 		self.ctrl = ctrl
 	
+	# TODO: Implement `on_system_message` and `on_maintenance_boot`
+	
+	def on_system_message(self, *args: Any, **kwargs: Any) -> None:
+		pass
+	
+	def on_maintenance_boot(self) -> None:
+		pass
+	
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None:
 		self.ctrl.send_reply('NOTICE', ":{} is now {}".format(contact.head.email, contact.status.substatus))
 	

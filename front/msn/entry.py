@@ -38,13 +38,16 @@ class ListenerMSNP(asyncio.Protocol):
 		self.logger.log_connect()
 	
 	def connection_lost(self, exc: Exception) -> None:
-		self.controller.close()
+		self.controller.close(hard = True)
 		self.logger.log_disconnect()
 		self.transport = None
 	
 	def data_received(self, data: bytes) -> None:
 		transport = self.transport
 		assert transport is not None
+		if self.backend.maintenance_mode:
+			transport.close()
+			return
 		# Setting `transport` to None so all data is held until the flush
 		self.controller.transport = None
 		self.controller.data_received(transport, data)

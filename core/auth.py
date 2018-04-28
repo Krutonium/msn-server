@@ -61,6 +61,12 @@ class AuthService:
 		if not td.validate(purpose, token, self._time()): return None
 		return td.expiry
 	
+	def sysboard_retreive_last_valid_token(self, password: str) -> Optional[str]:
+		self._remove_expired()
+		for td in self._ordered:
+			if td.purpose == 'sysboard/token' and td.data == password: return td.token
+		return None
+	
 	def _remove_expired(self) -> None:
 		if not self._ordered: return
 		dummy = TokenData('', None, self._time(), '')

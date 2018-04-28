@@ -34,7 +34,6 @@ class YMSGCtrlBase(metaclass = ABCMeta):
 	
 	def data_received(self, transport: asyncio.BaseTransport, data: bytes) -> None:
 		self.peername = transport.get_extra_info('peername')
-		
 		#self.logger.info('>>>', data)
 		
 		n = find_count_PRE(data)

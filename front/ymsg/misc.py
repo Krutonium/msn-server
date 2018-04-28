@@ -18,24 +18,27 @@ class YMSGService(IntEnum):
 	IsBack = 0x04
 	Message = 0x06
 	IDActivate = 0x07
-	UserStat = 0x0a
-	ContactNew = 0x0f
+	UserStat = 0x0A
+	ContactNew = 0x0F
 	AddIgnore = 0x11
 	PingConfiguration = 0x12
+	SystemMessage = 0x14
 	SkinName = 0x15
 	Passthrough2 = 0x16
 	MassMessage = 0x17
 	ConfInvite = 0x18
 	ConfLogon = 0x19
-	ConfDecline = 0x1a
-	ConfLogoff = 0x1b
-	ConfAddInvite = 0x1c
-	ConfMsg = 0x1d
+	ConfDecline = 0x1A
+	ConfLogoff = 0x1B
+	ConfAddInvite = 0x1C
+	ConfMsg = 0x1D
 	FileTransfer = 0x46
-	Notify = 0x4b
-	Handshake = 0x4c
-	P2PFileXfer = 0x4d
-	PeerToPeer = 0x4f
+	VoiceChat = 0x4A
+	Notify = 0x4B
+	Handshake = 0x4C
+	P2PFileXfer = 0x4D
+	PeerToPeer = 0x4F
+	VideoChat = 0x50
 	AuthResp = 0x54
 	List = 0x55
 	Auth = 0x57
@@ -44,18 +47,13 @@ class YMSGService(IntEnum):
 	Ignore = 0x85
 	ContactDeny = 0x86
 	GroupRename = 0x89
-	Ping = 0x8a
+	Ping = 0x8A
+	ChatJoin = 0x96
 	
-	# TODO: Figure out these `YMSGService`s
-	# Happens when enabling voice
-	Unknown_0x4a = 0x4a
-	# Happens when enabling video
-	Unknown_0x50 = 0x50
-	# Happens during "Join user in chat"
-	Unknown_0x96 = 0x96
-	# Happened after waiting a long time doing nothing
+	# TODO: Figure out this `YMSGService`
+	# Happens after waiting a long time doing nothing
 	# YMSG \x0a \0\0\0\0 \x14\x00 \xa1\x00 \0\0\0\xb4 D\x8221 09\xc0\x80 t1y@yahoo.com\xc0\x80
-	Unknown_0xa1 = 0xa1
+	Unknown_0xa1 = 0xA1
 
 class YMSGStatus(IntEnum):
 	# Available/Client Request
@@ -127,29 +125,6 @@ _FromSubstatus = DefaultDict(YMSGStatus.Bad, {
 
 EncodedYMSG = Tuple[YMSGService, YMSGStatus, Dict[str, str]]
 
-def build_contact_request_notif(user_adder: User, user_added: User, message: str, utf8: Optional[str]) -> Iterable[EncodedYMSG]:
-	contact_request_data = MultiDict([
-		('1', yahoo_id(user_added.email)),
-		('3', yahoo_id(user_adder.email)),
-		('14', message),
-	])
-	
-	if utf8 is not None: contact_request_data.add('97', utf8)
-	contact_request_data.add('15', time.time())
-	
-	yield (YMSGService.ContactNew, YMSGStatus.NotAtHome, contact_request_data)
-
-def build_contact_deny_notif(user_denier: User, bs: BackendSession, deny_message: str) -> Iterable[EncodedYMSG]:
-	user_to = bs.user
-	
-	contact_deny_data = MultiDict([
-		('1', yahoo_id(user_to.email)),
-		('3', yahoo_id(user_denier.email)),
-		('14', deny_message)
-	])
-	
-	yield (YMSGService.ContactNew, YMSGStatus.OnVacation, contact_deny_data)
-
 def build_notify_notif(user_from: User, bs: BackendSession, notif_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
@@ -162,26 +137,6 @@ def build_notify_notif(user_from: User, bs: BackendSession, notif_dict: Dict[str
 	])
 	
 	yield (YMSGService.Notify, YMSGStatus.BRB, notif_to_dict)
-
-def build_message_packet(user_from: User, bs: BackendSession, message_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
-	user_to = bs.user
-	
-	message_to_dict = MultiDict([
-		('5', yahoo_id(user_to.email)),
-		('4', yahoo_id(user_from.email)),
-		('14', message_dict.get('14')),
-	])
-	
-	if message_dict.get('63') is not None:
-		message_to_dict.add('63', message_dict.get('63'))
-	
-	if message_dict.get('64') is not None:
-		message_to_dict.add('64', message_dict.get('64'))
-	
-	if message_dict.get('97') is not None:
-		message_to_dict.add('97', message_dict.get('97'))
-	
-	yield (YMSGService.Message, YMSGStatus.BRB, message_to_dict)
 
 def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
@@ -209,16 +164,6 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 	ft_dict.add('49', xfer_dict.get('49'))
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
-
-def build_http_ft_ack_packet(bs: BackendSession, recipient: str, message: str):
-	user = bs.user
-	
-	yield (YMSGService.FileTransfer, YMSGStatus.BRB, MultiDict([
-		('1', yahoo_id(user.email)),
-		('5', recipient),
-		('4', yahoo_id(user.email)),
-		('14', message),
-	]))
 
 def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message: str):
 	user = bs.user
@@ -253,58 +198,6 @@ def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_ms
 	conf_invite_dict.add('13', chat.front_data.get('ymsg_voice_chat') or 0)
 	
 	yield ((YMSGService.ConfAddInvite if len(roster) > 1 else YMSGService.ConfInvite), YMSGStatus.BRB, conf_invite_dict)
-
-def build_conf_invite_decline(inviter: User, bs: BackendSession, conf_id: str, deny_msg: str) -> Iterable[EncodedYMSG]:
-	user_to = bs.user
-	
-	conf_decline_dict = MultiDict([
-		('1', yahoo_id(user_to.email)),
-		('57', conf_id),
-		('54', yahoo_id(inviter.email)),
-		('14', deny_msg)
-	])
-	
-	yield (YMSGService.ConfDecline, YMSGStatus.BRB, conf_decline_dict)
-
-def build_conf_logon(bs: BackendSession, cs_other: ChatSession) -> Iterable[EncodedYMSG]:
-	user_from = cs_other.user
-	user_to = bs.user
-	
-	conf_logon_dict = MultiDict([
-		('1', yahoo_id(user_to.email)),
-		('57', cs_other.chat.ids['ymsg/conf']),
-		('53', yahoo_id(user_from.email))
-	])
-	
-	yield (YMSGService.ConfLogon, YMSGStatus.BRB, conf_logon_dict)
-
-def build_conf_logoff(bs: BackendSession, cs_other: ChatSession) -> Iterable[EncodedYMSG]:
-	user_from = cs_other.user
-	user_to = bs.user
-	
-	conf_logoff_dict = MultiDict([
-		('1', yahoo_id(user_to.email)),
-		('57', cs_other.chat.ids['ymsg/conf']),
-		('56', yahoo_id(user_from.email))
-	])
-	
-	yield (YMSGService.ConfLogoff, YMSGStatus.BRB, conf_logoff_dict)
-
-def build_conf_message_packet(sender: User, cs: ChatSession, message_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
-	from_status = sender.status
-	user_to = cs.user
-	
-	conf_message_dict = MultiDict([
-		('1', yahoo_id(user_to.email)),
-		('57', cs.chat.ids['ymsg/conf']),
-		('3', yahoo_id(sender.email)),
-		('14', message_dict.get('14'))
-	])
-	
-	if message_dict.get('97') is not None:
-		conf_message_dict.add('97', message_dict.get('97'))
-	
-	yield (YMSGService.ConfMsg, YMSGStatus.BRB, conf_message_dict)
 
 def yahoo_id(email: str) -> str:
 	email_parts = email.split('@', 1)

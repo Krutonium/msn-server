@@ -24,6 +24,9 @@ class BackendEventHandler(metaclass = ABCMeta):
 	def on_system_message(self, *args: Any, **kwargs: Any) -> None:
 		pass
 	
+	def on_maintenance_boot(self) -> None:
+		pass
+	
 	@abstractmethod
 	def on_presence_notification(self, contact: Contact, old_substatus: Substatus) -> None: pass
 	
