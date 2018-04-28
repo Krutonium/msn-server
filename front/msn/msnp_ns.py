@@ -122,7 +122,9 @@ class MSNPCtrlNS(MSNPCtrl):
 					extra = ('ct=1,rver=1,wp=FS_40SEC_0_COMPACT,lc=1,id=1',) # type: Tuple[Any, ...]
 				else:
 					# https://web.archive.org/web/20100819015007/http://msnpiki.msnfanatic.com/index.php/MSNP15:SSO
-					# TODO: Implement challenge string generation function (isn't mandatory, but will notch up security).
+					# TODO: Implement challenge string generation function (isn't mandatory, in this case, since it is omitted from the SSO
+					# response, a side effect of using the custom `msidcrl40` DLL valtron coded up, but will notch up security if we get it
+					# implemented, either in the custom DLL or if all else fails, get the original DLL up and running).
 					extra = ('MBI_KEY_OLD', '8CLhG/xfgYZ7TyRQ/jIAWyDmd/w4R4GF2yKLS6tYrnjzi4cFag/Nr+hxsfg5zlCf')
 				self.send_reply('USR', trid, authtype, 'S', *extra)
 				return
