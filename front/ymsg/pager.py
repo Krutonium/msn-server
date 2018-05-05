@@ -275,6 +275,8 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		
 		self.send_reply(YMSGService.ContactNew, YMSGStatus.BRB, self.sess_id, contact_struct)
 		
+		# TODO: Presence notifs are resent when a contact is added. Get the bug fixed.
+		
 		if not contact or not contact.lists & Lst.FL:
 			add_request_response.add('66', 0)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
@@ -658,6 +660,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			if contact_list:
 				contact_group_list.append(grp.name + ':' + ','.join(contact_list) + '\n')
 		# Handle contacts that aren't part of any groups
+		# Since Yahoo! Messenger by design requires you to add a contact to a group, remove when code is pushed to `master` branch
 		contact_list = [misc.yahoo_id(c.head.email) for c in cs_fl if not c.groups]
 		if contact_list:
 			contact_group_list.append('(No Group):' + ','.join(contact_list) + '\n')
