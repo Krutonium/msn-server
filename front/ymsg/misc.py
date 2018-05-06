@@ -211,12 +211,12 @@ def yahoo_id_to_uuid(bs: Optional[BackendSession], backend: Backend, yahoo_id: s
 	
 	if '@' in yahoo_id:
 		email = yahoo_id
-	elif '@yahoo.com' in yahoo_id:
+	elif '@yahoo.' in yahoo_id:
 		return None
 	elif bs:
 		detail = bs.user.detail
 		assert detail is not None
-		pre = yahoo_id + '@yahoo.com'
+		pre = yahoo_id + '@yahoo.'
 		for ctc in detail.contacts.values():
 			if ctc.head.email.startswith(pre):
 				email = ctc.head.email
