@@ -281,7 +281,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 			add_request_response.add('66', 0)
 			self.send_reply(YMSGService.FriendAdd, YMSGStatus.BRB, self.sess_id, add_request_response)
 			
-			bs.me_contact_add(ctc_head.uuid, Lst.FL, message = (TextWithData(message, utf8) if message is not None else None))
+			bs.me_contact_add(ctc_head.uuid, Lst.FL, message = (TextWithData(message, utf8) if message is not None else None), needs_notify = True)
 		try:
 			bs.me_group_contact_add(group.id, contact_uuid)
 		except error.ContactAlreadyOnList:
@@ -764,7 +764,7 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		return resp_6 == resp_6_server and resp_96 == resp_96_server
 	
 	def _refresh_cookies(self) -> Tuple[str, str, str]:
-		# Creates the cookies if they don't exist, or bumps their expiry if they do.
+		# Creates the cookies if they don't exist
 		
 		assert self.t_cookie_token is not None
 		

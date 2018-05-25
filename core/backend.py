@@ -399,7 +399,7 @@ class BackendSession(Session):
 				raise error.ContactNotOnList()
 		self.backend._mark_modified(user)
 	
-	def me_contact_add(self, contact_uuid: str, lst: Lst, *, name: Optional[str] = None, message: Optional[TextWithData] = None) -> Tuple[Contact, User]:
+	def me_contact_add(self, contact_uuid: str, lst: Lst, *, name: Optional[str] = None, message: Optional[TextWithData] = None, needs_notify: bool = False) -> Tuple[Contact, User]:
 		backend = self.backend
 		ctc_head = backend._load_user_record(contact_uuid)
 		if ctc_head is None:
@@ -415,8 +415,9 @@ class BackendSession(Session):
 				for sess_added in backend._sc.get_sessions_by_user(ctc_head):
 					if sess_added is self: continue
 					sess_added.evt.on_added_me(user, message = message)
-		self.evt.on_presence_notification(ctc, old_substatus = Substatus.Offline)
-		backend._notify_contacts(self, old_substatus = Substatus.Offline)
+		if needs_notify:
+			self.evt.on_presence_notification(ctc, old_substatus = Substatus.Offline)
+			backend._notify_contacts(self, old_substatus = Substatus.Offline)
 		return ctc, ctc_head
 	
 	def me_contact_edit(self, contact_uuid: str, *, is_messenger_user: Optional[bool] = None) -> None:
