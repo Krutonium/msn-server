@@ -152,8 +152,9 @@ def server_temp_cleanup() -> None:
 	
 	import os, shutil
 	
-	for file_dir in os.listdir('storage/yfs'):
-		shutil.rmtree('storage/yfs/' + file_dir, ignore_errors = True)
+	if os.path.exists('storage/yfs'):
+		for file_dir in os.listdir('storage/yfs'):
+			shutil.rmtree('storage/yfs/' + file_dir, ignore_errors = True)
 
 K = TypeVar('K')
 V = TypeVar('V')
