@@ -4,7 +4,7 @@ import asyncio, time, traceback
 from collections import defaultdict
 from enum import IntFlag
 
-from util.misc import gen_uuid, EMPTY_SET, run_loop, Runner
+from util.misc import gen_uuid, EMPTY_SET, run_loop, Runner, server_temp_cleanup
 
 from .user import UserService
 from .auth import AuthService
@@ -80,6 +80,7 @@ class Backend:
 			self.maintenance_mode = True
 			for bs in self._sc._sessions.copy():
 				bs.evt.on_maintenance_boot()
+			server_temp_cleanup()
 	
 	def add_runner(self, runner: Runner) -> None:
 		self._runners.append(runner)

@@ -130,6 +130,7 @@ def run_loop(loop: asyncio.AbstractEventLoop, runners: List[Runner]) -> None:
 		)))
 		for runner in runners:
 			runner.teardown(loop)
+		server_temp_cleanup()
 		loop.close()
 
 async def _windows_ctrl_c_workaround() -> None:
@@ -145,6 +146,14 @@ def add_to_jinja_env(app: web.Application, prefix: str, tmpl_dir: str, *, global
 	jinja_env.loader.mapping[prefix] = jinja2.FileSystemLoader(tmpl_dir)
 	if globals:
 		jinja_env.globals.update(globals)
+
+def server_temp_cleanup() -> None:
+	# For now, just clean up stuff in the Yahoo! HTTP file transfer storage folder
+	
+	import os, shutil
+	
+	for file_dir in os.listdir('storage/yfs'):
+		shutil.rmtree('storage/yfs/' + file_dir, ignore_errors = True)
 
 K = TypeVar('K')
 V = TypeVar('V')
