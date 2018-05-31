@@ -1,7 +1,7 @@
 DB = 'sqlite:///escargot.sqlite'
 STATS_DB = 'sqlite:///stats.sqlite'
 LOGIN_HOST = 'm1.escargot.log1p.xyz'
-YAHOO_FT_DL_HOST = 'http://yhflstrge.log1p.xyz'
+YAHOO_FT_DL_HOST = 'http://yflstre.log1p.xyz'
 STORAGE_HOST = LOGIN_HOST
 # While not necessary for debugging, it is recommended you change the `SYSBOARD_PASS` variable for security reasons.
 SYSBOARD_PASS = 'root'
