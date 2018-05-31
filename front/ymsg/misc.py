@@ -138,6 +138,27 @@ def build_notify_notif(user_from: User, bs: BackendSession, notif_dict: Dict[str
 	
 	yield (YMSGService.Notify, YMSGStatus.BRB, notif_to_dict)
 
+def build_p2p_msg_packet(user_from: User, bs: BackendSession, p2p_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
+	user_to = bs.user
+	
+	p2p_conn_dict = MultiDict([
+		('5', yahoo_id(user_to.email)),
+		('4', yahoo_id(user_from.email)),
+	])
+	
+	if None not in (p2p_dict.get('2'),p2p_dict.get('13'),p2p_dict.get('12')):
+		p2p_conn_dict.add('2', p2p_dict.get('2'))
+		p2p_conn_dict.add('13', p2p_dict.get('13'))
+		p2p_conn_dict.add('12', p2p_dict.get('12'))
+	else:
+		return
+	
+	p2p_conn_dict.add('49', p2p_dict.get('49'))
+	if p2p_dict.get('60') is not None: p2p_conn_dict.add('60', p2p_dict.get('60'))
+	if p2p_dict.get('61') is not None: p2p_conn_dict.add('60', p2p_dict.get('61'))
+	
+	yield (YMSGService.PeerToPeer, YMSGStatus.BRB, p2p_dict)
+
 def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, Any]) -> Iterable[EncodedYMSG]:
 	user_to = bs.user
 	
@@ -159,13 +180,20 @@ def build_ft_packet(user_from: User, bs: BackendSession, xfer_dict: Dict[str, An
 		ft_dict.add('14', xfer_dict.get('14'))
 		ft_dict.add('53', xfer_dict.get('53'))
 	if ft_type in ('2','3'):
-		ft_dict.add('27', xfer_dict.get('27'))
-		ft_dict.add('53', xfer_dict.get('53'))
+		# For shared files
+		if xfer_dict.get('27') is not None: ft_dict.add('27', xfer_dict.get('27'))
+		if xfer_dict.get('53') is not None: ft_dict.add('53', xfer_dict.get('53'))
+		
+		# For P2P messaging
+		if xfer_dict.get('2') is not None: ft_dict.add('2', xfer_dict.get('2'))
+		if xfer_dict.get('12') is not None: ft_dict.add('12', xfer_dict.get('12'))
+		if xfer_dict.get('60') is not None: ft_dict.add('60', xfer_dict.get('60'))
+		if xfer_dict.get('61') is not None: ft_dict.add('61', xfer_dict.get('61'))
 	ft_dict.add('49', xfer_dict.get('49'))
 	
 	yield (YMSGService.P2PFileXfer, YMSGStatus.BRB, ft_dict)
 
-def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message: str):
+def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, upload_time: int, message: str):
 	user = bs.user
 	
 	yield (YMSGService.FileTransfer, YMSGStatus.BRB, MultiDict([
@@ -173,9 +201,8 @@ def build_http_ft_packet(bs: BackendSession, sender: str, url_path: str, message
 		('5', sender),
 		('4', yahoo_id(user.email)),
 		('14', message),
-		# Uploaded files will only last for a day on the server
-		('38', time.time() + 86400),
-		('20', settings.YAHOO_FT_DL_HOST + '/tmp/file/' + url_path),
+		('38', upload_time),
+		('20', settings.YAHOO_FT_DL_HOST + '/tmp/' + url_path),
 	]))
 
 def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_msg: str) -> Iterable[EncodedYMSG]:
@@ -201,6 +228,7 @@ def build_conf_invite(user_from: User, bs: BackendSession, chat: Chat, invite_ms
 
 def yahoo_id(email: str) -> str:
 	email_parts = email.split('@', 1)
+	
 	if len(email_parts) == 2 and email_parts[1].startswith('yahoo.'):
 		return email_parts[0]
 	else:

@@ -407,9 +407,23 @@ class YMSGCtrlPager(YMSGCtrlBase):
 		]))
 	
 	def _y_004f(self, *args) -> None:
-		# SERVICE_PEERTOPEER (0x4f); possibly to either see if P2P file transfer or if P2P messaging was possible; dig into this later
+		# SERVICE_PEERTOPEER (0x4f); see if P2P messaging is possible
 		
-		return
+		yid = args[4].get('1')
+		yid_from = args[4].get('4')
+		if self.yahoo_id not in (yid,yid_from): return
+		
+		p2p_to_id = args[4].get('5')
+		contact_uuid = yahoo_id_to_uuid(self.bs, self.backend, p2p_to_id)
+		if contact_uuid is None or args[4].get('49') != 'PEERTOPEER':
+			return
+		
+		bs = self.bs
+		assert bs is not None
+		
+		for bs_other in bs.backend._sc.iter_sessions():
+			if bs_other.user.uuid == contact_uuid:
+				bs_other.evt.ymsg_on_p2p_msg_request(bs.user, args[4])
 	
 	def _y_004b(self, *args) -> None:
 		# SERVICE_NOTIFY (0x4b); notify a contact of an action (typing, games, etc.)
@@ -910,6 +924,10 @@ class BackendEventHandler(event.BackendEventHandler):
 			('14', message),
 		]))
 	
+	def ymsg_on_p2p_msg_request(self, user_from: User, yahoo_data: Dict[str, Any]):
+		for y in misc.build_p2p_msg_packet(user_from, self.bs, yahoo_data):
+			self.ctrl.send_reply(y[0], y[1], self.sess_id, y[2])
+	
 	def ymsg_on_xfer_init(self, sender: User, yahoo_data: Dict[str, Any]) -> None:
 		for y in misc.build_ft_packet(sender, self.bs, yahoo_data):
 			self.ctrl.send_reply(y[0], y[1], self.sess_id, y[2])
@@ -922,8 +940,8 @@ class BackendEventHandler(event.BackendEventHandler):
 			('14', message),
 		]))
 	
-	def ymsg_on_sent_ft_http(self, sender: str, url_path: str, message: str) -> None:
-		for y in misc.build_http_ft_packet(self.bs, sender, url_path, message):
+	def ymsg_on_sent_ft_http(self, sender: str, url_path: str, upload_time: int, message: str) -> None:
+		for y in misc.build_http_ft_packet(self.bs, sender, url_path, upload_time, message):
 			self.ctrl.send_reply(y[0], y[1], self.sess_id, y[2])
 	
 	def ymsg_on_notify_alias_activate(self, activated_alias: str) -> None:
