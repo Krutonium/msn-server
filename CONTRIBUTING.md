@@ -39,10 +39,9 @@
 ## Yahoo!
 
 - for version 5.5, use a **clean** install (specifically, of [build 1244](http://www.oldversion.com/windows/yahoo-messenger-5-5-0-1244)) and patch the following registry values:
-	```
-	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup -> `127.0.0.1,127.0.0.1`
-	HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\socket server -> `localhost`
-	```
+	- `HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\IPLookup` -> `127.0.0.1,127.0.0.1`
+	- `HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\socket server` -> `localhost`
+	- `HKEY_CURRENT_USER\SOFTWARE\Yahoo\Pager\FileTransfer\Server Name` -> `localhost`
 
 - and also, in your `HOSTS`, add:
 	```
@@ -51,6 +50,7 @@
 	127.0.0.1 insider.msg.yahoo.com
 	127.0.0.1 chat.yahoo.com
 	127.0.0.1 msg.edit.yahoo.com
+	127.0.0.1 filetransfer.msg.yahoo.com
 	```
 
 - run `python dev` to start the dev server
