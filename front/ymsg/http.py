@@ -252,7 +252,7 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	file_path = ymsg_data.get('27')
 	file_len = ymsg_data.get('28') or 0
 	
-	if file_path is None or len(stream) != int(file_len):
+	if file_path is None or len(stream) != int(file_len) or len(stream) > (2 * (1000 ** 3)):
 		raise web.HTTPInternalServerError
 	
 	filename = file_path.split('\\').pop()
@@ -271,6 +271,8 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	f.write(stream)
 	f.close()
 	
+	upload_time = time.time()
+	
 	req.app.loop.create_task(_store_tmp_file_until_expiry(path))
 	
 	# Sending HTTP FT acknowledgement crahes Yahoo! Messenger, and ultimately freezes the computer. Ignore for now.
@@ -278,13 +280,13 @@ async def handle_ft_http(req: web.Request) -> web.Response:
 	
 	for bs_other in bs.backend._sc.iter_sessions():
 		if bs_other.user.uuid == recipient_uuid:
-			bs_other.evt.ymsg_on_sent_ft_http(yahoo_id_sender, file_tmp_path[12:], message)
+			bs_other.evt.ymsg_on_sent_ft_http(yahoo_id_sender, file_tmp_path[12:], upload_time, message)
 	
 	raise web.HTTPOk
 
 async def _store_tmp_file_until_expiry(file_storage_path: str) -> None:
-	await asyncio.sleep(86400)
-	# When a day passes, delete the file unless it has already been deleted from downloading it
+	await asyncio.sleep(3600)
+	# When an hour passes, delete the file unless it has already been deleted from downloading it
 	if os.path.exists(file_storage_path):
 		shutil.rmtree(file_storage_path, ignore_errors = True)
 
