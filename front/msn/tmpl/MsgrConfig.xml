@@ -4,6 +4,7 @@
 		<DisablePhoneDialer>1</DisablePhoneDialer>
 		<Logitech>
 			<PreRollEnabled>0</PreRollEnabled>
+			<!-- TODO: Replace dead STUN server URLs -->
 			<PremiumAVConfigServer>http://escargot.pokeacer.xyz/config/stunlocate.sxml</PremiumAVConfigServer>
 			<WebcamConfigServer>http://escargot.pokeacer.xyz/config/stunlocate.sxml</WebcamConfigServer>
 		</Logitech>
@@ -63,16 +64,17 @@
 	</Simple>
 	<TabConfig>
 		<msntabdata>
-			<tab><type>page</type><contenturl>http://escargot.log1p.xyz/etc/escargot-today</contenturl><hiturl>http://escargot.log1p.xyz/etc/escargot-today</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot.png</image><name>Escargot Today</name><tooltip>Escargot Today</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://wink.messengergeek.com/</contenturl><hiturl>http://wink.messengergeek.com/</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/messenger-geek.png</image><name>MessengerGeek</name><tooltip>MessengerGeek Forum</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://m.facebook.com</contenturl><hiturl>http://m.facebook.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/facebook.png</image><name>Facebook</name><tooltip>Facebook</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://m.facebook.com/messages</contenturl><hiturl>http://m.facebook.com/messages</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/facebook-messenger.png</image><name>Facebook Messenger</name><tooltip>Facebook Messenger</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://m.youtube.com</contenturl><hiturl>http://m.youtube.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/youtube.png</image><name>YouTube</name><tooltip>YouTube</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://msn.com/weather</contenturl><hiturl>http://msn.com/weather</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/msn-weather.png</image><name>MSN Weather</name><tooltip>MSN Weather</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://escargotspaces.cf/sites</contenturl><hiturl>http://escargotspaces.cf/sites</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot-spaces.png</image><name>Escargot Spaces</name><tooltip>Escargot Spaces</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://m.twitter.com</contenturl><hiturl>http://m.twitter.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/twitter.png</image><name>Twitter</name><tooltip>Twitter</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://play.spotify.com</contenturl><hiturl>http://play.spotify.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/spotify.png</image><name>Spotify</name><tooltip>Spotify</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
-			<tab><type>page</type><contenturl>http://ebay.com</contenturl><hiturl>http://ebay.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/ebay.png</image><name>eBay</name><tooltip>eBay</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://escargot.log1p.xyz/etc/escargot-today</contenturl><hiturl>https://escargot.log1p.xyz/etc/escargot-today</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot.png</image><name>Escargot Today</name><tooltip>Escargot Today</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://wink.messengergeek.com/</contenturl><hiturl>https://wink.messengergeek.com/</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/messenger-geek.png</image><name>MessengerGeek</name><tooltip>MessengerGeek Forum</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://m.facebook.com</contenturl><hiturl>https://m.facebook.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/facebook.png</image><name>Facebook</name><tooltip>Facebook</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://m.facebook.com/messages</contenturl><hiturl>https://m.facebook.com/messages</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/facebook-messenger.png</image><name>Facebook Messenger</name><tooltip>Facebook Messenger</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://m.youtube.com</contenturl><hiturl>https://m.youtube.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/youtube.png</image><name>YouTube</name><tooltip>YouTube</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://msn.com/weather</contenturl><hiturl>https://msn.com/weather</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/msn-weather.png</image><name>MSN Weather</name><tooltip>MSN Weather</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<!-- TODO: Replace old Escargot Spaces icon with new icon -->
+			<tab><type>page</type><contenturl>https://escargotspaces.com/sites</contenturl><hiturl>https://escargotspaces.com/sites</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot-spaces.png</image><name>Escargot Spaces</name><tooltip>Escargot Spaces</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://m.twitter.com</contenturl><hiturl>https://m.twitter.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/twitter.png</image><name>Twitter</name><tooltip>Twitter</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://play.spotify.com</contenturl><hiturl>https://play.spotify.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/spotify.png</image><name>Spotify</name><tooltip>Spotify</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>https://ebay.com</contenturl><hiturl>https://ebay.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/ebay.png</image><name>eBay</name><tooltip>eBay</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 		</msntabdata>
 		<msntabsettings>
 			<oemdisplaylimit>1</oemdisplaylimit><oemtotallimit>1</oemtotallimit>
@@ -87,13 +89,13 @@
 			<AddToMySpaceUrl>http://spaces.msn.com/?addblogentry=true&amp;mkt=en-us</AddToMySpaceUrl>
 			<ContactCardDisabled>false</ContactCardDisabled>
 			<CreateSpaceSiteId>45930</CreateSpaceSiteId>
-			<CreateSpaceUrl>http://escargotspaces.cf/register</CreateSpaceUrl>
+			<CreateSpaceUrl>https://escargotspaces.com/register</CreateSpaceUrl>
 			<GetItemVerUrl>http://storage.msn.com/storageservice/schematizedstore.asmx</GetItemVerUrl>
 			<GetXmlFeedUrl>http://services.spaces.msn.com/contactcard/contactcardservice.asmx</GetXmlFeedUrl>
 			<MySpaceSiteId>45930</MySpaceSiteId>
-			<MySpaceUrl>http://escargotspaces.cf</MySpaceUrl>
+			<MySpaceUrl>https://escargotspaces.com</MySpaceUrl>
 			<SpaceBaseSiteId>45930</SpaceBaseSiteId>
-			<SpaceBaseUrl>http://escargotspaces.cf</SpaceBaseUrl>
+			<SpaceBaseUrl>https://escargotspaces.com</SpaceBaseUrl>
 			<SpaceIntegrationEnabled>true</SpaceIntegrationEnabled>
 		</ContactCard>
 		<MSNSearch>
@@ -108,11 +110,12 @@
 		</MSNSearch>
 		<MsnTodayConfig>
 			<MsnTodaySiteID>6528</MsnTodaySiteID>
-			<MsnTodayURL>http://escargot.log1p.xyz/etc/escargot-today</MsnTodayURL>
+			<MsnTodayURL>https://escargot.log1p.xyz/etc/escargot-today</MsnTodayURL>
 		</MsnTodayConfig>
 		<RL>
+			<!-- TODO: Code up replacement profile service -->
 			<ViewProfileURL>https://escargot.pokeacer.xyz/dir/</ViewProfileURL>
 		</RL>
-		<TermsOfUse><TermsOfUseSID>956</TermsOfUseSID><TermsOfUseURL>http://escargot.log1p.xyz/etc/tos</TermsOfUseURL></TermsOfUse>
+		<TermsOfUse><TermsOfUseSID>956</TermsOfUseSID><TermsOfUseURL>https://escargot.log1p.xyz/etc/tos</TermsOfUseURL></TermsOfUse>
 	</LocalizedConfig>
 </MsgrConfig>
