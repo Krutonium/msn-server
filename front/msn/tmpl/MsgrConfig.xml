@@ -71,7 +71,7 @@
 			<tab><type>page</type><contenturl>https://m.youtube.com</contenturl><hiturl>https://m.youtube.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/youtube.png</image><name>YouTube</name><tooltip>YouTube</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 			<tab><type>page</type><contenturl>https://msn.com/weather</contenturl><hiturl>https://msn.com/weather</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/msn-weather.png</image><name>MSN Weather</name><tooltip>MSN Weather</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 			<!-- TODO: Replace old Escargot Spaces icon with new icon -->
-			<tab><type>page</type><contenturl>https://escargotspaces.com/sites</contenturl><hiturl>https://escargotspaces.com/sites</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot-spaces.png</image><name>Escargot Spaces</name><tooltip>Escargot Spaces</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
+			<tab><type>page</type><contenturl>http://escargotspaces.com/sitelist</contenturl><hiturl>http://escargotspaces.com/sitelist</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/escargot-spaces.png</image><name>Escargot Spaces</name><tooltip>Escargot Spaces</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 			<tab><type>page</type><contenturl>https://m.twitter.com</contenturl><hiturl>https://m.twitter.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/twitter.png</image><name>Twitter</name><tooltip>Twitter</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 			<tab><type>page</type><contenturl>https://play.spotify.com</contenturl><hiturl>https://play.spotify.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/spotify.png</image><name>Spotify</name><tooltip>Spotify</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
 			<tab><type>page</type><contenturl>https://ebay.com</contenturl><hiturl>https://ebay.com</hiturl><image>http://storage.googleapis.com/escargot-storage-1/public/tabicon/ebay.png</image><name>eBay</name><tooltip>eBay</tooltip><siteid>0</siteid><notificationid>0</notificationid></tab>
@@ -89,13 +89,13 @@
 			<AddToMySpaceUrl>http://spaces.msn.com/?addblogentry=true&amp;mkt=en-us</AddToMySpaceUrl>
 			<ContactCardDisabled>false</ContactCardDisabled>
 			<CreateSpaceSiteId>45930</CreateSpaceSiteId>
-			<CreateSpaceUrl>https://escargotspaces.com/register</CreateSpaceUrl>
+			<CreateSpaceUrl>http://escargotspaces.com/register</CreateSpaceUrl>
 			<GetItemVerUrl>http://storage.msn.com/storageservice/schematizedstore.asmx</GetItemVerUrl>
 			<GetXmlFeedUrl>http://services.spaces.msn.com/contactcard/contactcardservice.asmx</GetXmlFeedUrl>
 			<MySpaceSiteId>45930</MySpaceSiteId>
-			<MySpaceUrl>https://escargotspaces.com</MySpaceUrl>
+			<MySpaceUrl>http://escargotspaces.com</MySpaceUrl>
 			<SpaceBaseSiteId>45930</SpaceBaseSiteId>
-			<SpaceBaseUrl>https://escargotspaces.com</SpaceBaseUrl>
+			<SpaceBaseUrl>http://escargotspaces.com</SpaceBaseUrl>
 			<SpaceIntegrationEnabled>true</SpaceIntegrationEnabled>
 		</ContactCard>
 		<MSNSearch>
